@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import AuthLayout from '../../components/auth/AuthLayout';
 import type { LoginCredentials } from '../../types/auth.types';
 
 type FieldErrors = Partial<Record<keyof LoginCredentials, string[]>> & { email?: string[] };
@@ -53,62 +54,60 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto flex min-h-screen max-w-md items-center px-6 py-12">
-        <div className="w-full rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl shadow-cyan-950/30">
-          <h1 className="text-3xl font-semibold">Login</h1>
-          <p className="mt-2 text-sm text-slate-300">
-            Or{' '}
-            <Link to="/register" className="text-cyan-300 hover:text-cyan-200">
-              create an account
-            </Link>
-            {' '}or{' '}
-            <Link to="/forgot-password" className="text-cyan-300 hover:text-cyan-200">
-              forgot password
-            </Link>
-          </p>
+    <AuthLayout
+      title="Login"
+      subtitle={
+        <>
+          Or{' '}
+          <Link to="/register" className="text-cyan-300 hover:text-cyan-200">
+            create an account
+          </Link>
+          {' '}or{' '}
+          <Link to="/forgot-password" className="text-cyan-300 hover:text-cyan-200">
+            forgot password
+          </Link>
+        </>
+      }
+    >
+      <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
+        {error ? <div className="rounded-lg bg-rose-500/15 px-4 py-3 text-sm text-rose-200">{error}</div> : null}
 
-          <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-            {error ? <div className="rounded-lg bg-rose-500/15 px-4 py-3 text-sm text-rose-200">{error}</div> : null}
-
-            <div>
-              <label className="mb-1 block text-sm text-slate-200" htmlFor="login-email">
-                Email
-              </label>
-              <input
-                id="login-email"
-                type="email"
-                value={formData.email}
-                onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
-                className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none ring-0 placeholder:text-slate-500 focus:border-cyan-400"
-              />
-              {fieldErrors.email?.[0] ? <p className="mt-1 text-sm text-rose-300">{fieldErrors.email[0]}</p> : null}
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm text-slate-200" htmlFor="login-password">
-                Password
-              </label>
-              <input
-                id="login-password"
-                type="password"
-                value={formData.password}
-                onChange={(event) => setFormData((current) => ({ ...current, password: event.target.value }))}
-                className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none ring-0 placeholder:text-slate-500 focus:border-cyan-400"
-              />
-              {fieldErrors.password?.[0] ? <p className="mt-1 text-sm text-rose-300">{fieldErrors.password[0]}</p> : null}
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-cyan-400 px-4 py-3 font-medium text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading ? 'Signing in...' : 'Sign in'}
-            </button>
-          </form>
+        <div>
+          <label className="mb-1 block text-sm text-slate-200" htmlFor="login-email">
+            Email
+          </label>
+          <input
+            id="login-email"
+            type="email"
+            value={formData.email}
+            onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
+            className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none ring-0 placeholder:text-slate-500 focus:border-cyan-400"
+          />
+          {fieldErrors.email?.[0] ? <p className="mt-1 text-sm text-rose-300">{fieldErrors.email[0]}</p> : null}
         </div>
-      </div>
-    </div>
+
+        <div>
+          <label className="mb-1 block text-sm text-slate-200" htmlFor="login-password">
+            Password
+          </label>
+          <input
+            id="login-password"
+            type="password"
+            value={formData.password}
+            onChange={(event) => setFormData((current) => ({ ...current, password: event.target.value }))}
+            className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none ring-0 placeholder:text-slate-500 focus:border-cyan-400"
+          />
+          {fieldErrors.password?.[0] ? <p className="mt-1 text-sm text-rose-300">{fieldErrors.password[0]}</p> : null}
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-xl bg-cyan-400 px-4 py-3 font-medium text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loading ? 'Signing in...' : 'Sign in'}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }

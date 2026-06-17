@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import DashboardLayout from './layouts/DashboardLayout';
+import PublicLayout from './components/public/PublicLayout';
 import HealthCheckPage from './pages/HealthCheckPage';
 import LoginPage from './pages/Auth/LoginPage';
 import RegisterPage from './pages/Auth/RegisterPage';
@@ -12,12 +13,19 @@ import EmailVerificationRequiredPage from './pages/EmailVerificationRequiredPage
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import HomePage from './pages/Public/Home';
+import AboutPage from './pages/Public/About';
+import ContactPage from './pages/Public/Contact';
 
 function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/" element={<HealthCheckPage />} />
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+        </Route>
         <Route path="/health" element={<HealthCheckPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />

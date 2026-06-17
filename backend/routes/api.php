@@ -10,6 +10,8 @@ Route::get('/health', function () {
     ]);
 });
 
+Route::post('/contact', [App\Http\Controllers\ContactController::class, 'store']);
+
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])
         ->middleware('throttle:auth-register');
