@@ -1,0 +1,52 @@
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import LoadingSpinner from './LoadingSpinner';
+import { cn } from '../../utils/cn';
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  isLoading?: boolean;
+  icon?: ReactNode;
+}
+
+const variantClasses = {
+  primary: 'bg-cyan-600 text-white shadow-sm shadow-cyan-600/20 hover:bg-cyan-500 focus-visible:ring-cyan-500',
+  secondary: 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus-visible:ring-cyan-500',
+  ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-cyan-500',
+  danger: 'bg-rose-600 text-white shadow-sm shadow-rose-600/20 hover:bg-rose-500 focus-visible:ring-rose-500',
+};
+
+const sizeClasses = {
+  sm: 'min-h-9 px-3 text-sm',
+  md: 'min-h-10 px-4 text-sm',
+  lg: 'min-h-11 px-5 text-base',
+};
+
+export default function Button({
+  children,
+  className,
+  disabled,
+  icon,
+  isLoading = false,
+  size = 'md',
+  type = 'button',
+  variant = 'primary',
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      type={type}
+      disabled={disabled || isLoading}
+      className={cn(
+        'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
+        variantClasses[variant],
+        sizeClasses[size],
+        className,
+      )}
+      {...props}
+    >
+      {isLoading ? <LoadingSpinner size="sm" className={variant === 'secondary' || variant === 'ghost' ? 'text-slate-500' : 'text-white'} /> : icon}
+      {children}
+    </button>
+  );
+}

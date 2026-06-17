@@ -1,10 +1,13 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import DashboardLayout from './layouts/DashboardLayout';
 import HealthCheckPage from './pages/HealthCheckPage';
 import LoginPage from './pages/Auth/LoginPage';
 import RegisterPage from './pages/Auth/RegisterPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
+import ProfilePage from './pages/Dashboard/ProfilePage';
+import SettingsPage from './pages/Dashboard/SettingsPage';
 import EmailVerificationRequiredPage from './pages/EmailVerificationRequiredPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -26,10 +29,14 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute requireVerified>
-              <DashboardPage />
+              <DashboardLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route index element={<DashboardPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>

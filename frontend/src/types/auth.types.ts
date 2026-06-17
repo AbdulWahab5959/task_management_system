@@ -37,3 +37,24 @@ export interface ResetPasswordData {
   password: string;
   password_confirmation: string;
 }
+
+export interface UpdateProfileData {
+  name: string;
+  email?: string;
+}
+
+export interface UpdateProfileResponse {
+  message: string;
+  user: User;
+  requires_email_verification: boolean;
+}
+
+export interface UpdatePasswordData {
+  current_password: string;
+  password: string;
+  password_confirmation: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}

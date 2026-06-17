@@ -3,8 +3,12 @@ import type {
   AuthResponse,
   ForgotPasswordData,
   LoginCredentials,
+  MessageResponse,
   RegisterData,
   ResetPasswordData,
+  UpdatePasswordData,
+  UpdateProfileData,
+  UpdateProfileResponse,
   User,
 } from '../types/auth.types';
 
@@ -39,5 +43,13 @@ export const authService = {
 
   resetPassword(payload: ResetPasswordData) {
     return api.post('/auth/reset-password', payload);
+  },
+
+  updateProfile(payload: UpdateProfileData) {
+    return api.put<UpdateProfileResponse>('/auth/profile', payload);
+  },
+
+  updatePassword(payload: UpdatePasswordData) {
+    return api.put<MessageResponse>('/auth/password', payload);
   },
 };
