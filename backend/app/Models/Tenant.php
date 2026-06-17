@@ -1,0 +1,111 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Tenant extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'name',
+        'slug',
+        'domain',
+        'database_name',
+        'plan_id',
+        'owner_id',
+        'status',
+        'trial_ends_at',
+    ];
+
+    protected $casts = [
+        'trial_ends_at' => 'datetime',
+    ];
+
+    // Relationships
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'tenant_users')
+            ->withPivot('role', 'joined_at')
+            ->withTimestamps();
+    }
+
+    public function plan()
+    {
+        return $this->belongsTo(Plan::class);
+    }
+
+    public function subscription()
+    {
+        return $this->hasOne(Subscription::class)->latest();
+    }
+
+    public function subscriptions()
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    public function activityLogs()
+    {
+        return $this->hasMany(ActivityLog::class);
+    }
+
+    // Helper Methods
+    public function isActive(): bool
+    {
+        return $this->status === 'active';
+    }
+
+    public function isOnTrial(): bool
+    {
+        return $this->trial_ends_at && $this->trial_ends_at->isFuture();
+    }
+
+    public function hasActiveSubscription(): bool
+    {
+        return $this->subscription && $this->subscription->isActive();
+    }
+
+    public function configure()
+    {
+        $driver = config('database.connections.tenant.driver', 'sqlite');
+        $dbName = $driver === 'sqlite'
+            ? database_path($this->database_name . '.sqlite')
+            : $this->database_name;
+
+        config(['database.connections.tenant.database' => $dbName]);
+        \DB::purge('tenant');
+        \DB::reconnect('tenant');
+    }
+
+    public function run(callable $callback)
+    {
+        // Save original connection
+        $originalTenant = app()->bound('currentTenant') ? app('currentTenant') : null;
+        
+        $this->configure();
+        app()->instance('currentTenant', $this);
+        
+        try {
+            $result = $callback();
+        } finally {
+            // Restore original tenant if existed
+            if ($originalTenant) {
+                $originalTenant->configure();
+                app()->instance('currentTenant', $originalTenant);
+            } else {
+                app()->forgetInstance('currentTenant');
+                \DB::purge('tenant');
+            }
+        }
+
+        return $result;
+    }
+}
