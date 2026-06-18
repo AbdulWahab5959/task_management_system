@@ -62,10 +62,8 @@ export default function LoginPage() {
           <Link to="/register" className="text-cyan-300 hover:text-cyan-200">
             create an account
           </Link>
-          {' '}or{' '}
-          <Link to="/forgot-password" className="text-cyan-300 hover:text-cyan-200">
-            forgot password
-          </Link>
+          {/* {' '}or{' '} */}
+          
         </>
       }
     >
@@ -99,6 +97,9 @@ export default function LoginPage() {
           />
           {fieldErrors.password?.[0] ? <p className="mt-1 text-sm text-rose-300">{fieldErrors.password[0]}</p> : null}
         </div>
+        <Link to="/forgot-password" className="text-cyan-300 hover:text-cyan-200 text-end block text-sm">
+            forgot password
+          </Link>
 
         <button
           type="submit"
