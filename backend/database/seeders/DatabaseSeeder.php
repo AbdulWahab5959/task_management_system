@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Test User',
                 'password' => Hash::make('password123'),
                 'role' => User::ROLE_USER,
+                'status' => User::STATUS_ACTIVE,
             ]
         );
 

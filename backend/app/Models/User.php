@@ -19,12 +19,24 @@ class User extends Authenticatable implements MustVerifyEmailContract
         self::ROLE_SUPER_ADMIN,
         self::ROLE_ADMIN,
     ];
+    public const ROLES = [
+        self::ROLE_SUPER_ADMIN,
+        self::ROLE_ADMIN,
+        self::ROLE_USER,
+    ];
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_INACTIVE = 'inactive';
+    public const STATUSES = [
+        self::STATUS_ACTIVE,
+        self::STATUS_INACTIVE,
+    ];
 
     protected $fillable = [
         'name',
         'email',
         'password',
         'role',
+        'status',
         'google_id',
         'github_id',
         'avatar_url',
@@ -32,6 +44,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
 
     protected $attributes = [
         'role' => self::ROLE_USER,
+        'status' => self::STATUS_ACTIVE,
     ];
 
     protected $hidden = [

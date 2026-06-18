@@ -12,6 +12,8 @@ import ProfilePage from './pages/Dashboard/ProfilePage';
 import SettingsPage from './pages/Dashboard/SettingsPage';
 import AdminPage from './pages/Dashboard/AdminPage';
 import ContactMessagesPage from './pages/Dashboard/ContactMessagesPage';
+import UsersPage from './pages/Dashboard/UsersPage';
+import UserDetailPage from './pages/Dashboard/UserDetailPage';
 import EmailVerificationRequiredPage from './pages/EmailVerificationRequiredPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -58,6 +60,22 @@ function App() {
             element={
               <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
                 <ContactMessagesPage />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="users"
+            element={
+              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+                <UsersPage />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="users/:id"
+            element={
+              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+                <UserDetailPage />
               </RoleProtectedRoute>
             }
           />

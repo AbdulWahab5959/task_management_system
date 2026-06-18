@@ -1,10 +1,12 @@
 export type UserRole = 'super_admin' | 'admin' | 'user';
+export type UserStatus = 'active' | 'inactive';
 
 export interface User {
   id: number;
   name: string;
   email: string;
   role: UserRole;
+  status: UserStatus;
   avatar_url?: string | null;
   email_verified_at?: string | null;
   created_at?: string;

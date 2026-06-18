@@ -1,4 +1,4 @@
-import { BarChart3, Inbox, LogOut, Rocket, Settings, ShieldCheck, UserRound, X } from 'lucide-react';
+import { BarChart3, Inbox, LogOut, Rocket, Settings, ShieldCheck, UserRound, Users, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -21,6 +21,7 @@ interface NavigationItem {
 const navigationItems: NavigationItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: BarChart3, end: true },
   { label: 'Admin', to: '/dashboard/admin', icon: ShieldCheck, roles: ['admin', 'super_admin'] },
+  { label: 'Users', to: '/dashboard/users', icon: Users, roles: ['admin', 'super_admin'] },
   { label: 'Contact messages', to: '/dashboard/contact-messages', icon: Inbox, roles: ['admin', 'super_admin'] },
   { label: 'Profile', to: '/dashboard/profile', icon: UserRound },
   { label: 'Settings', to: '/dashboard/settings', icon: Settings },

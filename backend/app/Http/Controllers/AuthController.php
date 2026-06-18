@@ -26,6 +26,7 @@ class AuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => User::ROLE_USER,
+            'status' => User::STATUS_ACTIVE,
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -46,6 +47,12 @@ class AuthController extends Controller
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
+            ]);
+        }
+
+        if ($user->status === User::STATUS_INACTIVE) {
+            throw ValidationException::withMessages([
+                'email' => ['This account is inactive.'],
             ]);
         }
 

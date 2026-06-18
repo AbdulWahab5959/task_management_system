@@ -12,9 +12,18 @@ const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/dashboard/admin': 'Admin',
   '/dashboard/contact-messages': 'Contact messages',
+  '/dashboard/users': 'Users',
   '/dashboard/profile': 'Profile',
   '/dashboard/settings': 'Settings',
 };
+
+function getPageTitle(pathname: string) {
+  if (pathname.startsWith('/dashboard/users/')) {
+    return 'User details';
+  }
+
+  return pageTitles[pathname] ?? 'Dashboard';
+}
 
 function getInitials(name?: string) {
   if (!name) {
@@ -34,7 +43,7 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
-  const pageTitle = pageTitles[location.pathname] ?? 'Dashboard';
+  const pageTitle = getPageTitle(location.pathname);
 
   const handleLogout = async () => {
     await logout();

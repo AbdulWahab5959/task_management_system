@@ -19,6 +19,12 @@ class EnsureAdminRole
             ], Response::HTTP_UNAUTHORIZED);
         }
 
+        if ($user->status === User::STATUS_INACTIVE) {
+            return response()->json([
+                'message' => 'Forbidden.',
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         if (! in_array($user->role, User::ADMIN_ROLES, true)) {
             return response()->json([
                 'message' => 'Forbidden.',
