@@ -9,6 +9,15 @@ class ContactMessage extends Model
 {
     use HasFactory;
 
+    public const STATUS_NEW = 'new';
+    public const STATUS_READ = 'read';
+    public const STATUS_REPLIED = 'replied';
+    public const STATUSES = [
+        self::STATUS_NEW,
+        self::STATUS_READ,
+        self::STATUS_REPLIED,
+    ];
+
     protected $fillable = [
         'name',
         'email',

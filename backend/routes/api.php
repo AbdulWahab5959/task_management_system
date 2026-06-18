@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ContactMessageController as AdminContactMessageController;
 use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
 
@@ -11,6 +12,13 @@ Route::get('/health', function () {
 });
 
 Route::post('/contact', [App\Http\Controllers\ContactController::class, 'store']);
+
+Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+    Route::get('/contact-messages', [AdminContactMessageController::class, 'index']);
+    Route::get('/contact-messages/{contactMessage}', [AdminContactMessageController::class, 'show']);
+    Route::put('/contact-messages/{contactMessage}/status', [AdminContactMessageController::class, 'updateStatus']);
+    Route::delete('/contact-messages/{contactMessage}', [AdminContactMessageController::class, 'destroy']);
+});
 
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])

@@ -10,6 +10,8 @@ interface DashboardNavbarProps {
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
+  '/dashboard/admin': 'Admin',
+  '/dashboard/contact-messages': 'Contact messages',
   '/dashboard/profile': 'Profile',
   '/dashboard/settings': 'Settings',
 };

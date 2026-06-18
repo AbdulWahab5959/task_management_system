@@ -11,6 +11,7 @@ import DashboardPage from './pages/Dashboard/DashboardPage';
 import ProfilePage from './pages/Dashboard/ProfilePage';
 import SettingsPage from './pages/Dashboard/SettingsPage';
 import AdminPage from './pages/Dashboard/AdminPage';
+import ContactMessagesPage from './pages/Dashboard/ContactMessagesPage';
 import EmailVerificationRequiredPage from './pages/EmailVerificationRequiredPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -49,6 +50,14 @@ function App() {
             element={
               <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
                 <AdminPage />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="contact-messages"
+            element={
+              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+                <ContactMessagesPage />
               </RoleProtectedRoute>
             }
           />
