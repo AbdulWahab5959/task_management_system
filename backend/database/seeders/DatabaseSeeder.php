@@ -11,12 +11,15 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(SuperAdminSeeder::class);
+
         // Seed default User
         $user = User::updateOrCreate(
             ['email' => 'test@example.com'],
             [
                 'name' => 'Test User',
                 'password' => Hash::make('password123'),
+                'role' => User::ROLE_USER,
             ]
         );
 

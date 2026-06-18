@@ -22,13 +22,15 @@ class AuthTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonStructure([
-                'user' => ['id', 'name', 'email'],
+                'user' => ['id', 'name', 'email', 'role'],
                 'token',
-            ]);
+            ])
+            ->assertJsonPath('user.role', User::ROLE_USER);
 
         $this->assertDatabaseHas('users', [
             'email' => 'user@example.com',
             'name' => 'LaunchPad User',
+            'role' => User::ROLE_USER,
         ]);
 
         $this->assertTrue(Hash::check('password123', User::where('email', 'user@example.com')->firstOrFail()->password));
@@ -59,9 +61,10 @@ class AuthTest extends TestCase
 
         $response->assertOk()
             ->assertJsonStructure([
-                'user' => ['id', 'name', 'email'],
+                'user' => ['id', 'name', 'email', 'role'],
                 'token',
-            ]);
+            ])
+            ->assertJsonPath('user.role', User::ROLE_USER);
     }
 
     public function test_invalid_login_returns_json_error(): void
@@ -95,6 +98,7 @@ class AuthTest extends TestCase
         $meResponse->assertOk()
             ->assertJsonFragment([
                 'email' => 'me@example.com',
+                'role' => User::ROLE_USER,
             ]);
 
         $logoutResponse = $this->withHeader('Authorization', 'Bearer '.$token)

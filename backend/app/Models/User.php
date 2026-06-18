@@ -12,13 +12,26 @@ class User extends Authenticatable implements MustVerifyEmailContract
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    public const ROLE_SUPER_ADMIN = 'super_admin';
+    public const ROLE_ADMIN = 'admin';
+    public const ROLE_USER = 'user';
+    public const ADMIN_ROLES = [
+        self::ROLE_SUPER_ADMIN,
+        self::ROLE_ADMIN,
+    ];
+
     protected $fillable = [
         'name',
         'email',
         'password',
+        'role',
         'google_id',
         'github_id',
         'avatar_url',
+    ];
+
+    protected $attributes = [
+        'role' => self::ROLE_USER,
     ];
 
     protected $hidden = [

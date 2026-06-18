@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
+import RoleProtectedRoute from './components/RoleProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import DashboardLayout from './layouts/DashboardLayout';
 import PublicLayout from './components/public/PublicLayout';
@@ -9,6 +10,7 @@ import RegisterPage from './pages/Auth/RegisterPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import ProfilePage from './pages/Dashboard/ProfilePage';
 import SettingsPage from './pages/Dashboard/SettingsPage';
+import AdminPage from './pages/Dashboard/AdminPage';
 import EmailVerificationRequiredPage from './pages/EmailVerificationRequiredPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -42,6 +44,14 @@ function App() {
           }
         >
           <Route index element={<DashboardPage />} />
+          <Route
+            path="admin"
+            element={
+              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+                <AdminPage />
+              </RoleProtectedRoute>
+            }
+          />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

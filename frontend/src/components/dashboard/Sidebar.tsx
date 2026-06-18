@@ -1,7 +1,8 @@
-import { BarChart3, LogOut, Rocket, Settings, UserRound, X } from 'lucide-react';
+import { BarChart3, LogOut, Rocket, Settings, ShieldCheck, UserRound, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import type { UserRole } from '../../types/auth.types';
 import { cn } from '../../utils/cn';
 
 interface SidebarProps {
@@ -14,10 +15,12 @@ interface NavigationItem {
   to: string;
   icon: LucideIcon;
   end?: boolean;
+  roles?: UserRole[];
 }
 
 const navigationItems: NavigationItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: BarChart3, end: true },
+  { label: 'Admin', to: '/dashboard/admin', icon: ShieldCheck, roles: ['admin', 'super_admin'] },
   { label: 'Profile', to: '/dashboard/profile', icon: UserRound },
   { label: 'Settings', to: '/dashboard/settings', icon: Settings },
 ];
@@ -38,6 +41,7 @@ function getInitials(name?: string) {
 export default function Sidebar({ onClose, open }: SidebarProps) {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+  const visibleNavigationItems = navigationItems.filter((item) => !item.roles || item.roles.includes(user?.role ?? 'user'));
 
   const handleLogout = async () => {
     await logout();
@@ -84,7 +88,7 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4" aria-label="Dashboard navigation">
-          {navigationItems.map((item) => {
+          {visibleNavigationItems.map((item) => {
             const Icon = item.icon;
 
             return (
