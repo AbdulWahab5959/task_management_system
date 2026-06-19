@@ -8,6 +8,7 @@ use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\UpdatePasswordRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
+use App\Services\ActivityLogService;
 use Illuminate\Http\Request;
 use Illuminate\Auth\Events\Verified;
 use App\Models\User;
@@ -19,6 +20,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private readonly ActivityLogService $activityLogService,
+    ) {}
+
     public function register(RegisterRequest $request)
     {
         $user = User::create([
@@ -31,6 +36,15 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
         $user->sendEmailVerificationNotification();
+
+        $this->activityLogService->log(
+            action: 'register',
+            description: "User registered: {$user->email}",
+            properties: ['user_id' => $user->id, 'email' => $user->email],
+            userId: $user->id,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        );
 
         return response()->json([
             'user' => $user,
@@ -57,6 +71,15 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        $this->activityLogService->log(
+            action: 'login',
+            description: "User logged in: {$user->email}",
+            properties: ['user_id' => $user->id, 'email' => $user->email],
+            userId: $user->id,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        );
 
         return response()->json([
             'user' => $user,
@@ -151,7 +174,17 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+        $user->currentAccessToken()->delete();
+
+        $this->activityLogService->log(
+            action: 'logout',
+            description: "User logged out: {$user->email}",
+            properties: ['user_id' => $user->id, 'email' => $user->email],
+            userId: $user->id,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        );
 
         return response()->json([
             'message' => 'Successfully logged out',
@@ -169,6 +202,9 @@ class AuthController extends Controller
         $validated = $request->validated();
         $emailChanged = array_key_exists('email', $validated) && $validated['email'] !== $user->email;
 
+        $oldName = $user->name;
+        $oldEmail = $user->email;
+
         $user->name = $validated['name'];
 
         if ($emailChanged) {
@@ -183,6 +219,27 @@ class AuthController extends Controller
         }
 
         $user->refresh();
+
+        $changes = [];
+        if ($oldName !== $user->name) {
+            $changes['name'] = ['old' => $oldName, 'new' => $user->name];
+        }
+        if ($oldEmail !== $user->email) {
+            $changes['email'] = ['old' => $oldEmail, 'new' => $user->email];
+        }
+
+        $this->activityLogService->log(
+            action: 'profile_update',
+            description: "User updated profile: {$user->email}",
+            properties: [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'changes' => $changes,
+            ],
+            userId: $user->id,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        );
 
         return response()->json([
             'message' => $emailChanged
@@ -207,6 +264,15 @@ class AuthController extends Controller
         $user->forceFill([
             'password' => Hash::make($validated['password']),
         ])->save();
+
+        $this->activityLogService->log(
+            action: 'password_update',
+            description: "User updated password: {$user->email}",
+            properties: ['user_id' => $user->id, 'email' => $user->email],
+            userId: $user->id,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        );
 
         return response()->json([
             'message' => 'Password updated successfully.',

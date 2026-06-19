@@ -22,9 +22,10 @@ const navigationItems: NavigationItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: BarChart3, end: true },
   { label: 'Admin', to: '/dashboard/admin', icon: ShieldCheck, roles: ['admin', 'super_admin'] },
   { label: 'Users', to: '/dashboard/users', icon: Users, roles: ['admin', 'super_admin'] },
+  { label: 'Activity Logs', to: '/dashboard/activity-logs', icon: Users, roles: ['admin', 'super_admin'] },
   { label: 'Contact messages', to: '/dashboard/contact-messages', icon: Inbox, roles: ['admin', 'super_admin'] },
-  { label: 'Profile', to: '/dashboard/profile', icon: UserRound },
   { label: 'Settings', to: '/dashboard/settings', icon: Settings },
+  { label: 'Profile', to: '/dashboard/profile', icon: UserRound },
 ];
 
 function getInitials(name?: string) {

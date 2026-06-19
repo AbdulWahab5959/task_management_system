@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\ActivityLogService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -11,6 +12,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class UserController extends Controller
 {
+    public function __construct(
+        private readonly ActivityLogService $activityLogService,
+    ) {}
+
     public function index(Request $request)
     {
         $validated = $request->validate([
@@ -53,6 +58,7 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $this->ensureCanManageUser($request->user(), $user);
+        $admin = $request->user();
 
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
@@ -66,16 +72,37 @@ class UserController extends Controller
             ],
         ]);
 
-        if (array_key_exists('name', $validated)) {
+        $changes = [];
+
+        if (array_key_exists('name', $validated) && $validated['name'] !== $user->name) {
+            $changes['name'] = ['old' => $user->name, 'new' => $validated['name']];
             $user->name = $validated['name'];
         }
 
         if (array_key_exists('email', $validated) && $validated['email'] !== $user->email) {
+            $changes['email'] = ['old' => $user->email, 'new' => $validated['email']];
             $user->email = $validated['email'];
             $user->email_verified_at = null;
         }
 
         $user->save();
+
+        if (!empty($changes)) {
+            $this->activityLogService->log(
+                action: 'admin_user_update',
+                description: "Admin updated user: {$user->email}",
+                properties: [
+                    'admin_id' => $admin->id,
+                    'admin_email' => $admin->email,
+                    'target_user_id' => $user->id,
+                    'target_user_email' => $user->email,
+                    'changes' => $changes,
+                ],
+                userId: $admin->id,
+                ipAddress: $request->ip(),
+                userAgent: $request->userAgent(),
+            );
+        }
 
         return response()->json($user->refresh());
     }
@@ -83,17 +110,19 @@ class UserController extends Controller
     public function updateStatus(Request $request, User $user)
     {
         $this->ensureCanManageUser($request->user(), $user);
+        $admin = $request->user();
 
         $validated = $request->validate([
             'status' => ['required', 'string', Rule::in(User::STATUSES)],
         ]);
 
-        if ($request->user()->is($user) && $validated['status'] === User::STATUS_INACTIVE) {
+        if ($admin->is($user) && $validated['status'] === User::STATUS_INACTIVE) {
             throw ValidationException::withMessages([
                 'status' => ['You cannot deactivate your own account.'],
             ]);
         }
 
+        $oldStatus = $user->status;
         $user->update([
             'status' => $validated['status'],
         ]);
@@ -102,30 +131,62 @@ class UserController extends Controller
             $user->tokens()->delete();
         }
 
+        $this->activityLogService->log(
+            action: 'admin_user_update',
+            description: "Admin updated user status: {$user->email} ({$oldStatus} → {$validated['status']})",
+            properties: [
+                'admin_id' => $admin->id,
+                'admin_email' => $admin->email,
+                'target_user_id' => $user->id,
+                'target_user_email' => $user->email,
+                'changes' => ['status' => ['old' => $oldStatus, 'new' => $validated['status']]],
+            ],
+            userId: $admin->id,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        );
+
         return response()->json($user->refresh());
     }
 
     public function updateRole(Request $request, User $user)
     {
         $this->ensureCanManageUser($request->user(), $user);
+        $admin = $request->user();
 
         $validated = $request->validate([
             'role' => ['required', 'string', Rule::in(User::ROLES)],
         ]);
 
-        if ($request->user()->is($user)) {
+        if ($admin->is($user)) {
             throw ValidationException::withMessages([
                 'role' => ['You cannot change your own role.'],
             ]);
         }
 
-        if ($validated['role'] === User::ROLE_SUPER_ADMIN && $request->user()->role !== User::ROLE_SUPER_ADMIN) {
+        if ($validated['role'] === User::ROLE_SUPER_ADMIN && $admin->role !== User::ROLE_SUPER_ADMIN) {
             abort(Response::HTTP_FORBIDDEN, 'Only a super admin can assign the super admin role.');
         }
 
+        $oldRole = $user->role;
         $user->update([
             'role' => $validated['role'],
         ]);
+
+        $this->activityLogService->log(
+            action: 'admin_user_update',
+            description: "Admin updated user role: {$user->email} ({$oldRole} → {$validated['role']})",
+            properties: [
+                'admin_id' => $admin->id,
+                'admin_email' => $admin->email,
+                'target_user_id' => $user->id,
+                'target_user_email' => $user->email,
+                'changes' => ['role' => ['old' => $oldRole, 'new' => $validated['role']]],
+            ],
+            userId: $admin->id,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        );
 
         return response()->json($user->refresh());
     }

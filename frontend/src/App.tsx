@@ -11,6 +11,7 @@ import DashboardPage from './pages/Dashboard/DashboardPage';
 import ProfilePage from './pages/Dashboard/ProfilePage';
 import SettingsPage from './pages/Dashboard/SettingsPage';
 import AdminPage from './pages/Dashboard/AdminPage';
+import ActivityLogsPage from './pages/Dashboard/ActivityLogsPage';
 import ContactMessagesPage from './pages/Dashboard/ContactMessagesPage';
 import UsersPage from './pages/Dashboard/UsersPage';
 import UserDetailPage from './pages/Dashboard/UserDetailPage';
@@ -52,6 +53,14 @@ function App() {
             element={
               <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
                 <AdminPage />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="activity-logs"
+            element={
+              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+                <ActivityLogsPage />
               </RoleProtectedRoute>
             }
           />

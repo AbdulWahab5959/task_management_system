@@ -3,10 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\ContactMessage;
+use App\Services\ActivityLogService;
 use Illuminate\Http\Request;
 
 class ContactController extends Controller
 {
+    public function __construct(
+        private readonly ActivityLogService $activityLogService,
+    ) {}
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -23,6 +28,19 @@ class ContactController extends Controller
             'message' => $validated['message'],
             'status'  => 'new',
         ]);
+
+        $this->activityLogService->log(
+            action: 'contact_form_submit',
+            description: "Contact form submitted by {$validated['email']}: {$validated['subject']}",
+            properties: [
+                'contact_message_id' => $message->id,
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'subject' => $validated['subject'],
+            ],
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        );
 
         return response()->json([
             'success' => true,

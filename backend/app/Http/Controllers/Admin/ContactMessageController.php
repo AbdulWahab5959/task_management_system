@@ -4,11 +4,16 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ContactMessage;
+use App\Services\ActivityLogService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class ContactMessageController extends Controller
 {
+    public function __construct(
+        private readonly ActivityLogService $activityLogService,
+    ) {}
+
     public function index(Request $request)
     {
         $validated = $request->validate([
@@ -41,19 +46,55 @@ class ContactMessageController extends Controller
 
     public function updateStatus(Request $request, ContactMessage $contactMessage)
     {
+        $admin = $request->user();
+
         $validated = $request->validate([
             'status' => ['required', 'string', Rule::in(ContactMessage::STATUSES)],
         ]);
 
+        $oldStatus = $contactMessage->status;
         $contactMessage->update([
             'status' => $validated['status'],
         ]);
+
+        $this->activityLogService->log(
+            action: 'contact_message_status_update',
+            description: "Admin updated contact message status: {$contactMessage->email} ({$oldStatus} \u2192 {$validated['status']})",
+            properties: [
+                'admin_id' => $admin->id,
+                'admin_email' => $admin->email,
+                'contact_message_id' => $contactMessage->id,
+                'contact_email' => $contactMessage->email,
+                'subject' => $contactMessage->subject,
+                'changes' => ['status' => ['old' => $oldStatus, 'new' => $validated['status']]],
+            ],
+            userId: $admin->id,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        );
 
         return response()->json($contactMessage);
     }
 
     public function destroy(ContactMessage $contactMessage)
     {
+        $admin = request()->user();
+
+        $this->activityLogService->log(
+            action: 'contact_message_status_update',
+            description: "Admin deleted contact message from: {$contactMessage->email}",
+            properties: [
+                'admin_id' => $admin->id,
+                'admin_email' => $admin->email,
+                'contact_message_id' => $contactMessage->id,
+                'contact_email' => $contactMessage->email,
+                'subject' => $contactMessage->subject,
+            ],
+            userId: $admin->id,
+            ipAddress: request()->ip(),
+            userAgent: request()->userAgent(),
+        );
+
         $contactMessage->delete();
 
         return response()->noContent();
