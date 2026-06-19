@@ -15,6 +15,11 @@ Project checkpoint generated on 2026-06-18.
 - Dashboard, profile, and settings pages exist.
 - App-level migrations exist and are reported as run by `php artisan migrate:status`.
 - Backend feature tests exist for auth, email verification/password reset, and profile updates.
+- RBAC implementation with `admin` and `super_admin` roles, protected via `EnsureAdminRole` middleware.
+- Admin contact message management (list, show, status update, delete).
+- Admin user management (list, show, update, status, role).
+- Activity log capture, API routes, and admin UI (list, filter by action, user, date).
+- **Admin analytics dashboard** — real database metrics via `GET /api/admin/analytics` with auth+admin middleware, and a full frontend admin analytics page at `/dashboard/admin` with stats cards, recent users table, recent activity table, and contact message summary.
 - `npm.cmd run build` completed successfully.
 - `php artisan route:list` completed successfully.
 - `php artisan migrate:status` completed successfully.
@@ -29,11 +34,6 @@ Project checkpoint generated on 2026-06-18.
 
 ## Pending
 
-- RBAC implementation beyond scaffolded role fields.
-- Admin contact message management.
-- User management.
-- Activity log capture coverage, API routes, and UI.
-- Admin analytics.
 - Plans/pricing route and UI wiring.
 - Stripe subscription API route wiring and end-to-end verification.
 - Team invitation and membership workflows.

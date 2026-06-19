@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ActivityLogController as AdminActivityLogController;
+use App\Http\Controllers\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Admin\ContactMessageController as AdminContactMessageController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AuthController;
@@ -16,6 +17,7 @@ Route::get('/health', function () {
 Route::post('/contact', [App\Http\Controllers\ContactController::class, 'store']);
 
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+    Route::get('/analytics', [AdminAnalyticsController::class, 'index']);
     Route::get('/activity-logs', [AdminActivityLogController::class, 'index']);
     Route::get('/activity-logs/actions', [AdminActivityLogController::class, 'actions']);
 
