@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Activity, Inbox, MailCheck, MessageSquareReply, Users, UserCheck, UserX, UserPlus } from 'lucide-react';
+import { Activity, BarChart3, Inbox, MailCheck, MessageSquareReply, Users, UserCheck, UserX, UserPlus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/common/Card';
 import PageHeader from '../../components/dashboard/PageHeader';
+import StatsCard from '../../components/dashboard/StatsCard';
+import EmptyState from '../../components/dashboard/EmptyState';
 import { adminAnalyticsService } from '../../services/admin-analytics.service';
 import type { AdminAnalyticsResponse } from '../../types/admin-analytics.types';
 
@@ -17,37 +19,6 @@ function formatDate(dateString: string): string {
 
 function formatRole(role: string): string {
   return role.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-interface StatCardProps {
-  label: string;
-  value: number | string;
-  icon: React.ReactNode;
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info';
-}
-
-const variantStyles: Record<string, string> = {
-  default: 'bg-slate-50 text-slate-600 ring-slate-200',
-  success: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  warning: 'bg-amber-50 text-amber-700 ring-amber-200',
-  danger: 'bg-red-50 text-red-700 ring-red-200',
-  info: 'bg-cyan-50 text-cyan-700 ring-cyan-200',
-};
-
-function StatCard({ label, value, icon, variant = 'default' }: StatCardProps) {
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-4">
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg ring-1 ${variantStyles[variant]}`}>
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <p className="text-2xl font-bold text-slate-950">{value}</p>
-          <p className="truncate text-sm text-slate-500">{label}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
 }
 
 export default function AdminPage() {
@@ -93,7 +64,7 @@ export default function AdminPage() {
           {Array.from({ length: 7 }).map((_, i) => (
             <Card key={i}>
               <CardContent className="flex items-center gap-4">
-                <div className="h-12 w-12 animate-pulse rounded-lg bg-slate-200" />
+                <div className="h-12 w-12 animate-pulse rounded-xl bg-slate-200" />
                 <div className="flex-1 space-y-2">
                   <div className="h-6 w-16 animate-pulse rounded bg-slate-200" />
                   <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
@@ -114,15 +85,15 @@ export default function AdminPage() {
         <Card>
           <CardContent>
             <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
-                <Activity className="h-6 w-6" aria-hidden="true" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-red-50 text-red-600 ring-1 ring-red-100">
+                <BarChart3 className="h-6 w-6" aria-hidden="true" />
               </div>
-              <p className="text-sm font-medium text-red-700">Failed to load analytics</p>
+              <p className="text-base font-semibold text-slate-900">Failed to load analytics</p>
               <p className="text-sm text-slate-500">{error}</p>
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition-all duration-150 hover:bg-slate-800"
               >
                 Retry
               </button>
@@ -140,10 +111,12 @@ export default function AdminPage() {
         <PageHeader eyebrow="Admin" title="Analytics" description="Platform analytics overview." />
         <Card>
           <CardContent>
-            <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <Activity className="h-12 w-12 text-slate-300" aria-hidden="true" />
-              <p className="text-sm font-medium text-slate-700">No analytics data available</p>
-              <p className="text-sm text-slate-500">Data will appear here once the platform has activity.</p>
+            <div className="py-12">
+              <EmptyState
+                icon={<BarChart3 className="h-6 w-6" />}
+                title="No analytics data available"
+                description="Data will appear here once the platform has activity."
+              />
             </div>
           </CardContent>
         </Card>
@@ -155,51 +128,55 @@ export default function AdminPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Admin" title="Analytics" description="Real-time platform analytics from your database." />
+      <PageHeader
+        eyebrow="Admin"
+        title="Analytics"
+        description="Real-time platform analytics from your database."
+      />
 
       {/* Stats Cards */}
-      <div className="mb-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Total Users"
-          value={stats.total_users}
-          icon={<Users className="h-6 w-6" />}
-          variant="default"
+      <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <StatsCard
+          title="Total Users"
+          value={String(stats.total_users)}
+          icon={<Users className="h-5 w-5" />}
+          variant="indigo"
         />
-        <StatCard
-          label="Verified Users"
-          value={stats.verified_users}
-          icon={<UserCheck className="h-6 w-6" />}
-          variant="success"
+        <StatsCard
+          title="Verified Users"
+          value={String(stats.verified_users)}
+          icon={<UserCheck className="h-5 w-5" />}
+          variant="emerald"
         />
-        <StatCard
-          label="Unverified Users"
-          value={stats.unverified_users}
-          icon={<UserX className="h-6 w-6" />}
-          variant="warning"
+        <StatsCard
+          title="Unverified Users"
+          value={String(stats.unverified_users)}
+          icon={<UserX className="h-5 w-5" />}
+          variant="amber"
         />
-        <StatCard
-          label="New Users This Month"
-          value={stats.new_users_this_month}
-          icon={<UserPlus className="h-6 w-6" />}
-          variant="info"
+        <StatsCard
+          title="New Users (Month)"
+          value={String(stats.new_users_this_month)}
+          icon={<UserPlus className="h-5 w-5" />}
+          variant="cyan"
         />
-        <StatCard
-          label="Contact Messages"
-          value={stats.contact_messages_total}
-          icon={<Inbox className="h-6 w-6" />}
-          variant="default"
+        <StatsCard
+          title="Contact Messages"
+          value={String(stats.contact_messages_total)}
+          icon={<Inbox className="h-5 w-5" />}
+          variant="indigo"
         />
-        <StatCard
-          label="New Messages"
-          value={stats.new_contact_messages}
-          icon={<MailCheck className="h-6 w-6" />}
-          variant="info"
+        <StatsCard
+          title="New Messages"
+          value={String(stats.new_contact_messages)}
+          icon={<MailCheck className="h-5 w-5" />}
+          variant="cyan"
         />
-        <StatCard
-          label="Activity Log Entries"
-          value={stats.activity_logs_count}
-          icon={<Activity className="h-6 w-6" />}
-          variant="default"
+        <StatsCard
+          title="Activity Log Entries"
+          value={String(stats.activity_logs_count)}
+          icon={<Activity className="h-5 w-5" />}
+          variant="violet"
         />
       </div>
 
@@ -207,55 +184,68 @@ export default function AdminPage() {
         {/* Recent Users */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Users</CardTitle>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100">
+                <Users className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <CardTitle>Recent Users</CardTitle>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {recent_users.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
-                <Users className="h-8 w-8 text-slate-300" aria-hidden="true" />
-                <p className="text-sm text-slate-500">No users registered yet.</p>
+              <div className="px-6 py-10">
+                <EmptyState
+                  icon={<Users className="h-6 w-6" />}
+                  title="No users registered yet"
+                />
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100">
-                      <th className="px-5 py-3 font-medium text-slate-500">Name</th>
-                      <th className="px-5 py-3 font-medium text-slate-500">Email</th>
-                      <th className="px-5 py-3 font-medium text-slate-500">Role</th>
-                      <th className="px-5 py-3 font-medium text-slate-500">Verified</th>
-                      <th className="px-5 py-3 font-medium text-slate-500">Joined</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {recent_users.map((user) => (
-                      <tr key={user.id} className="hover:bg-slate-50">
-                        <td className="px-5 py-3 font-medium text-slate-950">{user.name}</td>
-                        <td className="px-5 py-3 text-slate-600">{user.email}</td>
-                        <td className="px-5 py-3">
-                          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
-                            {formatRole(user.role)}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3">
-                          {user.email_verified_at ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-600">
-                              <UserCheck className="h-3.5 w-3.5" />
-                              <span className="text-xs">Yes</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-amber-600">
-                              <UserX className="h-3.5 w-3.5" />
-                              <span className="text-xs">No</span>
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3 text-slate-500">{formatDate(user.created_at)}</td>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100">
+                        <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Name</th>
+                        <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Email</th>
+                        <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Role</th>
+                        <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Verified</th>
+                        <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Joined</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {recent_users.map((user) => (
+                        <tr key={user.id} className="transition-colors duration-150 hover:bg-slate-50">
+                          <td className="px-6 py-4 font-medium text-slate-900">{user.name}</td>
+                          <td className="px-6 py-4 text-slate-600">{user.email}</td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-slate-200">
+                              {formatRole(user.role)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            {user.email_verified_at ? (
+                              <span className="inline-flex items-center gap-1 text-emerald-600">
+                                <UserCheck className="h-3.5 w-3.5" />
+                                <span className="text-xs font-medium">Yes</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-amber-600">
+                                <UserX className="h-3.5 w-3.5" />
+                                <span className="text-xs font-medium">No</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500">
+                            {formatDate(user.created_at)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -263,90 +253,86 @@ export default function AdminPage() {
         {/* Recent Activity */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+                <Activity className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <CardTitle>Recent Activity</CardTitle>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {recent_activity.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
-                <Activity className="h-8 w-8 text-slate-300" aria-hidden="true" />
-                <p className="text-sm text-slate-500">No activity logged yet.</p>
+              <div className="px-6 py-10">
+                <EmptyState
+                  icon={<Activity className="h-6 w-6" />}
+                  title="No activity logged yet"
+                />
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100">
-                      <th className="px-5 py-3 font-medium text-slate-500">Action</th>
-                      <th className="px-5 py-3 font-medium text-slate-500">User</th>
-                      <th className="px-5 py-3 font-medium text-slate-500">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {recent_activity.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-50">
-                        <td className="px-5 py-3">
-                          <div className="max-w-xs">
-                            <p className="truncate font-medium text-slate-950">{log.action}</p>
-                            {log.description && (
-                              <p className="truncate text-xs text-slate-500">{log.description}</p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 text-slate-600">
-                          {log.user ? (
-                            <span className="truncate">{log.user.name}</span>
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </td>
-                        <td className="whitespace-nowrap px-5 py-3 text-slate-500">
-                          {formatDate(log.created_at)}
-                        </td>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100">
+                        <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Action</th>
+                        <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">User</th>
+                        <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Date</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {recent_activity.map((log) => (
+                        <tr key={log.id} className="transition-colors duration-150 hover:bg-slate-50">
+                          <td className="px-6 py-4">
+                            <div className="max-w-xs">
+                              <p className="truncate font-medium text-slate-900">{log.action}</p>
+                              {log.description && (
+                                <p className="truncate text-xs text-slate-500">{log.description}</p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-slate-600">
+                            {log.user ? (
+                              <span className="truncate">{log.user.name}</span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500">
+                            {formatDate(log.created_at)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
       </div>
 
       {/* Contact Summary */}
-      <div className="mt-6 grid gap-6 sm:grid-cols-3">
-        <Card>
-          <CardContent className="flex items-center gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200">
-              <MailCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xl font-bold text-slate-950">{contact_summary.new}</p>
-              <p className="text-sm text-slate-500">New Messages</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
-              <Inbox className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xl font-bold text-slate-950">{contact_summary.read}</p>
-              <p className="text-sm text-slate-500">Read Messages</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-600 ring-1 ring-slate-200">
-              <MessageSquareReply className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xl font-bold text-slate-950">{contact_summary.replied}</p>
-              <p className="text-sm text-slate-500">Replied Messages</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="mt-6 grid gap-5 sm:grid-cols-3">
+        <StatsCard
+          title="New Messages"
+          value={String(contact_summary.new)}
+          icon={<MailCheck className="h-5 w-5" />}
+          variant="cyan"
+        />
+        <StatsCard
+          title="Read Messages"
+          value={String(contact_summary.read)}
+          icon={<Inbox className="h-5 w-5" />}
+          variant="emerald"
+        />
+        <StatsCard
+          title="Replied Messages"
+          value={String(contact_summary.replied)}
+          icon={<MessageSquareReply className="h-5 w-5" />}
+          variant="indigo"
+        />
       </div>
     </>
   );

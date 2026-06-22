@@ -1,4 +1,4 @@
-import { Save, ShieldCheck, UserRound } from 'lucide-react';
+import { BadgeCheck, Lock, Save, Shield, UserCircle } from 'lucide-react';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -133,60 +133,78 @@ export default function ProfilePage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
+        {/* Profile Summary Card */}
         <Card>
-          <CardContent>
+          <CardContent className="px-6 py-6">
             <div className="flex flex-col items-center text-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-cyan-100 text-xl font-semibold text-cyan-800">
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-2xl font-bold text-white shadow-lg shadow-indigo-500/25">
                 {getInitials(user?.name)}
               </div>
-              <h2 className="mt-4 text-lg font-semibold text-slate-950">{user?.name}</h2>
+              <h2 className="mt-4 text-lg font-semibold text-slate-900">{user?.name}</h2>
               <p className="mt-1 max-w-full truncate text-sm text-slate-500">{user?.email}</p>
-              <span className={`mt-4 inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-sm font-semibold ${isVerified ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-amber-50 text-amber-700 ring-1 ring-amber-100'}`}>
-                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                {isVerified ? 'Email verified' : 'Verification required'}
+              <span
+                className={`mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+                  isVerified
+                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
+                    : 'bg-amber-50 text-amber-700 ring-1 ring-amber-100'
+                }`}
+              >
+                <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                {isVerified ? 'Email Verified' : 'Verification Required'}
               </span>
             </div>
 
             <dl className="mt-6 space-y-4 border-t border-slate-100 pt-5">
-              <div>
+              <div className="flex items-center justify-between">
                 <dt className="text-sm font-medium text-slate-500">User ID</dt>
-                <dd className="mt-1 text-sm font-semibold text-slate-950">#{user?.id}</dd>
+                <dd className="text-sm font-semibold text-slate-900">#{user?.id}</dd>
               </div>
-              <div>
-                <dt className="text-sm font-medium text-slate-500">Member since</dt>
-                <dd className="mt-1 text-sm font-semibold text-slate-950">{formatDate(user?.created_at)}</dd>
+              <div className="flex items-center justify-between">
+                <dt className="text-sm font-medium text-slate-500">Member Since</dt>
+                <dd className="text-sm font-semibold text-slate-900">{formatDate(user?.created_at)}</dd>
               </div>
             </dl>
           </CardContent>
         </Card>
 
         <div className="space-y-6 lg:col-span-2">
+          {/* Profile Information Card */}
           <Card>
             <CardHeader>
-              <CardTitle>Profile information</CardTitle>
-              <CardDescription>Name changes update immediately. Email changes require a fresh verification.</CardDescription>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100">
+                  <UserCircle className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <CardTitle>Profile Information</CardTitle>
+                  <CardDescription>Name changes update immediately. Email changes require verification.</CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <form className="space-y-5" onSubmit={handleProfileSubmit}>
                 {profileMessage ? (
-                  <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 ring-1 ring-emerald-100">
-                    {profileMessage}
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="h-4 w-4" aria-hidden="true" />
+                      {profileMessage}
+                    </div>
                   </div>
                 ) : null}
                 {profileError ? (
-                  <div className="rounded-lg bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 ring-1 ring-rose-100">
+                  <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
                     {profileError}
                   </div>
                 ) : null}
 
                 <Input
-                  label="Name"
+                  label="Full Name"
                   value={profileForm.name}
                   error={profileErrors.name?.[0]}
                   onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))}
                 />
                 <Input
-                  label="Email"
+                  label="Email Address"
                   type="email"
                   value={profileForm.email ?? ''}
                   error={profileErrors.email?.[0]}
@@ -194,39 +212,50 @@ export default function ProfilePage() {
                   onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))}
                 />
 
-                <div className="flex justify-end">
+                <div className="flex justify-end border-t border-slate-100 pt-5">
                   <Button
                     type="submit"
                     isLoading={savingProfile}
                     icon={<Save className="h-4 w-4" aria-hidden="true" />}
                   >
-                    Save changes
+                    Save Changes
                   </Button>
                 </div>
               </form>
             </CardContent>
           </Card>
 
+          {/* Password Card */}
           <Card>
             <CardHeader>
-              <CardTitle>Password</CardTitle>
-              <CardDescription>Use your current password before choosing a new one.</CardDescription>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700 ring-1 ring-violet-100">
+                  <Lock className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <CardTitle>Password</CardTitle>
+                  <CardDescription>Use your current password before choosing a new one.</CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <form className="space-y-5" onSubmit={handlePasswordSubmit}>
                 {passwordMessage ? (
-                  <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 ring-1 ring-emerald-100">
-                    {passwordMessage}
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="h-4 w-4" aria-hidden="true" />
+                      {passwordMessage}
+                    </div>
                   </div>
                 ) : null}
                 {passwordError ? (
-                  <div className="rounded-lg bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 ring-1 ring-rose-100">
+                  <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
                     {passwordError}
                   </div>
                 ) : null}
 
                 <Input
-                  label="Current password"
+                  label="Current Password"
                   type="password"
                   value={passwordForm.current_password}
                   error={passwordErrors.current_password?.[0]}
@@ -237,7 +266,7 @@ export default function ProfilePage() {
                 />
                 <div className="grid gap-5 sm:grid-cols-2">
                   <Input
-                    label="New password"
+                    label="New Password"
                     type="password"
                     value={passwordForm.password}
                     error={passwordErrors.password?.[0]}
@@ -247,7 +276,7 @@ export default function ProfilePage() {
                     }
                   />
                   <Input
-                    label="Confirm password"
+                    label="Confirm New Password"
                     type="password"
                     value={passwordForm.password_confirmation}
                     error={passwordErrors.password_confirmation?.[0]}
@@ -258,13 +287,13 @@ export default function ProfilePage() {
                   />
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex justify-end border-t border-slate-100 pt-5">
                   <Button
                     type="submit"
                     isLoading={savingPassword}
-                    icon={<UserRound className="h-4 w-4" aria-hidden="true" />}
+                    icon={<Shield className="h-4 w-4" aria-hidden="true" />}
                   >
-                    Update password
+                    Update Password
                   </Button>
                 </div>
               </form>

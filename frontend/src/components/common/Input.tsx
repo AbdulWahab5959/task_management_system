@@ -23,7 +23,7 @@ export default function Input({ className, error, helperText, id, label, ...prop
         aria-invalid={error ? true : undefined}
         aria-describedby={error || helperText ? descriptionId : undefined}
         className={cn(
-          'block w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500',
+          'block w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition-all duration-150 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500',
           error && 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20',
           className,
         )}

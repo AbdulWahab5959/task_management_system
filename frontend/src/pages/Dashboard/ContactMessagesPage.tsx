@@ -201,16 +201,16 @@ export default function ContactMessagesPage() {
     <>
       <PageHeader
         eyebrow="Admin"
-        title="Contact messages"
+        title="Contact Messages"
         description="Review, update, and remove contact form submissions."
       />
 
       <Card>
         <CardHeader>
-          <form onSubmit={handleSearch} className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <form onSubmit={handleSearch} className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="w-full lg:max-w-md">
               <Input
-                label="Search"
+                label="Search messages"
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Name, email, or subject"
@@ -239,7 +239,7 @@ export default function ContactMessagesPage() {
 
         <CardContent className="p-0">
           {actionError ? (
-            <div className="border-b border-rose-100 bg-rose-50 px-5 py-3 text-sm font-medium text-rose-700">
+            <div className="border-b border-rose-100 bg-rose-50 px-6 py-3 text-sm font-medium text-rose-800">
               {actionError}
             </div>
           ) : null}
@@ -259,37 +259,37 @@ export default function ContactMessagesPage() {
             <>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-100">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Sender
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Subject
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Status
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Date
                       </th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
+                  <tbody className="divide-y divide-slate-50">
                     {messages.map((message) => (
-                      <tr key={message.id} className="align-top">
-                        <td className="px-5 py-4">
-                          <p className="max-w-44 truncate text-sm font-semibold text-slate-950">{message.name}</p>
+                      <tr key={message.id} className="align-top transition-colors duration-150 hover:bg-slate-50">
+                        <td className="px-6 py-4">
+                          <p className="max-w-44 truncate text-sm font-semibold text-slate-900">{message.name}</p>
                           <p className="max-w-56 truncate text-sm text-slate-500">{message.email}</p>
                         </td>
-                        <td className="px-5 py-4">
+                        <td className="px-6 py-4">
                           <p className="max-w-md truncate text-sm font-semibold text-slate-800">{message.subject}</p>
-                          <p className="mt-1 max-w-md truncate text-sm text-slate-500">{message.message}</p>
+                          <p className="mt-0.5 max-w-md truncate text-sm text-slate-500">{message.message}</p>
                         </td>
-                        <td className="px-5 py-4">
+                        <td className="px-6 py-4">
                           <div className="flex flex-col gap-2">
                             <StatusBadge status={message.status} />
                             <select
@@ -298,7 +298,7 @@ export default function ContactMessagesPage() {
                               onChange={(event) =>
                                 void handleStatusChange(message, event.target.value as ContactMessageStatus)
                               }
-                              className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm font-medium text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 disabled:cursor-not-allowed disabled:bg-slate-50"
+                              className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm font-medium text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50"
                             >
                               {statusOptions.map((status) => (
                                 <option key={status} value={status}>
@@ -308,10 +308,10 @@ export default function ContactMessagesPage() {
                             </select>
                           </div>
                         </td>
-                        <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500">
                           {formatDate(message.created_at)}
                         </td>
-                        <td className="px-5 py-4">
+                        <td className="px-6 py-4">
                           <div className="flex justify-end gap-2">
                             <Button
                               type="button"
@@ -340,7 +340,7 @@ export default function ContactMessagesPage() {
                 </table>
               </div>
 
-              <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-slate-500">
                   Showing {pagination.from} to {pagination.to} of {pagination.total}
                 </p>
@@ -369,9 +369,9 @@ export default function ContactMessagesPage() {
               </div>
             </>
           ) : (
-            <div className="px-5 py-10">
+            <div className="px-6 py-12">
               <EmptyState
-                icon={<Inbox className="h-5 w-5" aria-hidden="true" />}
+                icon={<Inbox className="h-6 w-6" aria-hidden="true" />}
                 title={search ? 'No matching messages' : 'No contact messages'}
                 description={search ? 'Try another name, email, or subject.' : 'New contact form submissions will appear here.'}
               />
@@ -380,41 +380,42 @@ export default function ContactMessagesPage() {
         </CardContent>
       </Card>
 
+      {/* View Message Modal */}
       {selectedMessage ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
-          <div className="max-h-full w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-xl">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4 py-6">
+          <div className="max-h-full w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-cyan-700">{selectedMessage.email}</p>
-                <h2 className="mt-1 truncate text-lg font-semibold text-slate-950">{selectedMessage.subject}</h2>
+                <p className="text-sm font-semibold text-indigo-600">{selectedMessage.email}</p>
+                <h2 className="mt-1 truncate text-lg font-semibold text-slate-900">{selectedMessage.subject}</h2>
               </div>
               <button
                 type="button"
                 aria-label="Close message"
                 onClick={() => setSelectedMessage(null)}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-950"
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 transition-colors duration-150"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
-            <div className="max-h-[70vh] overflow-y-auto px-5 py-5">
+            <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
               <div className="grid gap-4 sm:grid-cols-3">
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Name</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">{selectedMessage.name}</p>
+                <div className="rounded-lg bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Name</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{selectedMessage.name}</p>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Status</p>
-                  <div className="mt-1">
+                <div className="rounded-lg bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Status</p>
+                  <div className="mt-2">
                     <StatusBadge status={selectedMessage.status} />
                   </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Received</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">{formatDate(selectedMessage.created_at)}</p>
+                <div className="rounded-lg bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Received</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(selectedMessage.created_at)}</p>
                 </div>
               </div>
-              <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-5">
                 <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{selectedMessage.message}</p>
               </div>
             </div>
@@ -422,14 +423,22 @@ export default function ContactMessagesPage() {
         </div>
       ) : null}
 
+      {/* Delete Confirmation Modal */}
       {deleteTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
-          <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
-            <CardTitle>Delete message?</CardTitle>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              This will permanently remove the message from {deleteTarget.email}.
-            </p>
-            <div className="mt-5 flex justify-end gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4 py-6">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100">
+                <Trash2 className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <CardTitle>Delete message?</CardTitle>
+                <p className="mt-0.5 text-sm text-slate-500">
+                  This will permanently remove the message from <strong>{deleteTarget.email}</strong>.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setDeleteTarget(null)} disabled={deleteLoading}>
                 Cancel
               </Button>

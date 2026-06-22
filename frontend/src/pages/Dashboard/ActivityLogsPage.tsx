@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, History, RefreshCw } from 'lucide-react';
+import { Activity, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from '../../components/common/Button';
 import { Card, CardContent, CardHeader } from '../../components/common/Card';
@@ -25,14 +25,14 @@ function formatAction(action: string): string {
 }
 
 const actionBadgeColors: Record<string, string> = {
-  register: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-  login: 'bg-blue-50 text-blue-700 ring-blue-100',
+  register: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  login: 'bg-blue-50 text-blue-700 ring-blue-200',
   logout: 'bg-slate-100 text-slate-700 ring-slate-200',
-  profile_update: 'bg-violet-50 text-violet-700 ring-violet-100',
-  password_update: 'bg-amber-50 text-amber-700 ring-amber-100',
-  contact_form_submit: 'bg-cyan-50 text-cyan-700 ring-cyan-100',
-  admin_user_update: 'bg-rose-50 text-rose-700 ring-rose-100',
-  contact_message_status_update: 'bg-orange-50 text-orange-700 ring-orange-100',
+  profile_update: 'bg-violet-50 text-violet-700 ring-violet-200',
+  password_update: 'bg-amber-50 text-amber-700 ring-amber-200',
+  contact_form_submit: 'bg-cyan-50 text-cyan-700 ring-cyan-200',
+  admin_user_update: 'bg-rose-50 text-rose-700 ring-rose-200',
+  contact_message_status_update: 'bg-orange-50 text-orange-700 ring-orange-200',
 };
 
 function ActionBadge({ action }: { action: string }) {
@@ -78,7 +78,6 @@ export default function ActivityLogsPage() {
 
   // Filters
   const [actionFilter, setActionFilter] = useState('');
-  const [userSearch, setUserSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [availableActions, setAvailableActions] = useState<string[]>([]);
@@ -148,28 +147,27 @@ export default function ActivityLogsPage() {
 
   const handleClearFilters = () => {
     setActionFilter('');
-    setUserSearch('');
     setDateFrom('');
     setDateTo('');
     setPage(1);
   };
 
-  const hasActiveFilters = actionFilter || userSearch || dateFrom || dateTo;
+  const hasActiveFilters = actionFilter || dateFrom || dateTo;
 
   return (
     <>
       <PageHeader
         eyebrow="Admin"
-        title="Activity logs"
+        title="Activity Logs"
         description="Track important user and admin actions across the system."
       />
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div className="grid w-full gap-3 sm:grid-cols-2 lg:max-w-2xl lg:grid-cols-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="grid w-full gap-4 sm:grid-cols-2 lg:max-w-2xl lg:grid-cols-4">
               <div>
-                <label htmlFor="action-filter" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <label htmlFor="action-filter" className="mb-1.5 block text-sm font-medium text-slate-700">
                   Action
                 </label>
                 <select
@@ -179,7 +177,7 @@ export default function ActivityLogsPage() {
                     setActionFilter(event.target.value);
                     setPage(1);
                   }}
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-medium text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 >
                   <option value="">All actions</option>
                   {availableActions.map((action) => (
@@ -190,7 +188,7 @@ export default function ActivityLogsPage() {
                 </select>
               </div>
               <div>
-                <label htmlFor="date-from" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <label htmlFor="date-from" className="mb-1.5 block text-sm font-medium text-slate-700">
                   From
                 </label>
                 <input
@@ -201,11 +199,11 @@ export default function ActivityLogsPage() {
                     setDateFrom(event.target.value);
                     setPage(1);
                   }}
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-medium text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
               <div>
-                <label htmlFor="date-to" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <label htmlFor="date-to" className="mb-1.5 block text-sm font-medium text-slate-700">
                   To
                 </label>
                 <input
@@ -216,7 +214,7 @@ export default function ActivityLogsPage() {
                     setDateTo(event.target.value);
                     setPage(1);
                   }}
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-medium text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
               <div className="flex items-end gap-2">
@@ -241,7 +239,7 @@ export default function ActivityLogsPage() {
 
         <CardContent className="p-0">
           {error ? (
-            <div className="border-b border-rose-100 bg-rose-50 px-5 py-3 text-sm font-medium text-rose-700">
+            <div className="border-b border-rose-100 bg-rose-50 px-6 py-3 text-sm font-medium text-rose-800">
               {error}
             </div>
           ) : null}
@@ -261,42 +259,42 @@ export default function ActivityLogsPage() {
             <>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-100">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Action
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         User
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Description
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Date
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
+                  <tbody className="divide-y divide-slate-50">
                     {logs.map((log) => (
-                      <tr key={log.id} className="align-top">
-                        <td className="px-5 py-4">
+                      <tr key={log.id} className="align-top transition-colors duration-150 hover:bg-slate-50">
+                        <td className="px-6 py-4">
                           <ActionBadge action={log.action} />
                         </td>
-                        <td className="px-5 py-4">
+                        <td className="px-6 py-4">
                           {log.user ? (
                             <div>
-                              <p className="text-sm font-semibold text-slate-950">{log.user.name}</p>
+                              <p className="text-sm font-semibold text-slate-900">{log.user.name}</p>
                               <p className="text-sm text-slate-500">{log.user.email}</p>
                             </div>
                           ) : (
                             <span className="text-sm text-slate-400">—</span>
                           )}
                         </td>
-                        <td className="max-w-xs px-5 py-4">
+                        <td className="max-w-xs px-6 py-4">
                           <p className="truncate text-sm text-slate-700">{log.description ?? '—'}</p>
                         </td>
-                        <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500">
                           {formatDate(log.created_at)}
                         </td>
                       </tr>
@@ -305,7 +303,7 @@ export default function ActivityLogsPage() {
                 </table>
               </div>
 
-              <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-slate-500">
                   Showing {pagination.from} to {pagination.to} of {pagination.total}
                 </p>
@@ -334,9 +332,9 @@ export default function ActivityLogsPage() {
               </div>
             </>
           ) : (
-            <div className="px-5 py-10">
+            <div className="px-6 py-12">
               <EmptyState
-                icon={<History className="h-5 w-5" aria-hidden="true" />}
+                icon={<Activity className="h-6 w-6" aria-hidden="true" />}
                 title={hasActiveFilters ? 'No matching logs' : 'No activity logs'}
                 description={
                   hasActiveFilters

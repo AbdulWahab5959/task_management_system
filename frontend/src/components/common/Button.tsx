@@ -10,14 +10,14 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses = {
-  primary: 'bg-cyan-600 text-white shadow-sm shadow-cyan-600/20 hover:bg-cyan-500 focus-visible:ring-cyan-500',
-  secondary: 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus-visible:ring-cyan-500',
-  ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-cyan-500',
+  primary: 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20 hover:bg-indigo-500 focus-visible:ring-indigo-500',
+  secondary: 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 focus-visible:ring-indigo-500',
+  ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-indigo-500',
   danger: 'bg-rose-600 text-white shadow-sm shadow-rose-600/20 hover:bg-rose-500 focus-visible:ring-rose-500',
 };
 
 const sizeClasses = {
-  sm: 'min-h-9 px-3 text-sm',
+  sm: 'min-h-9 px-3.5 text-sm',
   md: 'min-h-10 px-4 text-sm',
   lg: 'min-h-11 px-5 text-base',
 };
@@ -38,7 +38,7 @@ export default function Button({
       type={type}
       disabled={disabled || isLoading}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
         variantClasses[variant],
         sizeClasses[size],
         className,

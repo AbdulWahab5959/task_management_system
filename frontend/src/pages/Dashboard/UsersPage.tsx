@@ -203,9 +203,9 @@ export default function UsersPage() {
 
       <Card>
         <CardHeader>
-          <form onSubmit={handleSearch} className="grid gap-3 xl:grid-cols-[minmax(220px,1fr)_160px_160px_180px_auto] xl:items-end">
+          <form onSubmit={handleSearch} className="grid gap-4 xl:grid-cols-[minmax(220px,1fr)_160px_160px_180px_auto] xl:items-end">
             <Input
-              label="Search"
+              label="Search users"
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Name or email"
@@ -221,7 +221,7 @@ export default function UsersPage() {
                   setRoleFilter(event.target.value as UserRole | '');
                   setPage(1);
                 }}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
               >
                 <option value="">All roles</option>
                 {roleOptions.map((role) => (
@@ -242,7 +242,7 @@ export default function UsersPage() {
                   setStatusFilter(event.target.value as UserStatus | '');
                   setPage(1);
                 }}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
               >
                 <option value="">All statuses</option>
                 {statusOptions.map((status) => (
@@ -263,7 +263,7 @@ export default function UsersPage() {
                   setVerifiedFilter(event.target.value as EmailVerificationFilter | '');
                   setPage(1);
                 }}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
               >
                 <option value="">All emails</option>
                 <option value="verified">Verified</option>
@@ -293,7 +293,7 @@ export default function UsersPage() {
 
         <CardContent className="p-0">
           {actionError ? (
-            <div className="border-b border-rose-100 bg-rose-50 px-5 py-3 text-sm font-medium text-rose-700">
+            <div className="border-b border-rose-100 bg-rose-50 px-6 py-3 text-sm font-medium text-rose-800">
               {actionError}
             </div>
           ) : null}
@@ -313,41 +313,41 @@ export default function UsersPage() {
             <>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-100">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         User
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Role
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Status
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Email
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Joined
                       </th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
+                  <tbody className="divide-y divide-slate-50">
                     {users.map((targetUser) => {
                       const canManage = canManageSensitiveUser(user, targetUser);
                       const canChangeRole = canManage && canChangeOwnField(user, targetUser);
                       const canChangeStatus = canManage && canChangeOwnField(user, targetUser);
 
                       return (
-                        <tr key={targetUser.id} className="align-top">
-                          <td className="px-5 py-4">
-                            <p className="max-w-48 truncate text-sm font-semibold text-slate-950">{targetUser.name}</p>
+                        <tr key={targetUser.id} className="align-top transition-colors duration-150 hover:bg-slate-50">
+                          <td className="px-6 py-4">
+                            <p className="max-w-48 truncate text-sm font-semibold text-slate-900">{targetUser.name}</p>
                             <p className="max-w-56 truncate text-sm text-slate-500">{targetUser.email}</p>
                           </td>
-                          <td className="px-5 py-4">
+                          <td className="px-6 py-4">
                             <div className="flex flex-col gap-2">
                               <RoleBadge role={targetUser.role} />
                               <select
@@ -356,7 +356,7 @@ export default function UsersPage() {
                                 onChange={(event) =>
                                   void handleRoleChange(targetUser, event.target.value as UserRole)
                                 }
-                                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm font-medium text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 disabled:cursor-not-allowed disabled:bg-slate-50"
+                                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm font-medium text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50"
                               >
                                 {availableRoleOptions.map((role) => (
                                   <option key={role} value={role}>
@@ -366,7 +366,7 @@ export default function UsersPage() {
                               </select>
                             </div>
                           </td>
-                          <td className="px-5 py-4">
+                          <td className="px-6 py-4">
                             <div className="flex flex-col gap-2">
                               <UserStatusBadge status={targetUser.status} />
                               <select
@@ -375,7 +375,7 @@ export default function UsersPage() {
                                 onChange={(event) =>
                                   void handleStatusChange(targetUser, event.target.value as UserStatus)
                                 }
-                                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm font-medium text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 disabled:cursor-not-allowed disabled:bg-slate-50"
+                                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm font-medium text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50"
                               >
                                 {statusOptions.map((status) => (
                                   <option key={status} value={status}>
@@ -385,17 +385,17 @@ export default function UsersPage() {
                               </select>
                             </div>
                           </td>
-                          <td className="px-5 py-4">
+                          <td className="px-6 py-4">
                             <EmailVerificationBadge verified={Boolean(targetUser.email_verified_at)} />
                           </td>
-                          <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500">
                             {formatDate(targetUser.created_at)}
                           </td>
-                          <td className="px-5 py-4">
+                          <td className="px-6 py-4">
                             <div className="flex justify-end">
                               <Link
                                 to={`/dashboard/users/${targetUser.id}`}
-                                className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                                className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition-all duration-150 hover:bg-slate-50 hover:border-slate-300"
                               >
                                 <Eye className="h-4 w-4" aria-hidden="true" />
                                 View
@@ -409,7 +409,7 @@ export default function UsersPage() {
                 </table>
               </div>
 
-              <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-slate-500">
                   Showing {pagination.from} to {pagination.to} of {pagination.total}
                 </p>
@@ -438,9 +438,9 @@ export default function UsersPage() {
               </div>
             </>
           ) : (
-            <div className="px-5 py-10">
+            <div className="px-6 py-12">
               <EmptyState
-                icon={<Users className="h-5 w-5" aria-hidden="true" />}
+                icon={<Users className="h-6 w-6" aria-hidden="true" />}
                 title={hasActiveFilters ? 'No matching users' : 'No users found'}
                 description={hasActiveFilters ? 'Try another search or filter combination.' : 'Registered users will appear here.'}
               />

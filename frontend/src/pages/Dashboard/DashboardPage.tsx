@@ -1,4 +1,4 @@
-import { Activity, ArrowRight, CheckCircle2, KeyRound, Settings, ShieldCheck, UserRound } from 'lucide-react';
+import { Activity, ArrowRight, BadgeCheck, LayoutDashboard, Settings, Shield, UserCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
 import EmptyState from '../../components/dashboard/EmptyState';
@@ -29,96 +29,112 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Account"
+        eyebrow="Dashboard"
         title={`Welcome back, ${getFirstName(user?.name)}`}
-        description="Your LaunchPad workspace is ready for the next product module."
+        description="Your LaunchPad workspace overview and quick actions."
         action={
           <Link
             to="/dashboard/profile"
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-all duration-150 hover:bg-slate-50 hover:border-slate-300"
           >
-            <UserRound className="h-4 w-4" aria-hidden="true" />
+            <UserCircle className="h-4 w-4" aria-hidden="true" />
             Edit profile
           </Link>
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* Stats Grid */}
+      <div className="grid gap-5 md:grid-cols-3">
         <StatsCard
-          title="Email status"
+          title="Email Status"
           value={isVerified ? 'Verified' : 'Pending'}
           description={isVerified ? 'Account access is confirmed.' : 'Verification is required.'}
-          icon={<ShieldCheck className="h-5 w-5" aria-hidden="true" />}
-          tone={isVerified ? 'emerald' : 'amber'}
+          icon={<BadgeCheck className="h-6 w-6" aria-hidden="true" />}
+          variant={isVerified ? 'emerald' : 'amber'}
         />
         <StatsCard
           title="Profile"
-          value={user?.name ? 'Ready' : 'Incomplete'}
+          value={user?.name ? 'Complete' : 'Incomplete'}
           description="Name and email are connected."
-          icon={<UserRound className="h-5 w-5" aria-hidden="true" />}
-          tone="cyan"
+          icon={<UserCircle className="h-6 w-6" aria-hidden="true" />}
+          variant="indigo"
         />
         <StatsCard
           title="Security"
-          value="Password set"
-          description="Current-password checks are enabled."
-          icon={<KeyRound className="h-5 w-5" aria-hidden="true" />}
-          tone="violet"
+          value="Active"
+          description="Password and session protection."
+          icon={<Shield className="h-6 w-6" aria-hidden="true" />}
+          variant="violet"
         />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+      {/* Main Content */}
+      <div className="mt-8 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Account status</CardTitle>
-            <CardDescription>Core identity details for this user account.</CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100">
+                <LayoutDashboard className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <CardTitle>Account Status</CardTitle>
+                <CardDescription>Core identity details for your account.</CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <p className="text-sm font-medium text-slate-500">Name</p>
-                <p className="mt-1 truncate text-sm font-semibold text-slate-950">{user?.name}</p>
+            <div className="grid gap-6 sm:grid-cols-3">
+              <div className="rounded-lg bg-slate-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Name</p>
+                <p className="mt-1 truncate text-sm font-semibold text-slate-900">{user?.name}</p>
               </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500">Email</p>
-                <p className="mt-1 truncate text-sm font-semibold text-slate-950">{user?.email}</p>
+              <div className="rounded-lg bg-slate-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Email</p>
+                <p className="mt-1 truncate text-sm font-semibold text-slate-900">{user?.email}</p>
               </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500">Member since</p>
-                <p className="mt-1 text-sm font-semibold text-slate-950">{formatDate(user?.created_at)}</p>
+              <div className="rounded-lg bg-slate-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Member Since</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(user?.created_at)}</p>
               </div>
             </div>
 
-            <div className="mt-5 flex items-start gap-3 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-              <p>Authentication, email verification, password reset, and protected routes are active.</p>
+            <div className="mt-5 flex items-start gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+              <p>Authentication, email verification, password reset, and protected routes are active and secure.</p>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Quick actions</CardTitle>
-            <CardDescription>Common account tasks.</CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700 ring-1 ring-violet-100">
+                <Activity className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>Common account tasks.</CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <Link
               to="/dashboard/profile"
-              className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-800"
+              className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-all duration-150 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
             >
               Update profile
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
             <Link
               to="/dashboard/profile"
-              className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-800"
+              className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-all duration-150 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
             >
               Change password
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
             <Link
               to="/dashboard/settings"
-              className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-800"
+              className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-all duration-150 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
             >
               Open settings
               <Settings className="h-4 w-4" aria-hidden="true" />
@@ -127,15 +143,23 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="mt-6">
+      {/* Recent Activity */}
+      <div className="mt-8">
         <Card>
           <CardHeader>
-            <CardTitle>Recent activity</CardTitle>
-            <CardDescription>Account activity will appear here as modules are added.</CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+                <Activity className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>Account activity will appear here as modules are added.</CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <EmptyState
-              icon={<Activity className="h-5 w-5" aria-hidden="true" />}
+              icon={<Activity className="h-6 w-6" aria-hidden="true" />}
               title="No activity yet"
               description="Profile updates and security events will be listed in this timeline."
             />

@@ -1,4 +1,4 @@
-import { ArrowLeft, RefreshCw, Save, UserCog } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, RefreshCw, Save, UserCog } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -199,10 +199,10 @@ export default function UserDetailPage() {
         action={
           <Link
             to="/dashboard/users"
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-all duration-150 hover:bg-slate-50 hover:border-slate-300"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Users
+            Back to Users
           </Link>
         }
       />
@@ -235,39 +235,49 @@ export default function UserDetailPage() {
         <div className="grid gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>Edit user</CardTitle>
-              <CardDescription>Name and email changes apply to the user account.</CardDescription>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100">
+                  <UserCog className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <CardTitle>Edit User</CardTitle>
+                  <CardDescription>Name and email changes apply to the user account.</CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {actionError ? (
-                <div className="mb-4 rounded-lg border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                <div className="mb-4 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
                   {actionError}
                 </div>
               ) : null}
               {successMessage ? (
-                <div className="mb-4 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-                  {successMessage}
+                <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+                  <div className="flex items-center gap-2">
+                    <BadgeCheck className="h-4 w-4" aria-hidden="true" />
+                    {successMessage}
+                  </div>
                 </div>
               ) : null}
 
               <form onSubmit={handleSave} className="space-y-4">
                 <Input
-                  label="Name"
+                  label="Full Name"
                   value={formData.name}
                   onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))}
                   required
                 />
                 <Input
-                  label="Email"
+                  label="Email Address"
                   type="email"
                   value={formData.email}
                   onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
                   required
                   helperText="Changing email marks the account unverified."
                 />
-                <div className="flex justify-end">
+                <div className="flex justify-end border-t border-slate-100 pt-4">
                   <Button type="submit" isLoading={saving} icon={<Save className="h-4 w-4" aria-hidden="true" />}>
-                    Save changes
+                    Save Changes
                   </Button>
                 </div>
               </form>
@@ -277,8 +287,15 @@ export default function UserDetailPage() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Access</CardTitle>
-                <CardDescription>Role and account status.</CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700 ring-1 ring-violet-100">
+                    <UserCog className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <CardTitle>Access</CardTitle>
+                    <CardDescription>Role and account status.</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -289,7 +306,7 @@ export default function UserDetailPage() {
                       value={managedUser.role}
                       disabled={!canChangeRole || roleLoading}
                       onChange={(event) => void handleRoleChange(event.target.value as UserRole)}
-                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 disabled:cursor-not-allowed disabled:bg-slate-50"
+                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50"
                     >
                       {availableRoleOptions.map((role) => (
                         <option key={role} value={role}>
@@ -307,7 +324,7 @@ export default function UserDetailPage() {
                       value={managedUser.status ?? 'active'}
                       disabled={!canChangeStatus || statusLoading}
                       onChange={(event) => void handleStatusChange(event.target.value as UserStatus)}
-                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 disabled:cursor-not-allowed disabled:bg-slate-50"
+                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50"
                     >
                       {statusOptions.map((status) => (
                         <option key={status} value={status}>
@@ -322,8 +339,15 @@ export default function UserDetailPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Account</CardTitle>
-                <CardDescription>Verification and timestamps.</CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+                    <BadgeCheck className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <CardTitle>Account</CardTitle>
+                    <CardDescription>Verification and timestamps.</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -331,13 +355,13 @@ export default function UserDetailPage() {
                   <EmailVerificationBadge verified={Boolean(managedUser.email_verified_at)} />
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                  <div>
-                    <p className="text-sm font-medium text-slate-500">Joined</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-950">{formatDate(managedUser.created_at)}</p>
+                  <div className="rounded-lg bg-slate-50 px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Joined</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(managedUser.created_at)}</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-500">Updated</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-950">{formatDate(managedUser.updated_at)}</p>
+                  <div className="rounded-lg bg-slate-50 px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Updated</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(managedUser.updated_at)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -348,7 +372,7 @@ export default function UserDetailPage() {
         <Card>
           <CardContent>
             <EmptyState
-              icon={<UserCog className="h-5 w-5" aria-hidden="true" />}
+              icon={<UserCog className="h-6 w-6" aria-hidden="true" />}
               title="User not found"
               description="The requested user could not be loaded."
             />
