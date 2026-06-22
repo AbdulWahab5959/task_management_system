@@ -12,11 +12,13 @@ class Plan extends Model
     protected $fillable = [
         'name',
         'slug',
+        'description',
         'stripe_plan_id',
         'price',
         'interval',
         'features',
         'limits',
+        'is_popular',
         'is_active',
         'sort_order',
     ];
@@ -25,6 +27,7 @@ class Plan extends Model
         'price' => 'decimal:2',
         'features' => 'array',
         'limits' => 'array',
+        'is_popular' => 'boolean',
         'is_active' => 'boolean',
     ];
 

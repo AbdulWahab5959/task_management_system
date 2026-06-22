@@ -4,7 +4,7 @@ import { formatRole, formatStatus } from '../../utils/userDisplay';
 
 const roleClasses: Record<UserRole, string> = {
   super_admin: 'bg-violet-50 text-violet-700 ring-violet-100',
-  admin: 'bg-cyan-50 text-cyan-700 ring-cyan-100',
+  admin: 'bg-indigo-50 text-indigo-700 ring-indigo-100',
   user: 'bg-slate-100 text-slate-700 ring-slate-200',
 };
 

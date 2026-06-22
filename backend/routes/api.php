@@ -3,8 +3,10 @@
 use App\Http\Controllers\Admin\ActivityLogController as AdminActivityLogController;
 use App\Http\Controllers\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Admin\ContactMessageController as AdminContactMessageController;
+use App\Http\Controllers\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\PlanController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', function () {
@@ -16,6 +18,8 @@ Route::get('/health', function () {
 
 Route::post('/contact', [App\Http\Controllers\ContactController::class, 'store']);
 
+Route::get('/plans', [PlanController::class, 'index']);
+
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
     Route::get('/analytics', [AdminAnalyticsController::class, 'index']);
     Route::get('/activity-logs', [AdminActivityLogController::class, 'index']);
@@ -25,6 +29,12 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::get('/contact-messages/{contactMessage}', [AdminContactMessageController::class, 'show']);
     Route::put('/contact-messages/{contactMessage}/status', [AdminContactMessageController::class, 'updateStatus']);
     Route::delete('/contact-messages/{contactMessage}', [AdminContactMessageController::class, 'destroy']);
+
+    Route::get('/plans', [AdminPlanController::class, 'index']);
+    Route::post('/plans', [AdminPlanController::class, 'store']);
+    Route::get('/plans/{plan}', [AdminPlanController::class, 'show']);
+    Route::put('/plans/{plan}', [AdminPlanController::class, 'update']);
+    Route::delete('/plans/{plan}', [AdminPlanController::class, 'destroy']);
 
     Route::get('/users', [AdminUserController::class, 'index']);
     Route::get('/users/{user}', [AdminUserController::class, 'show']);

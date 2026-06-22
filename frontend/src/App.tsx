@@ -13,6 +13,7 @@ import SettingsPage from './pages/Dashboard/SettingsPage';
 import AdminPage from './pages/Dashboard/AdminPage';
 import ActivityLogsPage from './pages/Dashboard/ActivityLogsPage';
 import ContactMessagesPage from './pages/Dashboard/ContactMessagesPage';
+import PlansPage from './pages/Dashboard/PlansPage';
 import UsersPage from './pages/Dashboard/UsersPage';
 import UserDetailPage from './pages/Dashboard/UserDetailPage';
 import EmailVerificationRequiredPage from './pages/EmailVerificationRequiredPage';
@@ -21,6 +22,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import HomePage from './pages/Public/Home';
 import AboutPage from './pages/Public/About';
+import PricingPage from './pages/Public/PricingPage';
 import ContactPage from './pages/Public/Contact';
 
 function App() {
@@ -30,6 +32,7 @@ function App() {
         <Route element={<PublicLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
           <Route path="/contact" element={<ContactPage />} />
         </Route>
         <Route path="/health" element={<HealthCheckPage />} />
@@ -69,6 +72,14 @@ function App() {
             element={
               <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
                 <ContactMessagesPage />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="plans"
+            element={
+              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+                <PlansPage />
               </RoleProtectedRoute>
             }
           />

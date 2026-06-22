@@ -28,12 +28,26 @@ class DatabaseSeeder extends Seeder
         Plan::updateOrCreate(
             ['slug' => 'free'],
             [
-                'name' => 'Free Plan',
+                'name' => 'Free',
+                'description' => 'Perfect for getting started with basic features.',
                 'stripe_plan_id' => 'price_free_monthly',
                 'price' => 0.00,
                 'interval' => 'month',
-                'features' => ['1 Team Member', '3 Active Projects', 'Basic Support'],
-                'limits' => ['users' => 1, 'projects' => 3],
+                'features' => [
+                    '1 Team Member',
+                    '3 Active Projects',
+                    '5 GB Storage',
+                    'Email Support',
+                    'Basic Analytics',
+                    'Community Access',
+                ],
+                'limits' => [
+                    'users' => 1,
+                    'projects' => 3,
+                    'storage' => 5,
+                    'support' => 'email',
+                ],
+                'is_popular' => false,
                 'is_active' => true,
                 'sort_order' => 1,
             ]
@@ -42,12 +56,28 @@ class DatabaseSeeder extends Seeder
         Plan::updateOrCreate(
             ['slug' => 'pro-monthly'],
             [
-                'name' => 'Pro Monthly',
+                'name' => 'Pro',
+                'description' => 'Best for growing teams that need more power and control.',
                 'stripe_plan_id' => 'price_pro_monthly',
-                'price' => 19.00,
+                'price' => 29.00,
                 'interval' => 'month',
-                'features' => ['10 Team Members', '50 Active Projects', 'Priority Support', 'API Access'],
-                'limits' => ['users' => 10, 'projects' => 50],
+                'features' => [
+                    'Up to 10 Team Members',
+                    '50 Active Projects',
+                    '50 GB Storage',
+                    'Priority Support',
+                    'Advanced Analytics',
+                    'API Access',
+                    'Custom Integrations',
+                    'Team Collaboration',
+                ],
+                'limits' => [
+                    'users' => 10,
+                    'projects' => 50,
+                    'storage' => 50,
+                    'support' => 'priority',
+                ],
+                'is_popular' => true,
                 'is_active' => true,
                 'sort_order' => 2,
             ]
@@ -56,12 +86,29 @@ class DatabaseSeeder extends Seeder
         Plan::updateOrCreate(
             ['slug' => 'pro-yearly'],
             [
-                'name' => 'Pro Yearly',
+                'name' => 'Pro',
+                'description' => 'Best for growing teams that need more power and control. Save 20% with annual billing.',
                 'stripe_plan_id' => 'price_pro_yearly',
-                'price' => 180.00,
+                'price' => 279.00,
                 'interval' => 'year',
-                'features' => ['10 Team Members', '50 Active Projects', 'Priority Support', 'API Access', '20% Discount'],
-                'limits' => ['users' => 10, 'projects' => 50],
+                'features' => [
+                    'Up to 10 Team Members',
+                    '50 Active Projects',
+                    '50 GB Storage',
+                    'Priority Support',
+                    'Advanced Analytics',
+                    'API Access',
+                    'Custom Integrations',
+                    'Team Collaboration',
+                    '20% Annual Discount',
+                ],
+                'limits' => [
+                    'users' => 10,
+                    'projects' => 50,
+                    'storage' => 50,
+                    'support' => 'priority',
+                ],
+                'is_popular' => true,
                 'is_active' => true,
                 'sort_order' => 3,
             ]
@@ -70,14 +117,65 @@ class DatabaseSeeder extends Seeder
         Plan::updateOrCreate(
             ['slug' => 'enterprise-monthly'],
             [
-                'name' => 'Enterprise Monthly',
+                'name' => 'Enterprise',
+                'description' => 'For large organizations with advanced security and dedicated support.',
                 'stripe_plan_id' => 'price_enterprise_monthly',
                 'price' => 99.00,
                 'interval' => 'month',
-                'features' => ['Unlimited Team Members', 'Unlimited Projects', 'Dedicated Account Manager', 'Custom Integrations'],
-                'limits' => ['users' => -1, 'projects' => -1],
+                'features' => [
+                    'Unlimited Team Members',
+                    'Unlimited Projects',
+                    'Unlimited Storage',
+                    'Dedicated Account Manager',
+                    'Custom Integrations',
+                    'Advanced Security',
+                    'SLA Guarantee',
+                    '24/7 Phone & Email Support',
+                    'Onboarding Assistance',
+                    'Custom Reporting',
+                ],
+                'limits' => [
+                    'users' => -1,
+                    'projects' => -1,
+                    'storage' => -1,
+                    'support' => 'dedicated',
+                ],
+                'is_popular' => false,
                 'is_active' => true,
                 'sort_order' => 4,
+            ]
+        );
+
+        Plan::updateOrCreate(
+            ['slug' => 'enterprise-yearly'],
+            [
+                'name' => 'Enterprise',
+                'description' => 'For large organizations with advanced security and dedicated support. Save 20% with annual billing.',
+                'stripe_plan_id' => 'price_enterprise_yearly',
+                'price' => 949.00,
+                'interval' => 'year',
+                'features' => [
+                    'Unlimited Team Members',
+                    'Unlimited Projects',
+                    'Unlimited Storage',
+                    'Dedicated Account Manager',
+                    'Custom Integrations',
+                    'Advanced Security',
+                    'SLA Guarantee',
+                    '24/7 Phone & Email Support',
+                    'Onboarding Assistance',
+                    'Custom Reporting',
+                    '20% Annual Discount',
+                ],
+                'limits' => [
+                    'users' => -1,
+                    'projects' => -1,
+                    'storage' => -1,
+                    'support' => 'dedicated',
+                ],
+                'is_popular' => false,
+                'is_active' => true,
+                'sort_order' => 5,
             ]
         );
     }

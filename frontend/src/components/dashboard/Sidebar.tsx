@@ -1,4 +1,4 @@
-import { Activity, BarChart3, LayoutDashboard, LogOut, Mail, Rocket, Settings, UserCircle, Users, X } from 'lucide-react';
+import { Activity, BarChart3, LayoutDashboard, LogOut, Mail, Rocket, Settings, Star, UserCircle, Users, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -18,12 +18,16 @@ interface NavigationItem {
   roles?: UserRole[];
 }
 
-const navigationItems: NavigationItem[] = [
+const mainNavItems: NavigationItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, end: true },
   { label: 'Analytics', to: '/dashboard/admin', icon: BarChart3, roles: ['admin', 'super_admin'] },
+  { label: 'Plans', to: '/dashboard/plans', icon: Star, roles: ['admin', 'super_admin'] },
   { label: 'Users', to: '/dashboard/users', icon: Users, roles: ['admin', 'super_admin'] },
   { label: 'Activity Logs', to: '/dashboard/activity-logs', icon: Activity, roles: ['admin', 'super_admin'] },
   { label: 'Contact Messages', to: '/dashboard/contact-messages', icon: Mail, roles: ['admin', 'super_admin'] },
+];
+
+const accountNavItems: NavigationItem[] = [
   { label: 'Settings', to: '/dashboard/settings', icon: Settings },
   { label: 'Profile', to: '/dashboard/profile', icon: UserCircle },
 ];
@@ -44,7 +48,6 @@ function getInitials(name?: string) {
 export default function Sidebar({ onClose, open }: SidebarProps) {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
-  const visibleNavigationItems = navigationItems.filter((item) => !item.roles || item.roles.includes(user?.role ?? 'user'));
 
   const handleLogout = async () => {
     await logout();
@@ -92,30 +95,62 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Dashboard navigation">
-          {visibleNavigationItems.map((item) => {
-            const Icon = item.icon;
+        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Dashboard navigation">
+          <div className="space-y-1">
+            {mainNavItems
+              .filter((item) => !item.roles || item.roles.includes(user?.role ?? 'user'))
+              .map((item) => {
+                const Icon = item.icon;
 
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                onClick={onClose}
-                className={({ isActive }) =>
-                  cn(
-                    'flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-all duration-150',
-                    isActive
-                      ? 'bg-indigo-500/10 text-indigo-400 shadow-sm'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
-                  )
-                }
-              >
-                <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                <span>{item.label}</span>
-              </NavLink>
-            );
-          })}
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    onClick={onClose}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-all duration-150',
+                        isActive
+                          ? 'bg-indigo-500/10 text-indigo-400 shadow-sm'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
+                      )
+                    }
+                  >
+                    <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-slate-800">
+            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-widest text-slate-500">Account</p>
+            <div className="space-y-1">
+              {accountNavItems.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={onClose}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-all duration-150',
+                        isActive
+                          ? 'bg-indigo-500/10 text-indigo-400 shadow-sm'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
+                      )
+                    }
+                  >
+                    <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
         </nav>
 
         {/* User section */}

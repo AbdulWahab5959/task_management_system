@@ -1,4 +1,4 @@
-import { Activity, ArrowRight, BadgeCheck, LayoutDashboard, Settings, Shield, UserCircle } from 'lucide-react';
+import { Activity, ArrowRight, BadgeCheck, LayoutDashboard, Settings, Shield, UserCircle, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
 import EmptyState from '../../components/dashboard/EmptyState';
@@ -109,7 +109,7 @@ export default function DashboardPage() {
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700 ring-1 ring-violet-100">
-                <Activity className="h-5 w-5" aria-hidden="true" />
+                <Zap className="h-5 w-5" aria-hidden="true" />
               </div>
               <div>
                 <CardTitle>Quick Actions</CardTitle>

@@ -60,8 +60,8 @@ export default function AdminPage() {
     return (
       <>
         <PageHeader eyebrow="Admin" title="Analytics" description="Loading platform analytics..." />
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 7 }).map((_, i) => (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i}>
               <CardContent className="flex items-center gap-4">
                 <div className="h-12 w-12 animate-pulse rounded-xl bg-slate-200" />
@@ -139,43 +139,43 @@ export default function AdminPage() {
         <StatsCard
           title="Total Users"
           value={String(stats.total_users)}
-          icon={<Users className="h-5 w-5" />}
+          icon={<Users className="h-6 w-6" />}
           variant="indigo"
         />
         <StatsCard
           title="Verified Users"
           value={String(stats.verified_users)}
-          icon={<UserCheck className="h-5 w-5" />}
+          icon={<UserCheck className="h-6 w-6" />}
           variant="emerald"
         />
         <StatsCard
           title="Unverified Users"
           value={String(stats.unverified_users)}
-          icon={<UserX className="h-5 w-5" />}
+          icon={<UserX className="h-6 w-6" />}
           variant="amber"
         />
         <StatsCard
           title="New Users (Month)"
           value={String(stats.new_users_this_month)}
-          icon={<UserPlus className="h-5 w-5" />}
+          icon={<UserPlus className="h-6 w-6" />}
           variant="cyan"
         />
         <StatsCard
           title="Contact Messages"
           value={String(stats.contact_messages_total)}
-          icon={<Inbox className="h-5 w-5" />}
+          icon={<Inbox className="h-6 w-6" />}
           variant="indigo"
         />
         <StatsCard
           title="New Messages"
           value={String(stats.new_contact_messages)}
-          icon={<MailCheck className="h-5 w-5" />}
+          icon={<MailCheck className="h-6 w-6" />}
           variant="cyan"
         />
         <StatsCard
           title="Activity Log Entries"
           value={String(stats.activity_logs_count)}
-          icon={<Activity className="h-5 w-5" />}
+          icon={<Activity className="h-6 w-6" />}
           variant="violet"
         />
       </div>
@@ -318,19 +318,19 @@ export default function AdminPage() {
         <StatsCard
           title="New Messages"
           value={String(contact_summary.new)}
-          icon={<MailCheck className="h-5 w-5" />}
+          icon={<MailCheck className="h-6 w-6" />}
           variant="cyan"
         />
         <StatsCard
           title="Read Messages"
           value={String(contact_summary.read)}
-          icon={<Inbox className="h-5 w-5" />}
+          icon={<Inbox className="h-6 w-6" />}
           variant="emerald"
         />
         <StatsCard
           title="Replied Messages"
           value={String(contact_summary.replied)}
-          icon={<MessageSquareReply className="h-5 w-5" />}
+          icon={<MessageSquareReply className="h-6 w-6" />}
           variant="indigo"
         />
       </div>
