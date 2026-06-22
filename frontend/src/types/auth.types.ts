@@ -54,6 +54,11 @@ export interface UpdateProfileResponse {
   requires_email_verification: boolean;
 }
 
+export interface AvatarUploadResponse {
+  message: string;
+  user: User;
+}
+
 export interface UpdatePasswordData {
   current_password: string;
   password: string;

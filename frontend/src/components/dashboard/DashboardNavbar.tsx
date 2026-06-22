@@ -1,5 +1,5 @@
 import { Bell, ChevronDown, LogOut, Menu, Settings, UserCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { cn } from '../../utils/cn';
@@ -39,12 +39,58 @@ function getInitials(name?: string) {
     .join('');
 }
 
+function getAvatarUrl(url?: string | null): string | null {
+  if (!url) {
+    return null;
+  }
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') ?? 'http://localhost:8000';
+  return `${baseUrl}${url}`;
+}
+
 export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const pageTitle = getPageTitle(location.pathname);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+
+    if (profileOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [profileOpen]);
+
+  // Close dropdown on Escape key
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setProfileOpen(false);
+      }
+    };
+
+    if (profileOpen) {
+      document.addEventListener('keydown', handleEsc);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [profileOpen]);
 
   const handleLogout = async () => {
     await logout();
@@ -79,7 +125,7 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
             <Bell className="h-5 w-5" aria-hidden="true" />
           </button>
 
-          <div className="relative">
+          <div ref={dropdownRef} className="relative">
             <button
               type="button"
               aria-expanded={profileOpen}
@@ -87,9 +133,28 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
               onClick={() => setProfileOpen((current) => !current)}
               className="flex min-h-10 items-center gap-2.5 rounded-lg border border-slate-200 bg-white py-1.5 pl-1.5 pr-3 text-left transition-all duration-150 hover:bg-slate-50 hover:border-slate-300"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700">
-                {getInitials(user?.name)}
-              </span>
+              {user?.avatar_url ? (
+                <img
+                  src={getAvatarUrl(user.avatar_url) ?? ''}
+                  alt={user.name}
+                  className="h-8 w-8 rounded-lg object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent && !parent.querySelector('.nav-initials-fallback')) {
+                      const fallback = document.createElement('span');
+                      fallback.className = 'nav-initials-fallback flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700';
+                      fallback.textContent = getInitials(user.name);
+                      parent.appendChild(fallback);
+                    }
+                  }}
+                />
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700">
+                  {getInitials(user?.name)}
+                </span>
+              )}
               <span className="hidden min-w-0 sm:block">
                 <span className="block max-w-36 truncate text-sm font-semibold text-slate-900">{user?.name}</span>
                 <span className="block max-w-36 truncate text-xs text-slate-500">{user?.email}</span>
@@ -105,9 +170,33 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
                 role="menu"
                 className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-900/10 ring-1 ring-slate-900/5"
               >
-                <div className="border-b border-slate-100 px-4 py-3">
-                  <p className="truncate text-sm font-semibold text-slate-900">{user?.name}</p>
-                  <p className="truncate text-sm text-slate-500">{user?.email}</p>
+                <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
+                  {user?.avatar_url ? (
+                    <img
+                      src={getAvatarUrl(user.avatar_url) ?? ''}
+                      alt={user.name}
+                      className="h-10 w-10 rounded-lg object-cover"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector('.dropdown-initials')) {
+                          const fallback = document.createElement('span');
+                          fallback.className = 'dropdown-initials flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-sm font-semibold text-indigo-700';
+                          fallback.textContent = getInitials(user.name);
+                          parent.prepend(fallback);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-sm font-semibold text-indigo-700">
+                      {getInitials(user?.name)}
+                    </span>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">{user?.name}</p>
+                    <p className="truncate text-sm text-slate-500">{user?.email}</p>
+                  </div>
                 </div>
                 <div className="p-1.5">
                   <Link

@@ -1,6 +1,7 @@
 import { api } from './api';
 import type {
   AuthResponse,
+  AvatarUploadResponse,
   ForgotPasswordData,
   LoginCredentials,
   MessageResponse,
@@ -47,6 +48,14 @@ export const authService = {
 
   updateProfile(payload: UpdateProfileData) {
     return api.put<UpdateProfileResponse>('/auth/profile', payload);
+  },
+
+  updateAvatar(file: File) {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    return api.post<AvatarUploadResponse>('/auth/profile/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
   },
 
   updatePassword(payload: UpdatePasswordData) {

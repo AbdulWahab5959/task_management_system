@@ -7,8 +7,10 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\UpdatePasswordRequest;
+use App\Http\Requests\Auth\UpdateAvatarRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Auth\Events\Verified;
 use App\Models\User;
@@ -247,6 +249,43 @@ class AuthController extends Controller
                 : 'Profile updated successfully.',
             'user' => $user,
             'requires_email_verification' => ! $user->hasVerifiedEmail(),
+        ]);
+    }
+
+    public function updateAvatar(UpdateAvatarRequest $request)
+    {
+        $user = $request->user();
+        $file = $request->file('avatar');
+
+        // Delete old avatar if it's a local file (not an external OAuth URL)
+        if ($user->avatar_url && !filter_var($user->avatar_url, FILTER_VALIDATE_URL)) {
+            $oldPath = str_replace('/storage/', '', $user->avatar_url);
+            if (Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
+        }
+
+        // Store the new avatar
+        $path = $file->store('avatars', 'public');
+        $user->avatar_url = "/storage/{$path}";
+        $user->save();
+
+        $this->activityLogService->log(
+            action: 'avatar_update',
+            description: "User updated avatar: {$user->email}",
+            properties: [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'avatar_url' => $user->avatar_url,
+            ],
+            userId: $user->id,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        );
+
+        return response()->json([
+            'message' => 'Avatar updated successfully.',
+            'user' => $user,
         ]);
     }
 
