@@ -40,10 +40,16 @@ class PlanController extends Controller
             'name' => $validated['name'],
             'slug' => $validated['slug'],
             'description' => $validated['description'] ?? null,
+            'amount' => $validated['price'],
+            'amount_minor' => (int) round(((float) $validated['price']) * 100),
+            'currency' => 'USD',
+            'billing_interval' => $validated['interval'],
+            'stripe_price_id' => null,
             'stripe_plan_id' => 'manual_' . $validated['slug'],
             'price' => $validated['price'],
             'interval' => $validated['interval'],
             'features' => $validated['features'],
+            'metadata' => [],
             'limits' => $validated['limits'] ?? [],
             'is_popular' => $validated['is_popular'] ?? false,
             'is_active' => $validated['is_active'] ?? true,
@@ -73,6 +79,15 @@ class PlanController extends Controller
             'is_active' => ['boolean'],
             'sort_order' => ['integer', 'min:0'],
         ]);
+
+        if (array_key_exists('price', $validated)) {
+            $validated['amount'] = $validated['price'];
+            $validated['amount_minor'] = (int) round(((float) $validated['price']) * 100);
+        }
+
+        if (array_key_exists('interval', $validated)) {
+            $validated['billing_interval'] = $validated['interval'];
+        }
 
         $plan->update($validated);
 

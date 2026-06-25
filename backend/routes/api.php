@@ -5,8 +5,10 @@ use App\Http\Controllers\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Admin\ContactMessageController as AdminContactMessageController;
 use App\Http\Controllers\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\PlanController;
+use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\PlanController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', function () {
@@ -19,6 +21,12 @@ Route::get('/health', function () {
 Route::post('/contact', [App\Http\Controllers\ContactController::class, 'store']);
 
 Route::get('/plans', [PlanController::class, 'index']);
+Route::post('/stripe/webhook', StripeWebhookController::class);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/payments/checkout', [PaymentController::class, 'checkout']);
+    Route::get('/payments/{reference}', [PaymentController::class, 'show']);
+});
 
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
     Route::get('/analytics', [AdminAnalyticsController::class, 'index']);

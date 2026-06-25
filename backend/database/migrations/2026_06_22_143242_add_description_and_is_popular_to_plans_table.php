@@ -9,16 +9,26 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('plans', function (Blueprint $table) {
-            $table->text('description')->nullable()->after('slug');
-            $table->boolean('is_popular')->default(false)->after('is_active');
+            if (! Schema::hasColumn('plans', 'description')) {
+                $table->text('description')->nullable()->after('slug');
+            }
+
+            if (! Schema::hasColumn('plans', 'is_popular')) {
+                $table->boolean('is_popular')->default(false)->after('is_active');
+            }
         });
     }
 
     public function down(): void
     {
         Schema::table('plans', function (Blueprint $table) {
-            $table->dropColumn('description');
-            $table->dropColumn('is_popular');
+            if (Schema::hasColumn('plans', 'description')) {
+                $table->dropColumn('description');
+            }
+
+            if (Schema::hasColumn('plans', 'is_popular')) {
+                $table->dropColumn('is_popular');
+            }
         });
     }
 };

@@ -25,7 +25,7 @@ The app runs at `http://localhost:5173` by default.
 ## Environment
 
 ```bash
-VITE_API_URL=http://localhost:8000/api
+VITE_API_BASE_URL=http://localhost:8000/api
 ```
 
 ## Commands

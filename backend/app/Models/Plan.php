@@ -13,19 +13,31 @@ class Plan extends Model
         'name',
         'slug',
         'description',
+        'amount',
+        'amount_minor',
+        'currency',
+        'billing_interval',
+        'stripe_price_id',
+        'is_active',
+        'features',
+        'metadata',
+        // Legacy admin fields retained while the dashboard is migrated.
         'stripe_plan_id',
         'price',
         'interval',
-        'features',
         'limits',
         'is_popular',
-        'is_active',
         'sort_order',
     ];
 
     protected $casts = [
+        'amount' => 'decimal:2',
+        'amount_minor' => 'integer',
         'price' => 'decimal:2',
+        'currency' => 'string',
+        'billing_interval' => 'string',
         'features' => 'array',
+        'metadata' => 'array',
         'limits' => 'array',
         'is_popular' => 'boolean',
         'is_active' => 'boolean',
@@ -45,12 +57,12 @@ class Plan extends Model
     // Helper Methods
     public function getFormattedPrice(): string
     {
-        return '$' . number_format($this->price, 2);
+        return '$' . number_format((float) $this->amount, 2);
     }
 
     public function isFree(): bool
     {
-        return $this->price == 0;
+        return (float) $this->amount === 0.0;
     }
 
     public function getLimit(string $key, $default = null)

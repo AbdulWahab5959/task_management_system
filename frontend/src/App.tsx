@@ -22,8 +22,10 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import HomePage from './pages/Public/Home';
 import AboutPage from './pages/Public/About';
-import PricingPage from './pages/Public/PricingPage';
 import ContactPage from './pages/Public/Contact';
+import Pricing from './pages/Pricing';
+import CheckoutSuccess from './pages/CheckoutSuccess';
+import CheckoutCancel from './pages/CheckoutCancel';
 
 function App() {
   return (
@@ -32,7 +34,9 @@ function App() {
         <Route element={<PublicLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
-          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/checkout/success" element={<CheckoutSuccess />} />
+          <Route path="/checkout/cancel" element={<CheckoutCancel />} />
           <Route path="/contact" element={<ContactPage />} />
         </Route>
         <Route path="/health" element={<HealthCheckPage />} />
