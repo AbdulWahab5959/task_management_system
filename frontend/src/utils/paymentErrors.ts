@@ -13,6 +13,39 @@ const friendlyMessages: Record<PaymentErrorCode, string> = {
   unknown: 'We could not complete your request. Please try again.',
 };
 
+type BackendErrorResponse = {
+  message?: unknown;
+  errors?: Record<string, unknown>;
+};
+
+function getBackendMessage(data: unknown): string | null {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const response = data as BackendErrorResponse;
+
+  if (typeof response.message === 'string' && response.message.trim()) {
+    return response.message;
+  }
+
+  if (!response.errors || typeof response.errors !== 'object') {
+    return null;
+  }
+
+  for (const value of Object.values(response.errors)) {
+    if (Array.isArray(value) && typeof value[0] === 'string') {
+      return value[0];
+    }
+
+    if (typeof value === 'string') {
+      return value;
+    }
+  }
+
+  return null;
+}
+
 export function getPaymentErrorMessage(error: unknown): string {
   if (error instanceof PaymentServiceError) {
     return friendlyMessages[error.code];
@@ -27,6 +60,12 @@ export function getPaymentErrorMessage(error: unknown): string {
 
     if (status === 401 || status === 419) {
       return friendlyMessages.unauthenticated;
+    }
+
+    const backendMessage = getBackendMessage(error.response.data);
+
+    if (backendMessage && (!status || status < 500 || import.meta.env.DEV)) {
+      return backendMessage;
     }
 
     if (status === 422) {

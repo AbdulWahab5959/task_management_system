@@ -11,10 +11,15 @@ class Subscription extends Model
 
     protected $fillable = [
         'tenant_id',
+        'user_id',
         'plan_id',
+        'gateway',
+        'gateway_subscription_id',
         'stripe_subscription_id',
         'stripe_customer_id',
         'status',
+        'starts_at',
+        'ends_at',
         'trial_ends_at',
         'current_period_start',
         'current_period_end',
@@ -23,6 +28,8 @@ class Subscription extends Model
 
     protected $casts = [
         'trial_ends_at' => 'datetime',
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
         'current_period_start' => 'datetime',
         'current_period_end' => 'datetime',
         'cancelled_at' => 'datetime',
@@ -34,6 +41,11 @@ class Subscription extends Model
         return $this->belongsTo(Tenant::class);
     }
 
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function plan()
     {
         return $this->belongsTo(Plan::class);
@@ -42,6 +54,11 @@ class Subscription extends Model
     public function invoices()
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
     }
 
     // Helper Methods

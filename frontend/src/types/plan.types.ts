@@ -5,6 +5,11 @@ export interface Plan {
   description: string | null;
   price: string;
   interval: 'month' | 'year';
+  amount?: string;
+  amount_minor?: number;
+  currency?: string;
+  billing_interval?: 'month' | 'year' | null;
+  stripe_price_id?: string | null;
   features: string[];
   limits: Record<string, number | string>;
   is_popular: boolean;
@@ -20,6 +25,7 @@ export interface PlanFormData {
   description: string;
   price: number;
   interval: 'month' | 'year';
+  stripe_price_id?: string | null;
   features: string[];
   limits: Record<string, number | string>;
   is_popular: boolean;

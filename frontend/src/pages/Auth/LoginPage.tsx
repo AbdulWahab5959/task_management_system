@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import AuthLayout from '../../components/auth/AuthLayout';
 import type { LoginCredentials } from '../../types/auth.types';
@@ -18,6 +18,7 @@ type ApiError = {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
   const [formData, setFormData] = useState<LoginCredentials>({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
@@ -38,7 +39,18 @@ export default function LoginPage() {
         return;
       }
 
-      navigate('/dashboard');
+      const redirectParam = searchParams.get('redirect');
+      const redirectTo = redirectParam?.startsWith('/') && !redirectParam.startsWith('//')
+        ? redirectParam
+        : '/dashboard';
+      const planId = searchParams.get('plan_id');
+
+      if (redirectTo === '/pricing' && planId && /^\d+$/.test(planId)) {
+        navigate(`/dashboard/billing/checkout/${planId}`);
+        return;
+      }
+
+      navigate(redirectTo);
     } catch (exception: unknown) {
       const apiError = exception as ApiError;
       setFieldErrors(apiError.response?.data?.errors ?? {});

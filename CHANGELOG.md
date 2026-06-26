@@ -2,114 +2,111 @@
 
 All notable checkpoint documentation changes are recorded here.
 
+## 2026-06-27
+
+### Changed
+
+- Polished dashboard sidebar navigation with explicit route matching so Analytics no longer highlights on admin Subscriptions or Payments pages.
+- Added a subtle custom sidebar scrollbar for overflow-heavy layouts.
+- Improved billing plan/status presentation with Free User, active subscriber, pending, cancelled, and cancel-at-period-end style badges.
+- Replaced browser confirm/alert cancellation flow with a professional in-app cancellation modal.
+- Refined billing plan buttons, payment history table styling, and admin subscription/payment table loading, empty, badge, filter, and pagination states.
+- Added small role badges in the dashboard sidebar/navbar user controls.
+
+### Verification
+
+- `npm.cmd run build` passed.
+
+## 2026-06-25 (Update 3)
+
+### Fixed
+
+- Debugged Stripe Checkout start failure and confirmed the runtime root cause: plan `2` is active but has `stripe_price_id = null`.
+- Updated `POST /api/billing/stripe/checkout` to return clear errors for inactive/missing plans, missing Stripe Price IDs, invalid Stripe Price IDs, and missing Stripe secret configuration.
+- Removed the mock Stripe secret default so missing server configuration fails explicitly.
+- Updated `/pricing` and `/dashboard/billing/checkout/:planId` to show backend checkout messages instead of swallowing them behind generic frontend errors.
+- Updated dashboard checkout pages to auto-start paid Stripe Checkout from the URL route.
+- Added admin plan support for storing a `price_...` Stripe Price ID.
+- Updated the plan seeder to preserve existing Stripe Price IDs instead of resetting them to `null`.
+
+### Verification
+
+- `POST api/billing/stripe/checkout` confirmed in `php artisan route:list --path=api/billing`.
+- Plan `2` database row confirmed active with `stripe_price_id = null`.
+- Direct controller check now returns `422 {"message":"This plan is not connected to Stripe yet."}` for plan `2`.
+- `php -l` passed for updated PHP files.
+- `npm.cmd run build` passed.
+
+## 2026-06-25 (Update 2)
+
+### Added
+
+- **Stripe Checkout Integration** - real Stripe Checkout Sessions for paid plan subscriptions.
+- Created `StripeCheckoutController` with `POST /api/billing/stripe/checkout` endpoint that creates Stripe Checkout Sessions, pending subscriptions, and pending payments.
+- Updated `StripeWebhookController` to handle `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.updated`, and `customer.subscription.deleted` events in addition to existing handlers.
+- Added `createStripeCheckoutSession()` to frontend billing service.
+- Frontend `PlanCard` on `/pricing` now calls Stripe Checkout API directly for logged-in users - guest users redirected to `/login?redirect=/pricing`.
+- `CheckoutPage` now uses Stripe Checkout for paid plans instead of creating manual pending requests.
+- `BillingSuccessPage` now automatically refreshes subscription data from API after Stripe redirect.
+
+### Fixed
+
+- `BillingController::getCurrentSubscription` no longer depends on tenant relationships - queries subscriptions by `user_id` directly, fixing the bug where current subscription plan was not showing in the dashboard.
+- `BillingController::cancelSubscription` simplified to work with user-owned subscriptions without tenant dependency.
+- `StripeWebhookController::activateSubscriptionForPayment` now works with user-owned subscriptions instead of requiring tenant relationships.
+
+### Changed
+
+- `BillingController::checkout` now returns a redirect response for Stripe gateway, guiding clients to use the dedicated Stripe checkout endpoint.
+- Subscription creation in webhook no longer requires a tenant - subscriptions are linked directly to users.
+
+## 2026-06-25
+
+### Added
+
+- **Professional SaaS Billing Flow** - separated visitor pricing, user billing, and admin subscription management.
+
+#### Backend
+
+- Added authenticated user billing APIs: `GET /api/billing/current`, `GET /api/billing/plans`, `POST /api/billing/checkout`, `POST /api/billing/cancel`, and `GET /api/billing/payments`.
+- Added admin APIs: `GET /api/admin/subscriptions`, `GET /api/admin/subscriptions/{subscription}`, and `GET /api/admin/payments`.
+- Added direct `user_id` ownership for subscriptions and `subscription_id` ownership for payments.
+- Added `2026_06_25_000004_normalize_subscriptions_for_user_billing.php` so user-owned subscriptions and pending paid requests do not require legacy tenant or Stripe identifiers.
+- Updated `BillingController` so users only read their own billing data. Free plans activate directly; paid plans create pending subscription/payment records only.
+- Updated `Admin\SubscriptionController` so admin/super_admin users can search, filter, paginate, and inspect all subscriptions/payments across user-owned and tenant-owned records.
+
+#### Frontend
+
+- Kept `/pricing` as the public visitor pricing page.
+- Added `/dashboard/billing` for authenticated users with current plan, subscription status, available plans, upgrade/downgrade selection, cancellation, payment history, and empty states.
+- Added `/dashboard/admin/subscriptions` for admin/super_admin users with total, active, pending, and cancelled counts plus searchable/filterable/paginated subscription records.
+- Added `/dashboard/admin/payments` for admin/super_admin payment visibility.
+- Added dashboard sidebar links for Billing, admin Subscriptions, and admin Payments.
+- Updated public pricing cards so guests go to register/login and logged-in users go to dashboard billing.
+- Updated login to honor `?redirect=/dashboard/billing`.
+
+### Changed
+
+- Paid plan checkout records only a pending request unless a real payment gateway returns a checkout URL.
+- Admin subscription routing now uses `/dashboard/admin/subscriptions`.
+
+### Security
+
+- Users can only see their own subscription/payment records.
+- Admin/super_admin can see all records via admin endpoints.
+- Normal users are blocked from admin routes via `RoleProtectedRoute` and admin APIs via `EnsureAdminRole`.
+- Backend calculates amounts from `plan_id` and does not trust frontend price values.
+- No fake successful payments are created.
+
+### Verification
+
+- `npm.cmd run build` passed.
+- `php -l` passed for updated billing/admin PHP files.
+- `php artisan route:list --path=billing`, `--path=admin/subscriptions`, and `--path=admin/payments` confirmed the APIs exist.
+- `php artisan migrate` applied `2026_06_25_000004_normalize_subscriptions_for_user_billing`.
+
 ## 2026-06-22
 
 ### Changed
 
-- **Complete Dashboard UI/UX Redesign** — All authenticated dashboard pages and components redesigned to premium SaaS quality.
-
-#### Layout & Navigation
-- `DashboardLayout.tsx` — Updated background, text colors, and spacing for modern SaaS feel.
-- `Sidebar.tsx` — Complete redesign with dark navy theme (`bg-slate-900`), indigo accent colors, professional lucide-react icons per menu item (`LayoutDashboard`, `BarChart3`, `Users`, `Activity`, `Mail`, `Settings`, `UserCircle`), improved active state with indigo glow, cleaner user section, and backdrop blur overlay on mobile.
-- `DashboardNavbar.tsx` — Polished sticky header with backdrop blur, page title with breadcrumb-style label, user avatar with initials + email display, improved profile dropdown with divider, and smoother transitions.
-
-#### Reusable Components
-- `Card.tsx` — Updated to `rounded-xl` with softer shadow `shadow-slate-200/50`.
-- `Button.tsx` — Changed accent from cyan to indigo, added `transition-all duration-150` for smoother hover effects.
-- `Input.tsx` — Updated focus ring to indigo, added `transition-all duration-150`.
-- `StatsCard.tsx` — Redesigned with larger icons (h-12 w-12), `rounded-xl` icon containers, `text-2xl font-bold` values, optional trend indicators (up/down/neutral), and additional color variants.
-- `PageHeader.tsx` — Updated with indigo eyebrow color, `font-bold tracking-tight` titles, and improved spacing.
-- `EmptyState.tsx` — Updated to `rounded-xl` with `bg-slate-50/50`, larger icon container (h-14 w-14), and `text-base` title.
-
-#### Dashboard Pages
-- `DashboardPage.tsx` — Premium redesign with icon-labeled card headers, better stat cards with `BadgeCheck`, `UserCircle`, `Shield` icons, improved account status card with `LayoutDashboard` icon, quick actions card with indigo hover effects, and recent activity section.
-- `ProfilePage.tsx` — Premium gradient avatar (`from-indigo-500 to-indigo-600`), better spacing, icon-labeled card headers (`UserCircle`, `Lock`), improved success/error message styling, and `BadgeCheck` icon for confirmation messages.
-- `SettingsPage.tsx` — Updated toggle switches with proper `role="switch"`, indigo accent color for active toggles, improved toggle animation, and icon-labeled card headers.
-- `AdminPage.tsx` — Migrated to use `StatsCard` component with proper `title` prop, improved loading skeletons, better empty/error states, and consistent table styling with `px-6 py-3.5` padding.
-- `ActivityLogsPage.tsx` — Improved filter labels with consistent `text-sm font-medium`, indigo focus on selects/inputs, better table styling with uppercase tracking-wider headers, and improved pagination.
-- `ContactMessagesPage.tsx` — Premium modal design with backdrop blur, improved delete confirmation with icon, consistent table styling, and indigo accent colors.
-- `UsersPage.tsx` — Consistent filter/table styling, better dropdown styling, and improved user management experience.
-- `UserDetailPage.tsx` — Icon-labeled card headers, premium info cards, consistent form styling, and improved success/error feedback.
-
-### Design System
-- **Colors**: Switched from cyan/teal to indigo/blue accent palette for a more professional SaaS look.
-- **Typography**: Consistent `font-bold tracking-tight` for page titles, `font-semibold` for card titles, `text-xs uppercase tracking-wider` for labels.
-- **Spacing**: Improved card padding (`px-6 py-5`), table cell padding (`px-6 py-4`), and section gaps (`gap-5`, `gap-6`).
-- **Borders & Shadows**: Cards use `rounded-xl` with `shadow-sm shadow-slate-200/50` for subtle depth.
-- **Transitions**: Added `transition-all duration-150` to interactive elements for smooth hover/focus effects.
-
-### Verification
-- `npm run build` passed successfully with zero errors.
-
-## 2026-06-19
-
-### Added
-
-- **Backend: AnalyticsController** (`backend/app/Http/Controllers/Admin/AnalyticsController.php`)
-  - New `GET /api/admin/analytics` endpoint protected by `auth:sanctum` and `admin` middleware.
-  - Returns real database metrics: total/verified/unverified users, new users this month, contact messages total/new, activity log count.
-  - Returns recent 5 users (safe fields only: id, name, email, role, email_verified_at, created_at).
-  - Returns recent 10 activity logs with user info.
-  - Returns contact message summary (new, read, replied).
-  - Efficient counts using `count()`, no loading all records into memory.
-
-- **Frontend: Admin Analytics Dashboard** (`frontend/src/pages/Dashboard/AdminPage.tsx`)
-  - Fully replaced placeholder admin page with real analytics dashboard.
-  - Stats cards for 7 metrics with color-coded variants.
-  - Recent users table (name, email, role, verified status, joined date).
-  - Recent activity table (action, user, date with description).
-  - Contact message summary (new, read, replied counts).
-  - Loading state with animated skeleton placeholders.
-  - Error state with retry button.
-  - Empty state when no data is available.
-  - Responsive Tailwind CSS layout matching existing dashboard design.
-
-- **Frontend: Types** (`frontend/src/types/admin-analytics.types.ts`)
-  - TypeScript interfaces for `AdminAnalyticsStats`, `RecentUser`, `RecentActivityItem`, `ContactSummary`, `AdminAnalyticsResponse`.
-
-- **Frontend: Service** (`frontend/src/services/admin-analytics.service.ts`)
-  - `adminAnalyticsService.get()` calling `GET /api/admin/analytics`.
-
-### Changed
-
-- `backend/routes/api.php` — Added route for `GET /api/admin/analytics` inside the `auth:sanctum` + `admin` middleware group.
-- `PROGRESS.md` — Moved admin analytics from Pending to Done.
-
-### Security
-
-- `EnsureAdminRole` middleware protects the analytics endpoint — normal users receive 403.
-- No sensitive data exposed: passwords, tokens, reset tokens, remember tokens, SMTP values are never returned.
-- Safe user fields only: id, name, email, role, email_verified_at, created_at.
-
-### Verification
-
-- `php artisan route:list` confirmed `GET|HEAD api/admin/analytics` is registered under `Admin\AnalyticsController@index`.
-- TypeScript compilation passed with `npx tsc --noEmit`.
-
-## 2026-06-18
-
-### Added
-
-- Added root project checkpoint documentation.
-- Added `PROGRESS.md` with Done, In Progress, Pending, Blocked, and Next Recommended Step sections.
-- Added `ROADMAP.md` with the requested future implementation order.
-- Added `API_ENDPOINTS.md` with backend API routes, frontend routes, and missing route notes.
-- Added root `.env.example` reference template.
-
-### Changed
-
-- Updated root `README.md` to reflect the current inspected Laravel + React status.
-
-### Verification
-
-- `npm run build` was attempted and blocked by local PowerShell execution policy for `npm.ps1`.
-- `npm.cmd run build` passed.
-- `php artisan route:list` passed and showed 18 routes including framework routes.
-- `php artisan migrate:status` passed and showed all default app migrations as run.
-
-### Needs Verification
-
-- Tenant migration status per tenant database.
-- End-to-end Stripe subscription flow.
-- Tenant routes/UI and subscription routes/UI, because scaffolded code exists but no routes are registered.
-- Activity logging usage beyond model/trait scaffolding.
+- **Complete Dashboard UI/UX Redesign** - all authenticated dashboard pages and components redesigned to premium SaaS quality.

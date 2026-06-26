@@ -1,6 +1,21 @@
-import { Activity, BarChart3, LayoutDashboard, LogOut, Mail, Rocket, Settings, Star, UserCircle, Users, X } from 'lucide-react';
+import {
+  Activity,
+  BadgeCheck,
+  BarChart3,
+  CreditCard,
+  LayoutDashboard,
+  LogOut,
+  Mail,
+  Package,
+  ReceiptText,
+  Rocket,
+  Settings,
+  UserCircle,
+  Users,
+  X,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import type { UserRole } from '../../types/auth.types';
 import { cn } from '../../utils/cn';
@@ -15,14 +30,25 @@ interface NavigationItem {
   to: string;
   icon: LucideIcon;
   end?: boolean;
+  matchPaths?: string[];
+  nested?: boolean;
   roles?: UserRole[];
 }
 
 const mainNavItems: NavigationItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, end: true },
-  { label: 'Analytics', to: '/dashboard/admin', icon: BarChart3, roles: ['admin', 'super_admin'] },
-  { label: 'Plans', to: '/dashboard/plans', icon: Star, roles: ['admin', 'super_admin'] },
-  { label: 'Users', to: '/dashboard/users', icon: Users, roles: ['admin', 'super_admin'] },
+  { label: 'Billing', to: '/dashboard/billing', icon: CreditCard, nested: true },
+  {
+    label: 'Analytics',
+    to: '/dashboard/admin',
+    icon: BarChart3,
+    matchPaths: ['/dashboard/admin', '/dashboard/admin/analytics'],
+    roles: ['admin', 'super_admin'],
+  },
+  { label: 'Subscriptions', to: '/dashboard/admin/subscriptions', icon: BadgeCheck, nested: true, roles: ['admin', 'super_admin'] },
+  { label: 'Payments', to: '/dashboard/admin/payments', icon: ReceiptText, roles: ['admin', 'super_admin'] },
+  { label: 'Plans', to: '/dashboard/plans', icon: Package, roles: ['admin', 'super_admin'] },
+  { label: 'Users', to: '/dashboard/users', icon: Users, nested: true, roles: ['admin', 'super_admin'] },
   { label: 'Activity Logs', to: '/dashboard/activity-logs', icon: Activity, roles: ['admin', 'super_admin'] },
   { label: 'Contact Messages', to: '/dashboard/contact-messages', icon: Mail, roles: ['admin', 'super_admin'] },
 ];
@@ -45,8 +71,36 @@ function getInitials(name?: string) {
     .join('');
 }
 
+function isNavigationItemActive(item: NavigationItem, pathname: string) {
+  if (item.matchPaths?.includes(pathname)) {
+    return true;
+  }
+
+  if (item.end) {
+    return pathname === item.to;
+  }
+
+  if (item.nested) {
+    return pathname === item.to || pathname.startsWith(`${item.to}/`);
+  }
+
+  return pathname === item.to;
+}
+
+function getRoleLabel(role?: UserRole) {
+  switch (role) {
+    case 'super_admin':
+      return 'Super admin';
+    case 'admin':
+      return 'Admin';
+    default:
+      return 'Member';
+  }
+}
+
 export default function Sidebar({ onClose, open }: SidebarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout, user } = useAuth();
 
   const handleLogout = async () => {
@@ -68,15 +122,15 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-72 transform flex-col bg-slate-900 transition duration-200 ease-out lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex w-72 transform flex-col bg-slate-950 transition duration-200 ease-out lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-slate-800 px-5">
           <Link to="/dashboard" className="flex items-center gap-3" onClick={onClose}>
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500 text-white shadow-lg shadow-indigo-500/25">
-              <Rocket className="h-5 w-5" aria-hidden="true" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500 text-white shadow-lg shadow-indigo-950/30">
+              <Rocket className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
             </span>
             <span>
               <span className="block text-base font-semibold text-white">LaunchPad</span>
@@ -95,31 +149,36 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Dashboard navigation">
+        <nav className="sidebar-scrollbar flex-1 overflow-y-auto scroll-smooth px-3 py-4" aria-label="Dashboard navigation">
           <div className="space-y-1">
             {mainNavItems
               .filter((item) => !item.roles || item.roles.includes(user?.role ?? 'user'))
               .map((item) => {
                 const Icon = item.icon;
+                const isActive = isNavigationItemActive(item, location.pathname);
 
                 return (
-                  <NavLink
+                  <Link
                     key={item.to}
                     to={item.to}
-                    end={item.end}
                     onClick={onClose}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-all duration-150',
-                        isActive
-                          ? 'bg-indigo-500/10 text-indigo-400 shadow-sm'
-                          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
-                      )
-                    }
+                    aria-current={isActive ? 'page' : undefined}
+                    className={cn(
+                      'group relative flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/50',
+                      isActive
+                        ? 'bg-white/[0.07] text-white shadow-sm'
+                        : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100',
+                    )}
                   >
-                    <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <span
+                      className={cn(
+                        'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-indigo-400 transition-opacity duration-200',
+                        isActive ? 'opacity-100' : 'opacity-0',
+                      )}
+                    />
+                    <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} aria-hidden="true" />
                     <span>{item.label}</span>
-                  </NavLink>
+                  </Link>
                 );
               })}
           </div>
@@ -129,24 +188,30 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
             <div className="space-y-1">
               {accountNavItems.map((item) => {
                 const Icon = item.icon;
+                const isActive = isNavigationItemActive(item, location.pathname);
 
                 return (
-                  <NavLink
+                  <Link
                     key={item.to}
                     to={item.to}
                     onClick={onClose}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-all duration-150',
-                        isActive
-                          ? 'bg-indigo-500/10 text-indigo-400 shadow-sm'
-                          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
-                      )
-                    }
+                    aria-current={isActive ? 'page' : undefined}
+                    className={cn(
+                      'group relative flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/50',
+                      isActive
+                        ? 'bg-white/[0.07] text-white shadow-sm'
+                        : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100',
+                    )}
                   >
-                    <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <span
+                      className={cn(
+                        'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-indigo-400 transition-opacity duration-200',
+                        isActive ? 'opacity-100' : 'opacity-0',
+                      )}
+                    />
+                    <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} aria-hidden="true" />
                     <span>{item.label}</span>
-                  </NavLink>
+                  </Link>
                 );
               })}
             </div>
@@ -160,7 +225,12 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
               {getInitials(user?.name)}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-200">{user?.name}</p>
+              <div className="flex min-w-0 items-center gap-2">
+                <p className="truncate text-sm font-semibold text-slate-200">{user?.name}</p>
+                <span className="shrink-0 rounded-md border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  {getRoleLabel(user?.role)}
+                </span>
+              </div>
               <p className="truncate text-xs text-slate-500">{user?.email}</p>
             </div>
           </div>

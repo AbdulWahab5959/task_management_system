@@ -11,6 +11,13 @@ interface DashboardNavbarProps {
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/dashboard/admin': 'Analytics',
+  '/dashboard/admin/analytics': 'Analytics',
+  '/dashboard/admin/subscriptions': 'Subscriptions',
+  '/dashboard/admin/payments': 'Payments',
+  '/dashboard/billing': 'Billing',
+  '/dashboard/billing/checkout': 'Checkout',
+  '/dashboard/billing/success': 'Billing',
+  '/dashboard/billing/cancel': 'Billing',
   '/dashboard/contact-messages': 'Contact Messages',
   '/dashboard/users': 'Users',
   '/dashboard/profile': 'Profile',
@@ -23,7 +30,22 @@ function getPageTitle(pathname: string) {
     return 'User Details';
   }
 
+  if (pathname.startsWith('/dashboard/billing/checkout/')) {
+    return 'Checkout';
+  }
+
   return pageTitles[pathname] ?? 'Dashboard';
+}
+
+function getRoleLabel(role?: string) {
+  switch (role) {
+    case 'super_admin':
+      return 'Super admin';
+    case 'admin':
+      return 'Admin';
+    default:
+      return 'Member';
+  }
 }
 
 function getInitials(name?: string) {
@@ -156,7 +178,12 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
                 </span>
               )}
               <span className="hidden min-w-0 sm:block">
-                <span className="block max-w-36 truncate text-sm font-semibold text-slate-900">{user?.name}</span>
+                <span className="flex max-w-44 items-center gap-2">
+                  <span className="truncate text-sm font-semibold text-slate-900">{user?.name}</span>
+                  <span className="hidden shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 md:inline-flex">
+                    {getRoleLabel(user?.role)}
+                  </span>
+                </span>
                 <span className="block max-w-36 truncate text-xs text-slate-500">{user?.email}</span>
               </span>
               <ChevronDown
@@ -194,7 +221,12 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
                     </span>
                   )}
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-900">{user?.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-slate-900">{user?.name}</p>
+                      <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                        {getRoleLabel(user?.role)}
+                      </span>
+                    </div>
                     <p className="truncate text-sm text-slate-500">{user?.email}</p>
                   </div>
                 </div>

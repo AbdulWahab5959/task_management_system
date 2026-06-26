@@ -76,6 +76,10 @@ class PlanSeeder extends Seeder
         ];
 
         foreach ($plans as $plan) {
+            $existingPlan = Plan::query()
+                ->where('slug', $plan['slug'])
+                ->first();
+
             Plan::updateOrCreate(
                 ['slug' => $plan['slug']],
                 [
@@ -85,7 +89,7 @@ class PlanSeeder extends Seeder
                     'amount_minor' => $plan['amount_minor'],
                     'currency' => $plan['currency'],
                     'billing_interval' => $plan['billing_interval'],
-                    'stripe_price_id' => null,
+                    'stripe_price_id' => $existingPlan?->stripe_price_id,
                     'is_active' => true,
                     'features' => $plan['features'],
                     'metadata' => $plan['metadata'],

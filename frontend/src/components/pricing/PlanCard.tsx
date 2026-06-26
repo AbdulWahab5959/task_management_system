@@ -1,6 +1,8 @@
 import { ArrowRight, Check, Loader2, ShieldCheck } from 'lucide-react';
 import { useId, useState } from 'react';
-import { createCheckout } from '../../services/payment.service';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import { createCheckoutSession, createStripeCheckoutSession } from '../../services/billing.service';
 import {
   getPaymentErrorMessage,
   logPaymentError,
@@ -45,6 +47,8 @@ export default function PlanCard({
   features = [],
   isPopular = false,
 }: PlanCardProps) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const errorId = useId();
@@ -53,18 +57,46 @@ export default function PlanCard({
     setLoading(true);
     setError('');
 
-    try {
-      const checkout = await createCheckout({
-        plan_id: plan.id,
-        gateway: 'stripe',
-      });
+    // Not logged in: redirect to login with redirect param
+    if (!user) {
+      const amount = Number.parseFloat(plan.amount);
+      if (amount === 0) {
+        navigate('/register');
+      } else {
+        navigate(`/login?redirect=/pricing&plan_id=${plan.id}`);
+      }
+      setLoading(false);
+      return;
+    }
 
-      window.location.assign(checkout.checkout_url);
+    const amount = Number.parseFloat(plan.amount);
+    // Free plan
+    if (amount === 0) {
+      try {
+        await createCheckoutSession(plan.id);
+        navigate('/dashboard/billing');
+      } catch (checkoutError) {
+        logPaymentError(checkoutError);
+        setError(getPaymentErrorMessage(checkoutError));
+      }
+      setLoading(false);
+      return;
+    }
+
+    // Paid plan - create Stripe Checkout Session
+    try {
+      const response = await createStripeCheckoutSession(plan.id);
+      if (response.checkout_url) {
+        window.location.assign(response.checkout_url);
+        return;
+      }
+      setError('Could not start checkout. Please try again.');
     } catch (checkoutError) {
       logPaymentError(checkoutError);
       setError(getPaymentErrorMessage(checkoutError));
-      setLoading(false);
     }
+
+    setLoading(false);
   };
 
   return (

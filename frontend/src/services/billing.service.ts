@@ -1,0 +1,107 @@
+import { api } from './api';
+
+export interface BillingPlan {
+  id: number;
+  name: string;
+  description?: string;
+  amount: string;
+  price: string;
+  currency: string;
+  interval: string | null;
+  billing_interval: string | null;
+  features: string[];
+  is_popular?: boolean;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface CurrentSubscription {
+  id: number;
+  plan_id: number;
+  status: string;
+  gateway?: string;
+  trial_ends_at?: string;
+  starts_at?: string;
+  ends_at?: string;
+  current_period_start?: string;
+  current_period_end?: string;
+  cancelled_at?: string;
+  created_at: string;
+  plan?: {
+    id: number;
+    name: string;
+    description?: string;
+    price: string;
+    interval: string;
+    features: string[];
+    is_active: boolean;
+  };
+}
+
+export interface PaymentRecord {
+  id: number;
+  reference?: string;
+  gateway?: string;
+  amount: string;
+  currency: string;
+  status: string;
+  paid_at?: string;
+  created_at: string;
+  plan?: {
+    id: number;
+    name: string;
+  } | null;
+}
+
+export interface CurrentBillingResponse {
+  subscription: CurrentSubscription | null;
+  current_plan: BillingPlan | null;
+  payment_history: PaymentRecord[];
+}
+
+export interface CheckoutResponse {
+  payment_reference: string;
+  checkout_url: string | null;
+  message?: string;
+}
+
+export interface StripeCheckoutResponse {
+  checkout_url: string;
+  session_id: string;
+  payment_reference: string;
+}
+
+export async function getCurrentBilling(): Promise<CurrentBillingResponse> {
+  const response = await api.get<CurrentBillingResponse>('/billing/current');
+  return response.data;
+}
+
+export async function getBillingPlans(): Promise<{ data: BillingPlan[] }> {
+  const response = await api.get<{ data: BillingPlan[] }>('/billing/plans');
+  return response.data;
+}
+
+export async function createCheckoutSession(planId: number, gateway = 'manual'): Promise<CheckoutResponse> {
+  const response = await api.post<CheckoutResponse>('/billing/checkout', {
+    plan_id: planId,
+    gateway,
+  });
+  return response.data;
+}
+
+export async function createStripeCheckoutSession(planId: number): Promise<StripeCheckoutResponse> {
+  const response = await api.post<StripeCheckoutResponse>('/billing/stripe/checkout', {
+    plan_id: planId,
+  });
+  return response.data;
+}
+
+export async function cancelUserSubscription(): Promise<{ message: string }> {
+  const response = await api.post<{ message: string }>('/billing/cancel');
+  return response.data;
+}
+
+export async function getPaymentHistory(): Promise<{ data: PaymentRecord[]; links: Record<string, string>; meta: Record<string, unknown> }> {
+  const response = await api.get('/billing/payments');
+  return response.data;
+}

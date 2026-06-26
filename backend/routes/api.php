@@ -4,7 +4,9 @@ use App\Http\Controllers\Admin\ActivityLogController as AdminActivityLogControll
 use App\Http\Controllers\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Admin\ContactMessageController as AdminContactMessageController;
 use App\Http\Controllers\Admin\PlanController as AdminPlanController;
+use App\Http\Controllers\Admin\SubscriptionController as AdminSubscriptionController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PlanController;
 use App\Http\Controllers\Api\StripeWebhookController;
@@ -26,6 +28,18 @@ Route::post('/stripe/webhook', StripeWebhookController::class);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/payments/checkout', [PaymentController::class, 'checkout']);
     Route::get('/payments/{reference}', [PaymentController::class, 'show']);
+
+    // Billing routes for authenticated users
+    Route::prefix('billing')->group(function () {
+        Route::get('/current', [BillingController::class, 'getCurrentSubscription']);
+        Route::get('/plans', [BillingController::class, 'getPlans']);
+        Route::post('/checkout', [BillingController::class, 'checkout']);
+        Route::post('/cancel', [BillingController::class, 'cancelSubscription']);
+        Route::get('/payments', [BillingController::class, 'getPaymentHistory']);
+    });
+
+    // Stripe Checkout route
+    Route::post('/billing/stripe/checkout', [App\Http\Controllers\Api\StripeCheckoutController::class, 'createSession']);
 });
 
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
@@ -49,6 +63,15 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::put('/users/{user}', [AdminUserController::class, 'update']);
     Route::put('/users/{user}/status', [AdminUserController::class, 'updateStatus']);
     Route::put('/users/{user}/role', [AdminUserController::class, 'updateRole']);
+
+    // Admin subscription routes
+    Route::prefix('subscriptions')->group(function () {
+        Route::get('/', [AdminSubscriptionController::class, 'index']);
+        Route::get('/{subscription}', [AdminSubscriptionController::class, 'show']);
+    });
+
+    // Admin payments route
+    Route::get('/payments', [AdminSubscriptionController::class, 'getPayments']);
 });
 
 Route::prefix('auth')->group(function () {

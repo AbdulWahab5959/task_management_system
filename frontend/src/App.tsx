@@ -16,6 +16,12 @@ import ContactMessagesPage from './pages/Dashboard/ContactMessagesPage';
 import PlansPage from './pages/Dashboard/PlansPage';
 import UsersPage from './pages/Dashboard/UsersPage';
 import UserDetailPage from './pages/Dashboard/UserDetailPage';
+import BillingPage from './pages/Dashboard/BillingPage';
+import CheckoutPage from './pages/Dashboard/CheckoutPage';
+import BillingSuccessPage from './pages/Dashboard/BillingSuccessPage';
+import BillingCancelPage from './pages/Dashboard/BillingCancelPage';
+import AdminSubscriptionsPage from './pages/Dashboard/AdminSubscriptionsPage';
+import AdminPaymentsPage from './pages/Dashboard/AdminPaymentsPage';
 import EmailVerificationRequiredPage from './pages/EmailVerificationRequiredPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -55,11 +61,31 @@ function App() {
           }
         >
           <Route index element={<DashboardPage />} />
+          <Route path="billing" element={<BillingPage />} />
+          <Route path="billing/checkout/:planId" element={<CheckoutPage />} />
+          <Route path="billing/success" element={<BillingSuccessPage />} />
+          <Route path="billing/cancel" element={<BillingCancelPage />} />
           <Route
             path="admin"
             element={
               <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
                 <AdminPage />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="admin/subscriptions"
+            element={
+              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+                <AdminSubscriptionsPage />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="admin/payments"
+            element={
+              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+                <AdminPaymentsPage />
               </RoleProtectedRoute>
             }
           />

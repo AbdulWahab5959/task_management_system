@@ -8,16 +8,28 @@ use App\Models\Subscription;
 use App\Models\WebhookEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Stripe\Exception\SignatureVerificationException;
+use Stripe\Stripe;
 use Stripe\StripeObject;
+use Stripe\Subscription as StripeSubscriptionResource;
 use Stripe\Webhook;
 use Throwable;
 use UnexpectedValueException;
 
 class StripeWebhookController extends Controller
 {
+    private const REPROCESSABLE_EVENT_TYPES = [
+        'checkout.session.completed',
+        'customer.subscription.created',
+        'customer.subscription.updated',
+        'customer.subscription.deleted',
+        'invoice.payment_succeeded',
+        'invoice.payment_failed',
+    ];
+
     public function __invoke(Request $request): JsonResponse
     {
         $payload = $request->getContent();
@@ -50,8 +62,17 @@ class StripeWebhookController extends Controller
                     ->lockForUpdate()
                     ->first();
 
-                if ($webhookEvent?->processed_at) {
+                $alreadyProcessed = (bool) $webhookEvent?->processed_at;
+
+                if ($alreadyProcessed && ! in_array($event->type, self::REPROCESSABLE_EVENT_TYPES, true)) {
                     return 'duplicate';
+                }
+
+                if ($alreadyProcessed) {
+                    Log::info('Reprocessing duplicate Stripe webhook idempotently.', [
+                        'event_id' => $event->id,
+                        'event_type' => $event->type,
+                    ]);
                 }
 
                 if (! $webhookEvent) {
@@ -85,7 +106,7 @@ class StripeWebhookController extends Controller
                     throw $exception;
                 }
 
-                return 'processed';
+                return $alreadyProcessed ? 'reprocessed' : 'processed';
             });
         } catch (Throwable $exception) {
             Log::error('Stripe webhook processing failed.', [
@@ -105,6 +126,11 @@ class StripeWebhookController extends Controller
         match ($eventType) {
             'checkout.session.completed' => $this->handleCheckoutSessionCompleted($object),
             'checkout.session.expired' => $this->handleCheckoutSessionExpired($object),
+            'invoice.payment_succeeded' => $this->handleInvoicePaymentSucceeded($object),
+            'invoice.payment_failed' => $this->handleInvoicePaymentFailed($object),
+            'customer.subscription.created' => $this->handleCustomerSubscriptionCreated($object),
+            'customer.subscription.updated' => $this->handleCustomerSubscriptionUpdated($object),
+            'customer.subscription.deleted' => $this->handleCustomerSubscriptionDeleted($object),
             'payment_intent.payment_failed' => $this->handlePaymentIntentFailed($object),
             default => null,
         };
@@ -112,22 +138,88 @@ class StripeWebhookController extends Controller
 
     private function handleCheckoutSessionCompleted(StripeObject $session): void
     {
-        $payment = $this->paymentFromCheckoutSession($session);
+        $sessionId = $this->stringValue($session, 'id');
+        $sessionStatus = $this->stringValue($session, 'status');
+        $paymentStatus = $this->stringValue($session, 'payment_status');
+        $metadataPaymentId = $this->metadataValue($session, 'payment_id');
+        $clientReference = $this->stringValue($session, 'client_reference_id');
+        $metadataReference = $this->metadataValue($session, 'reference');
+        $stripeSubscriptionId = $this->stringValue($session, 'subscription');
+        $paymentIntentId = $this->stringValue($session, 'payment_intent');
 
-        if ($payment->status === Payment::STATUS_PAID) {
+        Log::info('Stripe checkout.session.completed received.', [
+            'session_id' => $sessionId,
+            'payment_id' => $metadataPaymentId,
+            'client_reference_id' => $clientReference,
+            'metadata_reference' => $metadataReference,
+            'session_status' => $sessionStatus,
+            'payment_status' => $paymentStatus,
+            'subscription' => $stripeSubscriptionId,
+        ]);
+
+        if ($sessionStatus !== 'complete' || $paymentStatus !== 'paid') {
+            Log::info('Stripe checkout.session.completed ignored because the session is not complete and paid.', [
+                'session_id' => $sessionId,
+                'session_status' => $sessionStatus,
+                'payment_status' => $paymentStatus,
+            ]);
+
             return;
         }
 
-        $providerPaymentId = $this->stringValue($session, 'payment_intent')
-            ?? $this->stringValue($session, 'subscription');
+        [$payment, $matchedBy] = $this->findPaymentForCheckoutSession(
+            $metadataPaymentId,
+            $clientReference,
+            $metadataReference,
+            $sessionId,
+        );
+
+        if (! $payment) {
+            Log::warning('Payment not found for Stripe checkout.session.completed.', [
+                'session_id' => $sessionId,
+                'payment_id' => $metadataPaymentId,
+                'client_reference_id' => $clientReference,
+                'metadata_reference' => $metadataReference,
+            ]);
+
+            return;
+        }
+
+        Log::info('Payment matched for Stripe checkout.session.completed.', [
+            'payment_id' => $payment->id,
+            'payment_reference' => $payment->reference,
+            'matched_by' => $matchedBy,
+            'session_id' => $sessionId,
+        ]);
+
+        if ($payment->status === Payment::STATUS_PAID) {
+            Log::info('Payment is already paid for Stripe checkout.session.completed.', [
+                'payment_id' => $payment->id,
+                'payment_reference' => $payment->reference,
+                'session_id' => $sessionId,
+            ]);
+
+            $this->activateSubscriptionForPayment($payment, $session);
+
+            return;
+        }
+
+        $providerPaymentId = $paymentIntentId ?? $stripeSubscriptionId;
 
         $payment->update([
             'status' => Payment::STATUS_PAID,
-            'provider_session_id' => $this->stringValue($session, 'id') ?? $payment->provider_session_id,
+            'provider_session_id' => $sessionId ?? $payment->provider_session_id,
             'provider_payment_id' => $providerPaymentId,
             'raw_provider_status' => $this->rawProviderStatus($session, 'checkout.session.completed'),
             'failure_reason' => null,
             'paid_at' => now(),
+        ]);
+
+        Log::info('Payment marked paid from Stripe checkout.session.completed.', [
+            'payment_id' => $payment->id,
+            'payment_reference' => $payment->reference,
+            'provider_payment_id' => $providerPaymentId,
+            'session_id' => $sessionId,
         ]);
 
         $this->activateSubscriptionForPayment($payment, $session);
@@ -135,9 +227,12 @@ class StripeWebhookController extends Controller
 
     private function handleCheckoutSessionExpired(StripeObject $session): void
     {
-        $payment = $this->paymentFromCheckoutSession($session);
+        $payment = Payment::query()
+            ->where('provider_session_id', $this->stringValue($session, 'id'))
+            ->lockForUpdate()
+            ->first();
 
-        if ($payment->status !== Payment::STATUS_PENDING) {
+        if (! $payment || $payment->status !== Payment::STATUS_PENDING) {
             return;
         }
 
@@ -145,6 +240,105 @@ class StripeWebhookController extends Controller
             'status' => Payment::STATUS_EXPIRED,
             'provider_session_id' => $this->stringValue($session, 'id') ?? $payment->provider_session_id,
             'raw_provider_status' => $this->rawProviderStatus($session, 'checkout.session.expired'),
+        ]);
+    }
+
+    private function handleInvoicePaymentSucceeded(StripeObject $invoice): void
+    {
+        $subscriptionId = $this->stringValue($invoice, 'subscription');
+        if (! $subscriptionId) {
+            return;
+        }
+
+        $subscription = $this->findLocalSubscriptionByStripeSubscriptionId($subscriptionId);
+        $stripeSubscription = $this->retrieveStripeSubscription($subscriptionId);
+
+        if ($stripeSubscription) {
+            $this->syncSubscriptionFromStripeObject($stripeSubscription, $subscription);
+            $subscription = $this->findLocalSubscriptionByStripeSubscriptionId($subscriptionId) ?? $subscription;
+        } elseif ($subscription) {
+            $subscription->update(['status' => 'active']);
+        }
+
+        if ($subscription) {
+            $this->upsertInvoicePayment($invoice, $subscription);
+        } else {
+            Log::warning('Stripe invoice.payment_succeeded could not find a local subscription.', [
+                'stripe_subscription_id' => $subscriptionId,
+                'invoice_id' => $this->stringValue($invoice, 'id'),
+            ]);
+        }
+    }
+
+    private function handleInvoicePaymentFailed(StripeObject $invoice): void
+    {
+        $subscriptionId = $this->stringValue($invoice, 'subscription');
+        if (! $subscriptionId) {
+            return;
+        }
+
+        $subscription = $this->findLocalSubscriptionByStripeSubscriptionId($subscriptionId);
+        $stripeSubscription = $this->retrieveStripeSubscription($subscriptionId);
+
+        if ($stripeSubscription) {
+            $this->syncSubscriptionFromStripeObject($stripeSubscription, $subscription);
+            $subscription = $this->findLocalSubscriptionByStripeSubscriptionId($subscriptionId) ?? $subscription;
+        }
+
+        if ($subscription) {
+            $subscription->update([
+                'status' => 'past_due',
+            ]);
+        } else {
+            Log::warning('Stripe invoice.payment_failed could not find a local subscription.', [
+                'stripe_subscription_id' => $subscriptionId,
+                'invoice_id' => $this->stringValue($invoice, 'id'),
+            ]);
+        }
+    }
+
+    private function handleCustomerSubscriptionCreated(StripeObject $stripeSubscription): void
+    {
+        $this->syncSubscriptionFromStripeObject($stripeSubscription);
+    }
+
+    private function handleCustomerSubscriptionUpdated(StripeObject $stripeSubscription): void
+    {
+        $this->syncSubscriptionFromStripeObject($stripeSubscription);
+    }
+
+    private function handleCustomerSubscriptionDeleted(StripeObject $stripeSubscription): void
+    {
+        $stripeSubscriptionId = $this->stringValue($stripeSubscription, 'id');
+        if (! $stripeSubscriptionId) {
+            return;
+        }
+
+        $subscription = $this->findLocalSubscriptionByStripeSubscriptionId($stripeSubscriptionId);
+
+        if (! $subscription) {
+            Log::warning('Stripe customer.subscription.deleted could not find a local subscription.', [
+                'stripe_subscription_id' => $stripeSubscriptionId,
+            ]);
+
+            return;
+        }
+
+        $this->syncSubscriptionFromStripeObject($stripeSubscription, $subscription);
+
+        [, $deletedPeriodEnd] = $this->getStripeSubscriptionPeriod($stripeSubscription);
+
+        $subscription->refresh()->update([
+            'status' => 'cancelled',
+            'cancelled_at' => $this->stripeTimestampToDateTime($stripeSubscription->canceled_at ?? null) ?? now(),
+            'ends_at' => $this->stripeTimestampToDateTime($stripeSubscription->ended_at ?? null)
+                ?? $this->stripeTimestampToDateTime($deletedPeriodEnd)
+                ?? now(),
+        ]);
+
+        Log::info('Stripe subscription deletion synced.', [
+            'stripe_subscription_id' => $stripeSubscriptionId,
+            'local_subscription_id' => $subscription->id,
         ]);
     }
 
@@ -173,60 +367,407 @@ class StripeWebhookController extends Controller
         ]);
     }
 
-    private function paymentFromCheckoutSession(StripeObject $session): Payment
-    {
-        $reference = $this->stringValue($session, 'client_reference_id')
-            ?? $this->metadataValue($session, 'reference');
-
-        if (! $reference) {
-            throw new \RuntimeException('Stripe checkout session is missing the internal payment reference.');
-        }
-
-        return Payment::query()
-            ->where('reference', $reference)
-            ->lockForUpdate()
-            ->firstOrFail();
-    }
-
     private function activateSubscriptionForPayment(Payment $payment, StripeObject $session): void
     {
-        $subscriptionId = $this->stringValue($session, 'subscription');
+        $stripeSubscriptionId = $this->stringValue($session, 'subscription');
         $customerId = $this->stringValue($session, 'customer');
+        $metadata = $session->metadata ?? null;
 
-        if (! $subscriptionId || ! $customerId) {
-            return;
-        }
-
-        $user = $payment->user;
-        $tenant = $user?->ownedTenants()->orderBy('id')->first()
-            ?? $user?->tenants()->orderBy('tenants.id')->first();
-
-        if (! $tenant) {
-            Log::info('Stripe payment was paid but no tenant exists for subscription activation.', [
+        if (! $stripeSubscriptionId) {
+            Log::warning('Cannot activate subscription: Stripe checkout session has no subscription id.', [
                 'payment_id' => $payment->id,
-                'user_id' => $payment->user_id,
+                'payment_reference' => $payment->reference,
+                'session_id' => $this->stringValue($session, 'id'),
             ]);
 
             return;
         }
 
-        Subscription::updateOrCreate(
-            ['stripe_subscription_id' => $subscriptionId],
-            [
-                'tenant_id' => $tenant->id,
-                'plan_id' => $payment->plan_id,
+        // Get user_id from metadata
+        $userId = null;
+        if ($metadata instanceof StripeObject) {
+            $userId = $this->stringValue($metadata, 'user_id');
+        } elseif (is_array($metadata)) {
+            $userId = $metadata['user_id'] ?? null;
+        }
+
+        if (! $userId) {
+            $userId = $payment->user_id;
+        }
+
+        if (! $userId) {
+            Log::warning('Cannot activate subscription: no user_id found', [
+                'payment_id' => $payment->id,
+            ]);
+
+            return;
+        }
+
+        $subscription = null;
+
+        if ($payment->subscription_id) {
+            $subscription = Subscription::query()
+                ->whereKey($payment->subscription_id)
+                ->lockForUpdate()
+                ->first();
+        }
+
+        if (! $subscription) {
+            $subscription = Subscription::query()
+                ->where(function ($query) use ($stripeSubscriptionId): void {
+                    $query->where('stripe_subscription_id', $stripeSubscriptionId)
+                        ->orWhere('gateway_subscription_id', $stripeSubscriptionId);
+                })
+                ->lockForUpdate()
+                ->first();
+        }
+
+        if (! $subscription) {
+            $subscription = Subscription::firstOrNew(
+                ['stripe_subscription_id' => $stripeSubscriptionId],
+                ['user_id' => $userId, 'plan_id' => $payment->plan_id]
+            );
+        }
+
+        $stripeSubscription = $this->retrieveStripeSubscription($stripeSubscriptionId);
+
+        $subscription->fill([
+            'user_id' => $userId,
+            'plan_id' => $payment->plan_id ?: $subscription->plan_id,
+        ]);
+
+        if ($stripeSubscription) {
+            $this->syncSubscriptionFromStripeObject($stripeSubscription, $subscription);
+        } else {
+            $subscription->fill([
                 'stripe_customer_id' => $customerId,
+                'gateway_subscription_id' => $stripeSubscriptionId,
+                'stripe_subscription_id' => $stripeSubscriptionId,
+                'gateway' => 'stripe',
                 'status' => 'active',
-                'trial_ends_at' => null,
-                'cancelled_at' => null,
+                'starts_at' => $subscription->starts_at ?: now(),
+            ])->save();
+
+            Log::info('Subscription marked active from Stripe checkout.session.completed without period sync.', [
+                'subscription_id' => $subscription->id,
+                'payment_id' => $payment->id,
+                'stripe_subscription_id' => $stripeSubscriptionId,
+                'stripe_customer_id' => $customerId,
+            ]);
+        }
+
+        if (! $payment->subscription_id) {
+            $payment->update(['subscription_id' => $subscription->id]);
+        }
+    }
+
+    /**
+     * @return array{0: ?Payment, 1: ?string}
+     */
+    private function findPaymentForCheckoutSession(
+        ?string $metadataPaymentId,
+        ?string $clientReference,
+        ?string $metadataReference,
+        ?string $sessionId,
+    ): array {
+        if ($metadataPaymentId && ctype_digit($metadataPaymentId)) {
+            $payment = Payment::query()
+                ->whereKey($metadataPaymentId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($payment) {
+                return [$payment, 'metadata.payment_id'];
+            }
+        }
+
+        if ($clientReference) {
+            $payment = Payment::query()
+                ->where('reference', $clientReference)
+                ->lockForUpdate()
+                ->first();
+
+            if ($payment) {
+                return [$payment, 'client_reference_id'];
+            }
+        }
+
+        if ($metadataReference) {
+            $payment = Payment::query()
+                ->where('reference', $metadataReference)
+                ->lockForUpdate()
+                ->first();
+
+            if ($payment) {
+                return [$payment, 'metadata.reference'];
+            }
+        }
+
+        if ($sessionId) {
+            $payment = Payment::query()
+                ->where('provider_session_id', $sessionId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($payment) {
+                return [$payment, 'provider_session_id'];
+            }
+        }
+
+        return [null, null];
+    }
+
+    private function syncSubscriptionFromStripeObject($stripeSubscription, ?Subscription $localSubscription = null): void
+    {
+        if (! $stripeSubscription instanceof StripeObject) {
+            Log::warning('Stripe subscription sync skipped because payload is not a Stripe object.');
+
+            return;
+        }
+
+        $stripeSubscriptionId = $this->stringValue($stripeSubscription, 'id');
+
+        if (! $stripeSubscriptionId) {
+            Log::warning('Stripe subscription sync skipped because subscription id is missing.');
+
+            return;
+        }
+
+        $localSubscription ??= $this->findLocalSubscriptionForStripeObject($stripeSubscription);
+
+        if (! $localSubscription) {
+            Log::warning('Stripe subscription cannot be synced because no local subscription was found.', [
+                'stripe_subscription_id' => $stripeSubscriptionId,
+                'metadata_user_id' => $this->metadataValue($stripeSubscription, 'user_id'),
+                'metadata_plan_id' => $this->metadataValue($stripeSubscription, 'plan_id'),
+            ]);
+
+            return;
+        }
+
+        [$currentPeriodStartTimestamp, $currentPeriodEndTimestamp] = $this->getStripeSubscriptionPeriod($stripeSubscription);
+        $currentPeriodStart = $this->stripeTimestampToDateTime($currentPeriodStartTimestamp);
+        $currentPeriodEnd = $this->stripeTimestampToDateTime($currentPeriodEndTimestamp);
+        $trialEndsAt = $this->stripeTimestampToDateTime($stripeSubscription->trial_end ?? null);
+        $cancelledAt = $this->stripeTimestampToDateTime($stripeSubscription->canceled_at ?? null);
+        $endsAt = $this->subscriptionEndsAt($stripeSubscription, $currentPeriodEnd);
+        $metadataUserId = $this->metadataValue($stripeSubscription, 'user_id');
+        $metadataPlanId = $this->metadataValue($stripeSubscription, 'plan_id');
+
+        $updateData = [
+            'gateway' => 'stripe',
+            'gateway_subscription_id' => $stripeSubscriptionId,
+            'stripe_subscription_id' => $stripeSubscriptionId,
+            'stripe_customer_id' => $this->stringValue($stripeSubscription, 'customer') ?? $localSubscription->stripe_customer_id,
+            'status' => $this->localSubscriptionStatus($this->stringValue($stripeSubscription, 'status'), $localSubscription),
+            'starts_at' => $currentPeriodStart
+                ?? $this->stripeTimestampToDateTime($stripeSubscription->start_date ?? null)
+                ?? $localSubscription->starts_at
+                ?? now(),
+            'current_period_start' => $currentPeriodStart,
+            'current_period_end' => $currentPeriodEnd,
+            'trial_ends_at' => $trialEndsAt,
+            'cancelled_at' => $cancelledAt,
+            'ends_at' => $endsAt,
+        ];
+
+        if (! $localSubscription->user_id && $metadataUserId && ctype_digit($metadataUserId)) {
+            $updateData['user_id'] = (int) $metadataUserId;
+        }
+
+        if (! $localSubscription->plan_id && $metadataPlanId && ctype_digit($metadataPlanId)) {
+            $updateData['plan_id'] = (int) $metadataPlanId;
+        }
+
+        $localSubscription->fill($updateData)->save();
+
+        Log::info('Stripe subscription period sync', [
+            'stripe_subscription_id' => $stripeSubscriptionId,
+            'local_subscription_id' => $localSubscription->id,
+            'current_period_start_timestamp' => $currentPeriodStartTimestamp,
+            'current_period_end_timestamp' => $currentPeriodEndTimestamp,
+            'current_period_start_date' => $this->stripeTimestampToDateTime($currentPeriodStartTimestamp)?->toDateTimeString(),
+            'current_period_end_date' => $this->stripeTimestampToDateTime($currentPeriodEndTimestamp)?->toDateTimeString(),
+        ]);
+
+        Log::info('Stripe subscription synced.', [
+            'stripe_subscription_id' => $stripeSubscriptionId,
+            'local_subscription_id' => $localSubscription->id,
+            'status' => $localSubscription->status,
+            'current_period_start' => $localSubscription->current_period_start?->toISOString(),
+            'current_period_end' => $localSubscription->current_period_end?->toISOString(),
+        ]);
+    }
+
+    private function findLocalSubscriptionForStripeObject(StripeObject $stripeSubscription): ?Subscription
+    {
+        $stripeSubscriptionId = $this->stringValue($stripeSubscription, 'id');
+        $subscription = $this->findLocalSubscriptionByStripeSubscriptionId($stripeSubscriptionId);
+
+        if ($subscription) {
+            return $subscription;
+        }
+
+        $metadataUserId = $this->metadataValue($stripeSubscription, 'user_id');
+        $metadataPlanId = $this->metadataValue($stripeSubscription, 'plan_id');
+
+        if ($metadataUserId && $metadataPlanId && ctype_digit($metadataUserId) && ctype_digit($metadataPlanId)) {
+            $subscription = Subscription::query()
+                ->where('user_id', (int) $metadataUserId)
+                ->where('plan_id', (int) $metadataPlanId)
+                ->where('gateway', 'stripe')
+                ->where('status', 'pending')
+                ->whereNull('stripe_subscription_id')
+                ->whereNull('gateway_subscription_id')
+                ->latest()
+                ->lockForUpdate()
+                ->first();
+
+            if ($subscription) {
+                return $subscription;
+            }
+
+            if ($stripeSubscriptionId) {
+                return Subscription::firstOrNew(
+                    ['stripe_subscription_id' => $stripeSubscriptionId],
+                    [
+                        'user_id' => (int) $metadataUserId,
+                        'plan_id' => (int) $metadataPlanId,
+                        'gateway' => 'stripe',
+                    ],
+                );
+            }
+        }
+
+        return null;
+    }
+
+    private function findLocalSubscriptionByStripeSubscriptionId(?string $stripeSubscriptionId): ?Subscription
+    {
+        if (! $stripeSubscriptionId) {
+            return null;
+        }
+
+        return Subscription::query()
+            ->where(function ($query) use ($stripeSubscriptionId): void {
+                $query->where('stripe_subscription_id', $stripeSubscriptionId)
+                    ->orWhere('gateway_subscription_id', $stripeSubscriptionId);
+            })
+            ->lockForUpdate()
+            ->first();
+    }
+
+    private function retrieveStripeSubscription(?string $stripeSubscriptionId): ?StripeObject
+    {
+        if (! $stripeSubscriptionId) {
+            return null;
+        }
+
+        $stripeSecret = config('services.stripe.secret');
+
+        if (! is_string($stripeSecret) || trim($stripeSecret) === '') {
+            return null;
+        }
+
+        try {
+            Stripe::setApiKey($stripeSecret);
+
+            return StripeSubscriptionResource::retrieve($stripeSubscriptionId);
+        } catch (Throwable $exception) {
+            Log::warning('Unable to retrieve Stripe subscription.', [
+                'stripe_subscription_id' => $stripeSubscriptionId,
+                'exception' => $exception->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function upsertInvoicePayment(StripeObject $invoice, Subscription $subscription): void
+    {
+        $amount = (($this->floatValue($invoice, 'amount_paid') ?? 0.0) / 100);
+
+        if ($amount <= 0) {
+            return;
+        }
+
+        $invoiceId = $this->stringValue($invoice, 'id');
+        $paymentIntent = $this->stringValue($invoice, 'payment_intent');
+        $reference = $invoiceId ?: ($paymentIntent ? 'in_'.$paymentIntent : null);
+
+        if (! $reference) {
+            return;
+        }
+
+        Payment::updateOrCreate(
+            ['reference' => $reference],
+            [
+                'user_id' => $subscription->user_id,
+                'subscription_id' => $subscription->id,
+                'plan_id' => $subscription->plan_id,
+                'gateway' => 'stripe',
+                'provider_payment_id' => $paymentIntent ?? $invoiceId,
+                'amount' => $amount,
+                'currency' => strtoupper($this->stringValue($invoice, 'currency') ?? 'usd'),
+                'status' => Payment::STATUS_PAID,
+                'raw_provider_status' => $this->rawProviderStatus($invoice, 'invoice.payment_succeeded'),
+                'paid_at' => now(),
             ],
         );
+    }
 
-        $tenant->update([
-            'plan_id' => $payment->plan_id,
-            'status' => 'active',
-            'trial_ends_at' => null,
-        ]);
+    private function localSubscriptionStatus(?string $stripeStatus, Subscription $localSubscription): string
+    {
+        return match ($stripeStatus) {
+            'active' => 'active',
+            'past_due' => 'past_due',
+            'canceled' => 'cancelled',
+            'incomplete' => 'pending',
+            'incomplete_expired' => 'expired',
+            'trialing' => 'trialing',
+            'paused' => 'paused',
+            'unpaid' => 'unpaid',
+            default => $localSubscription->status ?: 'active',
+        };
+    }
+
+    private function subscriptionEndsAt(StripeObject $stripeSubscription, ?Carbon $currentPeriodEnd): ?Carbon
+    {
+        $cancelAt = $this->stripeTimestampToDateTime($stripeSubscription->cancel_at ?? null);
+        if ($cancelAt) {
+            return $cancelAt;
+        }
+
+        $cancelledAt = $this->stripeTimestampToDateTime($stripeSubscription->canceled_at ?? null);
+        if ($cancelledAt) {
+            return $cancelledAt;
+        }
+
+        $endedAt = $this->stripeTimestampToDateTime($stripeSubscription->ended_at ?? null);
+        if ($endedAt) {
+            return $endedAt;
+        }
+
+        if (in_array($this->stringValue($stripeSubscription, 'status'), ['canceled', 'incomplete_expired', 'unpaid'], true)) {
+            return $currentPeriodEnd;
+        }
+
+        return null;
+    }
+
+    private function getStripeSubscriptionPeriod($stripeSubscription): array
+    {
+        $currentPeriodStart = $stripeSubscription->current_period_start ?? null;
+        $currentPeriodEnd = $stripeSubscription->current_period_end ?? null;
+
+        if ((! $currentPeriodStart || ! $currentPeriodEnd) && isset($stripeSubscription->items->data[0])) {
+            $item = $stripeSubscription->items->data[0];
+
+            $currentPeriodStart = $currentPeriodStart ?: ($item->current_period_start ?? null);
+            $currentPeriodEnd = $currentPeriodEnd ?: ($item->current_period_end ?? null);
+        }
+
+        return [$currentPeriodStart, $currentPeriodEnd];
     }
 
     private function stringValue(StripeObject $object, string $key): ?string
@@ -237,7 +778,43 @@ class StripeWebhookController extends Controller
             return null;
         }
 
+        if ($value instanceof StripeObject) {
+            return $this->stringValue($value, 'id');
+        }
+
+        if (is_array($value) && isset($value['id'])) {
+            return (string) $value['id'];
+        }
+
         return (string) $value;
+    }
+
+    private function floatValue(StripeObject $object, string $key): ?float
+    {
+        $value = $object->{$key} ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        return (float) $value;
+    }
+
+    private function stripeTimestampToDateTime($timestamp): ?Carbon
+    {
+        if (empty($timestamp)) {
+            return null;
+        }
+
+        if ($timestamp instanceof Carbon) {
+            return $timestamp;
+        }
+
+        try {
+            return Carbon::createFromTimestamp((int) $timestamp);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function metadataValue(StripeObject $object, string $key): ?string
@@ -276,7 +853,12 @@ class StripeWebhookController extends Controller
             'event_type' => $eventType,
             'id' => $this->stringValue($object, 'id'),
             'status' => $this->stringValue($object, 'status'),
+            'session_status' => $this->stringValue($object, 'status'),
             'payment_status' => $this->stringValue($object, 'payment_status'),
+            'subscription' => $this->stringValue($object, 'subscription'),
+            'invoice' => $this->stringValue($object, 'invoice'),
+            'customer' => $this->stringValue($object, 'customer'),
+            'mode' => $this->stringValue($object, 'mode'),
         ], JSON_UNESCAPED_SLASHES) ?: '{}';
     }
 

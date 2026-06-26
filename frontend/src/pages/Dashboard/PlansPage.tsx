@@ -23,6 +23,7 @@ function PlanFormModal({ plan, onClose, onSave, saving }: PlanFormModalProps) {
   const [description, setDescription] = useState(plan?.description ?? '');
   const [price, setPrice] = useState(plan?.price ?? '0');
   const [interval, setInterval_] = useState<'month' | 'year'>(plan?.interval ?? 'month');
+  const [stripePriceId, setStripePriceId] = useState(plan?.stripe_price_id ?? '');
   const [featuresText, setFeaturesText] = useState((plan?.features ?? []).join('\n'));
   const [limitsText, setLimitsText] = useState(
     plan?.limits ? Object.entries(plan.limits).map(([k, v]) => `${k}: ${v}`).join('\n') : '',
@@ -73,6 +74,7 @@ function PlanFormModal({ plan, onClose, onSave, saving }: PlanFormModalProps) {
         description: description.trim(),
         price: Number(price),
         interval,
+        stripe_price_id: stripePriceId.trim() || null,
         features,
         limits,
         is_popular: isPopular,
@@ -195,6 +197,14 @@ function PlanFormModal({ plan, onClose, onSave, saving }: PlanFormModalProps) {
               onChange={(e) => setSortOrder(e.target.value)}
             />
           </div>
+
+          <Input
+            label="Stripe Price ID"
+            value={stripePriceId}
+            onChange={(e) => setStripePriceId(e.target.value)}
+            placeholder="price_..."
+            helperText="Required for paid plans to start Stripe Checkout."
+          />
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
@@ -501,6 +511,9 @@ export default function PlansPage() {
                         Interval
                       </th>
                       <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Stripe
+                      </th>
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Status
                       </th>
                       <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -536,6 +549,17 @@ export default function PlansPage() {
                           <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 capitalize">
                             {plan.interval}
                           </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {plan.stripe_price_id ? (
+                            <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                              Connected
+                            </span>
+                          ) : (
+                            <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                              Missing
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <span
