@@ -13,6 +13,7 @@ import {
   UserCircle,
   Users,
   X,
+  FlaskConical,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -56,6 +57,8 @@ const mainNavItems: NavigationItem[] = [
 const accountNavItems: NavigationItem[] = [
   { label: 'Settings', to: '/dashboard/settings', icon: Settings },
   { label: 'Profile', to: '/dashboard/profile', icon: UserCircle },
+  { label: 'WebMCP Test', to: '/dashboard/webmcp-test', icon: FlaskConical },
+
 ];
 
 function getInitials(name?: string) {

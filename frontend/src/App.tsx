@@ -19,6 +19,8 @@ import UserDetailPage from './pages/Dashboard/UserDetailPage';
 import BillingPage from './pages/Dashboard/BillingPage';
 import CheckoutPage from './pages/Dashboard/CheckoutPage';
 import BillingSuccessPage from './pages/Dashboard/BillingSuccessPage';
+import WebMcpTestPage from './pages/Dashboard/WebMcpTestPage';
+
 import BillingCancelPage from './pages/Dashboard/BillingCancelPage';
 import AdminSubscriptionsPage from './pages/Dashboard/AdminSubscriptionsPage';
 import AdminPaymentsPage from './pages/Dashboard/AdminPaymentsPage';
@@ -130,6 +132,8 @@ function App() {
             }
           />
           <Route path="profile" element={<ProfilePage />} />
+          <Route path="webmcp-test" element={<WebMcpTestPage />} />
+
           <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
