@@ -24,6 +24,7 @@ class Subscription extends Model
         'current_period_start',
         'current_period_end',
         'cancelled_at',
+        'cancel_at_period_end',
     ];
 
     protected $casts = [

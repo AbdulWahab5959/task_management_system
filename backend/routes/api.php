@@ -35,6 +35,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/plans', [BillingController::class, 'getPlans']);
         Route::post('/checkout', [BillingController::class, 'checkout']);
         Route::post('/cancel', [BillingController::class, 'cancelSubscription']);
+        Route::post('/cancel-now', [BillingController::class, 'cancelNow']);
         Route::get('/payments', [BillingController::class, 'getPaymentHistory']);
     });
 
@@ -68,10 +69,12 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::prefix('subscriptions')->group(function () {
         Route::get('/', [AdminSubscriptionController::class, 'index']);
         Route::get('/{subscription}', [AdminSubscriptionController::class, 'show']);
+        Route::post('/{subscription}/cancel-now', [\App\Http\Controllers\Admin\SubscriptionActionController::class, 'cancelNow']);
     });
 
     // Admin payments route
     Route::get('/payments', [AdminSubscriptionController::class, 'getPayments']);
+    Route::post('/payments/{payment}/refund', [\App\Http\Controllers\Admin\PaymentActionController::class, 'refund']);
 });
 
 Route::prefix('auth')->group(function () {

@@ -21,6 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import EmptyState from '../../components/dashboard/EmptyState';
 import PageHeader from '../../components/dashboard/PageHeader';
 import {
+  cancelNowUserSubscription,
   cancelUserSubscription,
   getBillingPlans,
   getCurrentBilling,
@@ -119,8 +120,18 @@ function isCancellingAtPeriodEnd(subscription?: CurrentSubscription | null): boo
   return Boolean(
     subscription
       && ['active', 'trialing'].includes(subscription.status)
-      && subscription.cancelled_at
+      && (subscription.cancel_at_period_end || subscription.cancelled_at)
       && periodEndFor(subscription),
+  );
+}
+
+function wasCancelledImmediately(subscription?: CurrentSubscription | null): boolean {
+  return Boolean(
+    subscription
+      && subscription.status === 'cancelled'
+      && subscription.ends_at
+      && subscription.cancelled_at
+      && subscription.ends_at === subscription.cancelled_at,
   );
 }
 
@@ -131,6 +142,17 @@ function getSubscriptionIdentity(subscription?: CurrentSubscription | null, curr
       description: 'No paid subscription is active.',
       tone: 'border-slate-200 bg-slate-50 text-slate-700',
       icon: <Circle className="h-3.5 w-3.5" aria-hidden="true" />,
+    };
+  }
+
+  if (wasCancelledImmediately(subscription)) {
+    return {
+      label: 'Cancelled Immediately',
+      description: subscription.cancelled_at
+        ? `Cancelled on ${formatDate(subscription.cancelled_at)}`
+        : 'Subscription was cancelled immediately.',
+      tone: 'border-rose-200 bg-rose-50 text-rose-700',
+      icon: <XCircle className="h-3.5 w-3.5" aria-hidden="true" />,
     };
   }
 
@@ -226,6 +248,7 @@ export default function BillingPage() {
   const [error, setError] = useState('');
   const [cancelling, setCancelling] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelNowModalOpen, setCancelNowModalOpen] = useState(false);
   const [cancelError, setCancelError] = useState('');
 
   const loadData = useCallback(async () => {
@@ -246,10 +269,13 @@ export default function BillingPage() {
   }, []);
 
   useEffect(() => {
-    void loadData();
+    const fetchData = async () => {
+      await loadData();
+    };
+    fetchData();
   }, [loadData]);
 
-  const handleConfirmCancel = async () => {
+  const handleConfirmCancelAtPeriodEnd = async () => {
     setCancelling(true);
     setCancelError('');
     try {
@@ -258,6 +284,20 @@ export default function BillingPage() {
       await loadData();
     } catch {
       setCancelError('We could not cancel your subscription. Please try again.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleConfirmCancelNow = async () => {
+    setCancelling(true);
+    setCancelError('');
+    try {
+      await cancelNowUserSubscription();
+      setCancelNowModalOpen(false);
+      await loadData();
+    } catch {
+      setCancelError('We could not cancel your subscription immediately. Please try again.');
     } finally {
       setCancelling(false);
     }
@@ -308,6 +348,8 @@ export default function BillingPage() {
   const hasActiveSubscription = Boolean(subscription && ['active', 'trialing'].includes(subscription.status));
   const periodEnd = periodEndFor(subscription);
   const identity = getSubscriptionIdentity(subscription, currentPlan);
+  const isCancelScheduled = isCancellingAtPeriodEnd(subscription);
+  const isImmediateCancel = wasCancelledImmediately(subscription);
 
   return (
     <>
@@ -344,18 +386,47 @@ export default function BillingPage() {
                 </a>
               ) : null}
 
-              {hasActiveSubscription ? (
+              {hasActiveSubscription && !isCancelScheduled ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCancelError('');
+                      setCancelModalOpen(true);
+                    }}
+                    disabled={cancelling}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Clock className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
+                    Cancel at Period End
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCancelError('');
+                      setCancelNowModalOpen(true);
+                    }}
+                    disabled={cancelling}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-rose-200 bg-white px-3.5 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <XCircle className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
+                    Cancel Immediately
+                  </button>
+                </>
+              ) : null}
+
+              {hasActiveSubscription && isCancelScheduled ? (
                 <button
                   type="button"
                   onClick={() => {
                     setCancelError('');
-                    setCancelModalOpen(true);
+                    setCancelNowModalOpen(true);
                   }}
                   disabled={cancelling}
                   className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-rose-200 bg-white px-3.5 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <XCircle className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
-                  Cancel Subscription
+                  Cancel Immediately
                 </button>
               ) : null}
             </div>
@@ -383,7 +454,9 @@ export default function BillingPage() {
                 <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(subscription.starts_at || subscription.current_period_start)}</p>
               </div>
               <div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Period end</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {isImmediateCancel ? 'Access ended on' : isCancelScheduled ? 'Access ends on' : 'Period end'}
+                </p>
                 <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(periodEnd)}</p>
               </div>
             </div>
@@ -402,13 +475,29 @@ export default function BillingPage() {
             </div>
           )}
 
-          {subscription?.status === 'cancelled' ? (
+          {isImmediateCancel && subscription ? (
+            <div className="mt-5 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+              <XCircle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.9} aria-hidden="true" />
+              <div>
+                <p className="font-semibold">Cancelled Immediately</p>
+                <p className="mt-0.5 text-rose-700">
+                  Cancelled on {formatDate(subscription.cancelled_at)}. Access ended on {formatDate(subscription.ends_at)}.
+                </p>
+                {(subscription.current_period_start && subscription.current_period_end) ? (
+                  <p className="mt-0.5 text-rose-600">
+                    Original billing period: {formatDate(subscription.current_period_start)} – {formatDate(subscription.current_period_end)}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {isCancelScheduled && !isImmediateCancel ? (
             <div className="mt-5 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.9} aria-hidden="true" />
               <p>
-                {periodEnd
-                  ? `This subscription is cancelled. Billing records show access through ${formatDate(periodEnd)}.`
-                  : `This subscription was cancelled on ${formatDate(subscription.cancelled_at)}.`}
+                Your subscription is scheduled to cancel on {formatDate(periodEnd)}.
+                You will have access until that date.
               </p>
             </div>
           ) : null}
@@ -535,38 +624,38 @@ export default function BillingPage() {
                 description="Your payment history will appear here after the first transaction."
               />
             ) : (
-              <div className="overflow-hidden rounded-xl border border-slate-200">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200">
-                    <thead className="bg-slate-50">
+              <div className="dashboard-table-shell">
+                <div className="dashboard-table-scroll">
+                  <table className="dashboard-table">
+                    <thead>
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Reference</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Plan</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Amount</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Date</th>
+                        <th>Reference</th>
+                        <th>Plan</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Date</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
+                    <tbody>
                       {paymentHistory.map((payment) => (
-                        <tr key={payment.id} className="transition hover:bg-slate-50/80">
-                          <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-slate-900">
+                        <tr key={payment.id}>
+                          <td className="whitespace-nowrap text-sm font-medium text-slate-900">
                             {payment.reference ? (
                               <span className="font-mono text-xs text-slate-700">{payment.reference}</span>
                             ) : (
                               <span className="text-slate-400">Not set</span>
                             )}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-700">
+                          <td className="whitespace-nowrap text-sm text-slate-700">
                             {payment.plan?.name ?? <span className="text-slate-400">Not set</span>}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-4 text-sm font-semibold text-slate-900">
+                          <td className="whitespace-nowrap text-sm font-bold text-slate-950">
                             {formatAmount(payment.amount, payment.currency)}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-4">
+                          <td className="whitespace-nowrap">
                             <PaymentStatusBadge status={payment.status} />
                           </td>
-                          <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600">
+                          <td className="whitespace-nowrap text-sm text-slate-600">
                             {formatDate(payment.paid_at || payment.created_at)}
                           </td>
                         </tr>
@@ -580,20 +669,21 @@ export default function BillingPage() {
         </Card>
       </div>
 
+      {/* Cancel at Period End Modal */}
       {cancelModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
           <div role="dialog" aria-modal="true" aria-labelledby="cancel-subscription-title" className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-950/20">
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-100">
                   <AlertTriangle className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
                 </div>
                 <div>
-                  <h2 id="cancel-subscription-title" className="text-base font-semibold text-slate-950">Cancel subscription</h2>
+                  <h2 id="cancel-subscription-title" className="text-base font-semibold text-slate-950">Cancel subscription at period end?</h2>
                   <p className="mt-1 text-sm leading-6 text-slate-500">
                     {periodEnd
-                      ? `Your subscription will remain active until ${formatDate(periodEnd)}.`
-                      : 'Your subscription cancellation will be recorded now.'}
+                      ? `Your subscription will remain active until ${formatDate(periodEnd)}. Keep access until then.`
+                      : 'Your subscription cancellation will be scheduled.'}
                   </p>
                 </div>
               </div>
@@ -628,12 +718,93 @@ export default function BillingPage() {
               </button>
               <button
                 type="button"
-                onClick={() => void handleConfirmCancel()}
+                onClick={() => void handleConfirmCancelAtPeriodEnd()}
+                disabled={cancelling}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 text-sm font-semibold text-white transition hover:bg-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {cancelling ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Clock className="h-4 w-4" aria-hidden="true" />}
+                {cancelling ? 'Cancelling...' : 'Cancel at Period End'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Cancel Immediately Modal */}
+      {cancelNowModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="cancel-now-title" className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-950/20">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100">
+                  <AlertTriangle className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
+                </div>
+                <div>
+                  <h2 id="cancel-now-title" className="text-base font-semibold text-slate-950">Cancel subscription immediately?</h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    This will cancel your subscription now and your access will end immediately. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Close immediate cancellation modal"
+                onClick={() => setCancelNowModalOpen(false)}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="space-y-3 px-6 py-4">
+              {currentPlan ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500">Plan</span>
+                    <span className="font-semibold text-slate-900">{currentPlan.name}</span>
+                  </div>
+                  {subscription?.current_period_start && subscription?.current_period_end ? (
+                    <div className="mt-2 flex items-center justify-between text-sm">
+                      <span className="text-slate-500">Current billing period</span>
+                      <span className="font-semibold text-slate-900">
+                        {formatDate(subscription.current_period_start)} – {formatDate(subscription.current_period_end)}
+                      </span>
+                    </div>
+                  ) : null}
+                  <div className="mt-2 flex items-center justify-between text-sm">
+                    <span className="text-slate-500">Access will end</span>
+                    <span className="font-semibold text-rose-700">Today</span>
+                  </div>
+                </div>
+              ) : null}
+
+              {cancelError ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                  {cancelError}
+                </div>
+              ) : null}
+
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-800">
+                <strong>Warning:</strong> This action cannot be undone. Your access will end immediately. No refund will be issued automatically.
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setCancelNowModalOpen(false)}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
+              >
+                Keep Subscription
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmCancelNow()}
                 disabled={cancelling}
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white transition hover:bg-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {cancelling ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <XCircle className="h-4 w-4" aria-hidden="true" />}
-                {cancelling ? 'Cancelling...' : 'Cancel at Period End'}
+                {cancelling ? 'Cancelling...' : 'Cancel Immediately'}
               </button>
             </div>
           </div>

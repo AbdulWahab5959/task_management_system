@@ -25,6 +25,10 @@ interface PreviewSettings {
 const DECLARATIVE_TOOL_NAME = 'update-launchpad-preview-settings';
 const DECLARATIVE_TOOL_DESCRIPTION =
   'Updates harmless preview-only Launchpad UI settings for testing browser-native AI tool interaction.';
+const declarativeToolAttributes = {
+  toolname: DECLARATIVE_TOOL_NAME,
+  tooldescription: DECLARATIVE_TOOL_DESCRIPTION,
+} as Record<string, string>;
 
 const JS_TOOL_NAME = 'update-launchpad-preview-settings-js';
 const JS_TOOL_DESCRIPTION = 'JS-registered tool for updating harmless preview-only Launchpad UI settings.';
@@ -303,8 +307,7 @@ window.isSecureContext        → ${String(debugInfo.isSecureContext)}`}
         </CardHeader>
         <CardContent>
           <form
-            toolname={DECLARATIVE_TOOL_NAME}
-            tooldescription={DECLARATIVE_TOOL_DESCRIPTION}
+            {...declarativeToolAttributes}
             className="space-y-5"
             onSubmit={(e) => e.preventDefault()}
           >
@@ -375,5 +378,4 @@ window.isSecureContext        → ${String(debugInfo.isSecureContext)}`}
     </div>
   );
 }
-
 

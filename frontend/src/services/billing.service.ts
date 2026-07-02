@@ -26,6 +26,7 @@ export interface CurrentSubscription {
   current_period_start?: string;
   current_period_end?: string;
   cancelled_at?: string;
+  cancel_at_period_end?: boolean;
   created_at: string;
   plan?: {
     id: number;
@@ -96,8 +97,13 @@ export async function createStripeCheckoutSession(planId: number): Promise<Strip
   return response.data;
 }
 
-export async function cancelUserSubscription(): Promise<{ message: string }> {
-  const response = await api.post<{ message: string }>('/billing/cancel');
+export async function cancelUserSubscription(): Promise<{ message: string; subscription?: CurrentSubscription }> {
+  const response = await api.post<{ message: string; subscription?: CurrentSubscription }>('/billing/cancel');
+  return response.data;
+}
+
+export async function cancelNowUserSubscription(): Promise<{ message: string; subscription?: CurrentSubscription }> {
+  const response = await api.post<{ message: string; subscription?: CurrentSubscription }>('/billing/cancel-now');
   return response.data;
 }
 

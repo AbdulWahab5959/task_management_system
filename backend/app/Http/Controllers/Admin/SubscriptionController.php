@@ -19,6 +19,8 @@ class SubscriptionController extends Controller
         $status = $request->input('status');
         $gateway = $request->input('gateway');
         $planId = $request->input('plan_id');
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
 
         $query = DB::table('subscriptions')
             ->select([
@@ -36,6 +38,8 @@ class SubscriptionController extends Controller
                 'subscriptions.cancelled_at',
                 'subscriptions.created_at',
                 'subscriptions.updated_at',
+                'subscriptions.stripe_subscription_id',
+                'subscriptions.stripe_customer_id',
                 'tenants.name as tenant_name',
                 DB::raw('COALESCE(subscription_users.name, tenant_owners.name) as user_name'),
                 DB::raw('COALESCE(subscription_users.email, tenant_owners.email) as user_email'),
@@ -73,7 +77,25 @@ class SubscriptionController extends Controller
             $query->where('subscriptions.plan_id', $planId);
         }
 
+        if ($startDate) {
+            $query->whereDate('subscriptions.created_at', '>=', $startDate);
+        }
+
+        if ($endDate) {
+            $query->whereDate('subscriptions.created_at', '<=', $endDate);
+        }
+
         $subscriptions = $query->paginate($limit, ['*'], 'page', $page);
+
+        // Calculate summary stats
+        $totalSubscriptions = Subscription::query()->count();
+        $activeSubscriptions = Subscription::query()->where('status', 'active')->count();
+        $cancelledSubscriptions = Subscription::query()->where('status', 'cancelled')->count();
+        
+        // Get payment stats
+        $pendingPayments = Payment::query()->where('status', 'pending')->count();
+        $paidPayments = Payment::query()->where('status', 'paid')->count();
+        $totalPaidAmount = Payment::query()->where('status', 'paid')->sum('amount');
 
         return response()->json([
             'data' => $subscriptions->items(),
@@ -83,11 +105,13 @@ class SubscriptionController extends Controller
                 'total' => $subscriptions->total(),
                 'last_page' => $subscriptions->lastPage(),
             ],
-            'counts' => [
-                'total' => Subscription::query()->count(),
-                'active' => Subscription::query()->where('status', 'active')->count(),
-                'pending' => Subscription::query()->where('status', 'pending')->count(),
-                'cancelled' => Subscription::query()->where('status', 'cancelled')->count(),
+            'summary_stats' => [
+                'total_subscriptions' => $totalSubscriptions,
+                'active_subscriptions' => $activeSubscriptions,
+                'cancelled_subscriptions' => $cancelledSubscriptions,
+                'pending_payments' => $pendingPayments,
+                'paid_payments' => $paidPayments,
+                'total_paid_amount' => $totalPaidAmount,
             ],
         ]);
     }
@@ -160,15 +184,26 @@ class SubscriptionController extends Controller
         $search = trim((string) $request->input('search', ''));
         $status = $request->input('status');
         $gateway = $request->input('gateway');
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
         $userId = $request->input('user_id');
 
         $query = DB::table('payments')
             ->select([
-                'payments.*',
+                'payments.id',
+                'payments.user_id',
+                'payments.subscription_id',
+                'payments.plan_id',
+                'payments.gateway',
+                'payments.reference',
+                'payments.amount',
+                'payments.currency',
+                'payments.status',
+                'payments.paid_at',
+                'payments.created_at',
                 'users.name as user_name',
                 'users.email as user_email',
                 'plans.name as plan_name',
-                'plans.amount as plan_amount',
             ])
             ->leftJoin('users', 'payments.user_id', '=', 'users.id')
             ->leftJoin('plans', 'payments.plan_id', '=', 'plans.id')
@@ -196,6 +231,14 @@ class SubscriptionController extends Controller
             $query->where('payments.user_id', $userId);
         }
 
+        if ($startDate) {
+            $query->whereDate('payments.created_at', '>=', $startDate);
+        }
+
+        if ($endDate) {
+            $query->whereDate('payments.created_at', '<=', $endDate);
+        }
+
         $payments = $query->paginate($limit, ['*'], 'page', $page);
 
         return response()->json([
@@ -205,6 +248,13 @@ class SubscriptionController extends Controller
                 'per_page' => $payments->perPage(),
                 'total' => $payments->total(),
                 'last_page' => $payments->lastPage(),
+            ],
+            'summary_stats' => [
+                'total_payments' => Payment::query()->count(),
+                'pending_payments' => Payment::query()->where('status', 'pending')->count(),
+                'paid_payments' => Payment::query()->where('status', 'paid')->count(),
+                'failed_payments' => Payment::query()->where('status', 'failed')->count(),
+                'total_paid_amount' => Payment::query()->where('status', 'paid')->sum('amount'),
             ],
         ]);
     }

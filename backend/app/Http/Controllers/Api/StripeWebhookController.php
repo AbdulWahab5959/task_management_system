@@ -28,6 +28,9 @@ class StripeWebhookController extends Controller
         'customer.subscription.deleted',
         'invoice.payment_succeeded',
         'invoice.payment_failed',
+        'charge.refunded',
+        'refund.created',
+        'refund.updated',
     ];
 
     public function __invoke(Request $request): JsonResponse
@@ -132,6 +135,9 @@ class StripeWebhookController extends Controller
             'customer.subscription.updated' => $this->handleCustomerSubscriptionUpdated($object),
             'customer.subscription.deleted' => $this->handleCustomerSubscriptionDeleted($object),
             'payment_intent.payment_failed' => $this->handlePaymentIntentFailed($object),
+            'charge.refunded' => $this->handleChargeRefunded($object),
+            'refund.created' => $this->handleRefundCreated($object),
+            'refund.updated' => $this->handleRefundUpdated($object),
             default => null,
         };
     }
@@ -204,21 +210,32 @@ class StripeWebhookController extends Controller
             return;
         }
 
-        $providerPaymentId = $paymentIntentId ?? $stripeSubscriptionId;
-
-        $payment->update([
+        $updateData = [
             'status' => Payment::STATUS_PAID,
             'provider_session_id' => $sessionId ?? $payment->provider_session_id,
-            'provider_payment_id' => $providerPaymentId,
             'raw_provider_status' => $this->rawProviderStatus($session, 'checkout.session.completed'),
             'failure_reason' => null,
             'paid_at' => now(),
-        ]);
+        ];
+
+        // Store PaymentIntent ID (pi_...) as the refundable payment ID
+        if ($paymentIntentId && str_starts_with($paymentIntentId, 'pi_')) {
+            $updateData['provider_payment_intent_id'] = $paymentIntentId;
+            $updateData['provider_payment_id'] = $paymentIntentId;
+        }
+
+        // Store subscription ID separately - never use as refundable payment ID
+        if ($stripeSubscriptionId) {
+            $updateData['provider_payment_id'] = $updateData['provider_payment_id'] ?? $stripeSubscriptionId;
+        }
+
+        $payment->update($updateData);
 
         Log::info('Payment marked paid from Stripe checkout.session.completed.', [
             'payment_id' => $payment->id,
             'payment_reference' => $payment->reference,
-            'provider_payment_id' => $providerPaymentId,
+            'provider_payment_intent_id' => $paymentIntentId,
+            'provider_payment_id' => $payment->fresh()->provider_payment_id,
             'session_id' => $sessionId,
         ]);
 
@@ -365,6 +382,191 @@ class StripeWebhookController extends Controller
             'failure_reason' => $this->paymentIntentFailureMessage($paymentIntent),
             'raw_provider_status' => $this->rawProviderStatus($paymentIntent, 'payment_intent.payment_failed'),
         ]);
+    }
+
+    private function handleChargeRefunded(StripeObject $refund): void
+    {
+        $refundId = $this->stringValue($refund, 'id');
+        $paymentIntentId = $this->stringValue($refund, 'payment_intent');
+        $chargeId = $this->stringValue($refund, 'charge');
+        $amountRefunded = ($this->floatValue($refund, 'amount_refunded') ?? 0.0) / 100;
+        $status = $this->stringValue($refund, 'status');
+
+        Log::info('Stripe charge.refunded received.', [
+            'refund_id' => $refundId,
+            'payment_intent' => $paymentIntentId,
+            'charge_id' => $chargeId,
+            'amount_refunded' => $amountRefunded,
+            'status' => $status,
+        ]);
+
+        // Find payment by payment intent or charge ID
+        $payment = null;
+        if ($paymentIntentId) {
+            $payment = Payment::query()
+                ->where('provider_payment_id', $paymentIntentId)
+                ->orWhere('provider_payment_intent_id', $paymentIntentId)
+                ->lockForUpdate()
+                ->first();
+        }
+
+        if (! $payment && $chargeId) {
+            $payment = Payment::query()
+                ->where('provider_charge_id', $chargeId)
+                ->lockForUpdate()
+                ->first();
+        }
+
+        if (! $payment) {
+            Log::warning('Stripe charge.refunded could not find a local payment.', [
+                'refund_id' => $refundId,
+                'payment_intent' => $paymentIntentId,
+                'charge_id' => $chargeId,
+            ]);
+
+            return;
+        }
+
+        // Update payment refund status based on amount
+        $totalRefunded = (float) $payment->refunded_amount + $amountRefunded;
+        $isFullRefund = $totalRefunded >= (float) $payment->amount;
+
+        $payment->update([
+            'refunded_amount' => $totalRefunded,
+            'refund_status' => $isFullRefund ? 'refunded' : 'partially_refunded',
+            'status' => $isFullRefund ? Payment::STATUS_REFUNDED : Payment::STATUS_PARTIALLY_REFUNDED,
+        ]);
+
+        // Update or create refund record
+        if ($refundId) {
+            $existingRefund = \App\Models\Refund::query()
+                ->where('provider_refund_id', $refundId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existingRefund) {
+                $existingRefund->update([
+                    'status' => $status === 'succeeded' ? 'succeeded' : $status,
+                    'raw_response' => json_decode(json_encode($refund), true),
+                    'refunded_at' => $status === 'succeeded' ? now() : $existingRefund->refunded_at,
+                ]);
+            } else {
+                \App\Models\Refund::create([
+                    'payment_id' => $payment->id,
+                    'user_id' => $payment->user_id,
+                    'gateway' => 'stripe',
+                    'provider_refund_id' => $refundId,
+                    'provider_payment_id' => $paymentIntentId,
+                    'amount' => $amountRefunded,
+                    'currency' => $payment->currency,
+                    'status' => $status === 'succeeded' ? 'succeeded' : ($status ?? 'pending'),
+                    'raw_response' => json_decode(json_encode($refund), true),
+                    'refunded_at' => $status === 'succeeded' ? now() : null,
+                ]);
+            }
+        }
+
+        Log::info('Payment refund status updated from charge.refunded webhook.', [
+            'payment_id' => $payment->id,
+            'refunded_amount' => $payment->fresh()->refunded_amount,
+            'refund_status' => $payment->fresh()->refund_status,
+        ]);
+    }
+
+    private function handleRefundCreated(StripeObject $refund): void
+    {
+        $refundId = $this->stringValue($refund, 'id');
+        $paymentIntentId = $this->stringValue($refund, 'payment_intent');
+        $amount = ($this->floatValue($refund, 'amount') ?? 0.0) / 100;
+        $status = $this->stringValue($refund, 'status');
+
+        Log::info('Stripe refund.created received.', [
+            'refund_id' => $refundId,
+            'payment_intent' => $paymentIntentId,
+            'amount' => $amount,
+            'status' => $status,
+        ]);
+
+        if (! $paymentIntentId) {
+            return;
+        }
+
+        $payment = Payment::query()
+            ->where('provider_payment_id', $paymentIntentId)
+            ->orWhere('provider_payment_intent_id', $paymentIntentId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $payment) {
+            Log::warning('Stripe refund.created could not find a local payment.', [
+                'refund_id' => $refundId,
+                'payment_intent' => $paymentIntentId,
+            ]);
+
+            return;
+        }
+
+        // Check if refund record already exists
+        $existingRefund = \App\Models\Refund::query()
+            ->where('provider_refund_id', $refundId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $existingRefund) {
+            \App\Models\Refund::create([
+                'payment_id' => $payment->id,
+                'user_id' => $payment->user_id,
+                'gateway' => 'stripe',
+                'provider_refund_id' => $refundId,
+                'provider_payment_id' => $paymentIntentId,
+                'amount' => $amount,
+                'currency' => $payment->currency,
+                'status' => $status === 'succeeded' ? 'succeeded' : ($status ?? 'pending'),
+                'raw_response' => json_decode(json_encode($refund), true),
+                'refunded_at' => $status === 'succeeded' ? now() : null,
+            ]);
+        }
+    }
+
+    private function handleRefundUpdated(StripeObject $refund): void
+    {
+        $refundId = $this->stringValue($refund, 'id');
+        $status = $this->stringValue($refund, 'status');
+
+        if (! $refundId) {
+            return;
+        }
+
+        $existingRefund = \App\Models\Refund::query()
+            ->where('provider_refund_id', $refundId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $existingRefund) {
+            Log::warning('Stripe refund.updated could not find a local refund record.', [
+                'refund_id' => $refundId,
+            ]);
+
+            return;
+        }
+
+        $existingRefund->update([
+            'status' => $status === 'succeeded' ? 'succeeded' : ($status ?? $existingRefund->status),
+            'raw_response' => json_decode(json_encode($refund), true),
+            'refunded_at' => $status === 'succeeded' ? now() : $existingRefund->refunded_at,
+        ]);
+
+        // Also update the payment status
+        $payment = $existingRefund->payment;
+        if ($payment) {
+            $totalRefunded = (float) $payment->refunded_amount;
+            $isFullRefund = $totalRefunded >= (float) $payment->amount;
+
+            $payment->update([
+                'refund_status' => $isFullRefund ? 'refunded' : 'partially_refunded',
+                'status' => $isFullRefund ? Payment::STATUS_REFUNDED : Payment::STATUS_PARTIALLY_REFUNDED,
+            ]);
+        }
     }
 
     private function activateSubscriptionForPayment(Payment $payment, StripeObject $session): void
@@ -554,6 +756,11 @@ class StripeWebhookController extends Controller
         $metadataUserId = $this->metadataValue($stripeSubscription, 'user_id');
         $metadataPlanId = $this->metadataValue($stripeSubscription, 'plan_id');
 
+        $cancelAtPeriodEnd = $stripeSubscription->cancel_at_period_end ?? null;
+        if ($cancelAtPeriodEnd !== null) {
+            $cancelAtPeriodEnd = (bool) $cancelAtPeriodEnd;
+        }
+
         $updateData = [
             'gateway' => 'stripe',
             'gateway_subscription_id' => $stripeSubscriptionId,
@@ -569,6 +776,7 @@ class StripeWebhookController extends Controller
             'trial_ends_at' => $trialEndsAt,
             'cancelled_at' => $cancelledAt,
             'ends_at' => $endsAt,
+            'cancel_at_period_end' => $cancelAtPeriodEnd,
         ];
 
         if (! $localSubscription->user_id && $metadataUserId && ctype_digit($metadataUserId)) {
@@ -693,26 +901,46 @@ class StripeWebhookController extends Controller
 
         $invoiceId = $this->stringValue($invoice, 'id');
         $paymentIntent = $this->stringValue($invoice, 'payment_intent');
+        $chargeId = $this->stringValue($invoice, 'charge');
         $reference = $invoiceId ?: ($paymentIntent ? 'in_'.$paymentIntent : null);
 
         if (! $reference) {
             return;
         }
 
+        $updateData = [
+            'user_id' => $subscription->user_id,
+            'subscription_id' => $subscription->id,
+            'plan_id' => $subscription->plan_id,
+            'gateway' => 'stripe',
+            'amount' => $amount,
+            'currency' => strtoupper($this->stringValue($invoice, 'currency') ?? 'usd'),
+            'status' => Payment::STATUS_PAID,
+            'raw_provider_status' => $this->rawProviderStatus($invoice, 'invoice.payment_succeeded'),
+            'paid_at' => now(),
+        ];
+
+        // Store PaymentIntent ID (pi_...) as the refundable payment ID
+        if ($paymentIntent && str_starts_with($paymentIntent, 'pi_')) {
+            $updateData['provider_payment_intent_id'] = $paymentIntent;
+            $updateData['provider_payment_id'] = $paymentIntent;
+        } else {
+            $updateData['provider_payment_id'] = $paymentIntent ?? $invoiceId;
+        }
+
+        // Store charge ID if available
+        if ($chargeId && str_starts_with($chargeId, 'ch_')) {
+            $updateData['provider_charge_id'] = $chargeId;
+        }
+
+        // Store invoice ID
+        if ($invoiceId) {
+            $updateData['provider_invoice_id'] = $invoiceId;
+        }
+
         Payment::updateOrCreate(
             ['reference' => $reference],
-            [
-                'user_id' => $subscription->user_id,
-                'subscription_id' => $subscription->id,
-                'plan_id' => $subscription->plan_id,
-                'gateway' => 'stripe',
-                'provider_payment_id' => $paymentIntent ?? $invoiceId,
-                'amount' => $amount,
-                'currency' => strtoupper($this->stringValue($invoice, 'currency') ?? 'usd'),
-                'status' => Payment::STATUS_PAID,
-                'raw_provider_status' => $this->rawProviderStatus($invoice, 'invoice.payment_succeeded'),
-                'paid_at' => now(),
-            ],
+            $updateData,
         );
     }
 

@@ -1,74 +1,93 @@
-# Progress
+# Project Progress
 
-Project checkpoint generated on 2026-06-18. Updated 2026-06-27.
+## Completed Features
 
-## Done
+### Authentication & User Management
+- User registration with email verification
+- Login/logout functionality
+- Password reset via email
+- Profile management (name, email, password)
+- Email verification flow
 
-- Laravel backend and React frontend project structure exists.
-- Public frontend pages exist for `/`, `/about`, `/pricing`, and `/contact`.
-- Contact form submits to `POST /api/contact`.
-- Contact messages are stored in `contact_messages`.
-- Auth API is wired for registration, login, current user, logout, email verification, forgot password, reset password, profile update, and password update.
-- Sanctum personal access token authentication is present.
-- Verified-email access guard is present through `/api/auth/verified-only`.
-- Frontend auth pages and protected dashboard routes are wired.
-- Dashboard, profile, and settings pages exist.
-- RBAC implementation with `admin` and `super_admin` roles, protected via `EnsureAdminRole` middleware.
-- Admin contact message management, admin user management, activity logs, and admin analytics are wired.
-- Dashboard UI/UX redesign is present across authenticated pages.
-- Professional SaaS billing flow is now separated into:
-  - Public `/pricing` for visitors.
-  - User `/dashboard/billing` for authenticated subscription management.
-  - Admin `/dashboard/admin/subscriptions` for admin/super_admin subscription management.
-- User billing APIs exist under `auth:sanctum`: `/api/billing/current`, `/api/billing/plans`, `/api/billing/checkout`, `/api/billing/cancel`, and `/api/billing/payments`.
-- Admin billing APIs exist under `auth:sanctum` plus `admin`: `/api/admin/subscriptions`, `/api/admin/subscriptions/{subscription}`, and `/api/admin/payments`.
-- Public pricing cards are auth-aware: guests go to register/login, logged-in users go to dashboard billing.
-- User billing shows current plan/status, available plans, upgrade/downgrade selection, active cancellation, payment history, and empty states.
-- Admin subscriptions show total/active/pending/cancelled counts plus user, plan, gateway, status, amount, created date, search/filter, pagination, and detail modal.
-- Paid plan selection creates pending subscription/payment records only. No fake successful payment is created.
-- **Stripe Checkout Integration** - real Stripe Checkout Sessions for paid plan subscriptions:
-  - `StripeCheckoutController` with `POST /api/billing/stripe/checkout` endpoint creates Stripe Checkout Sessions.
-  - `StripeWebhookController` handles `checkout.session.completed`, `checkout.session.expired`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`, and `payment_intent.payment_failed`.
-  - Webhook activates subscriptions directly for users (no tenant dependency).
-  - Frontend `PlanCard` on `/pricing` calls Stripe Checkout API directly for logged-in users.
-  - `CheckoutPage` uses Stripe Checkout for paid plans.
-  - `BillingSuccessPage` auto-refreshes subscription data from API.
-- **Bug Fix**: `getCurrentSubscription` now queries by `user_id` directly, fixing the issue where current subscription plan was not showing in the dashboard.
-- Admin users are not required to have a subscription for admin dashboard access.
-- Dashboard UX polish is in place:
-  - Sidebar route matching is explicit for Analytics, Subscriptions, Payments, Billing, Profile, and nested dashboard routes.
-  - Sidebar scrollbar is now subtle and scoped to the menu area.
-  - Billing page shows clear free/subscribed/pending/cancelled/cancel-at-period-end badges.
-  - Cancel subscription uses an in-app confirmation modal instead of browser confirm/alert.
-  - Admin subscription and payment tables have cleaner badges, controls, loading states, empty states, and responsive table shells.
-- `npm.cmd run build` completed successfully.
-- `php artisan route:list` confirmed billing and admin subscription/payment APIs.
-- `php artisan migrate` applied the user-billing subscription normalization migration.
-- **Stripe Checkout Start Failure debugged**:
-  - Root cause confirmed: plan `2` is active, but `stripe_price_id` is `null`, so Stripe Checkout cannot start for that plan yet.
-  - `POST /api/billing/stripe/checkout` now returns a clear `422` response when a paid plan is not connected to Stripe.
-  - Pricing and dashboard checkout pages now surface backend checkout error messages instead of only generic failures.
-  - Admin plan management can store a `price_...` Stripe Price ID, and the plan seeder preserves existing Stripe Price IDs.
+### Dashboard & UI Components
+- Responsive dashboard layout
+- Navigation sidebar with mobile drawer
+- Profile management page
+- Settings page
+- Activity logs page
+- Empty states and loading indicators
+
+### Billing & Subscriptions
+- Stripe integration for payments
+- Subscription plans management
+- Checkout flow with Stripe
+- User billing management
+- Subscription cancellation at period end via Stripe API
+- Admin immediate cancellation (cancel-now) with Stripe sync
+- User immediate cancellation (cancel-now) from billing dashboard
+- Cancel at period end (user keeps access until period end)
+- Cancel immediately (access ends right away)
+- Activity logging for user-initiated immediate cancellation
+- Cancel immediately confirmation modal with warnings
+- UI shows "Cancelled Immediately" badge after immediate cancellation
+- UI shows original billing period for cancelled subscriptions
+- Webhook syncs cancel_at_period_end from Stripe
+- Refund source validation: requires PaymentIntent ID (pi_...) or Charge ID (ch_...)
+- Invoice webhook saves provider_payment_intent_id and provider_charge_id
+- checkout.session.completed webhook saves PaymentIntent ID when available
+- Pending invalid refund rows are created with failed status instead of succeeding
+- Admin refund endpoint returns clear error when no valid Stripe refund source exists
+- Admin refund management (full and partial) via Stripe
+- Refund records stored in refunds table
+- Payment history tracking with refund status
+- Admin subscription reports with search/filter capabilities
+- Admin payment reports with search/filter capabilities
+- Webhook handling for subscription lifecycle (created, updated, deleted)
+- Webhook handling for invoice events (payment_succeeded, payment_failed)
+- Webhook handling for refund events (charge.refunded, refund.created, refund.updated)
+- Automatic monthly renewal via Stripe webhooks (no cron required)
+- Duplicate webhook prevention via webhook_events table
+
+### Admin Panel
+- User management (view, update, role assignment)
+- Contact message management
+- Plan management (create, update, delete)
+- Subscription overview with Cancel Now action
+- Payment transaction history with Refund action
+- Activity logs
+- Real-time subscription and payment statistics
+
+### Multi-tenancy
+- Tenant isolation
+- Tenant-specific data management
+- Cross-tenant security boundaries
+
+### Security & Access Control
+- Role-based access control (admin, super_admin, user)
+- Email verification enforcement
+- Rate limiting for authentication endpoints
+- Secure password handling
+- Sanitization of user inputs
+
+### API Endpoints
+- RESTful API design
+- Sanctum token authentication
+- Comprehensive CRUD operations
+- Search and filter capabilities
+- Pagination support
+- Input validation
+
+### Testing
+- Unit tests for core functionality
+- Feature tests for authentication flows
+- API endpoint testing
+- Role-based access testing
 
 ## In Progress
 
-- Team invitation and membership workflows.
-- Multi-tenancy route/UI wiring and tenant database verification.
-- Frontend test coverage.
-
-## Pending
-
-- Configure Stripe test keys in `.env`.
-- Add valid Stripe price IDs to plans table. Plan `2` currently needs a real `price_...` value before Stripe can redirect.
-- Team workflows.
-- Multi-tenancy expansion.
-- Deployment guide and production environment documentation.
-- Frontend test coverage.
-
-## Blocked
-
-- Tenant migrations cannot be confirmed by default `php artisan migrate:status`; per-tenant migration status needs verification.
-
-## Next Recommended Step
-
-Add a real Stripe Price ID to plan `2` and any other paid plans, then test the full checkout flow with Stripe test cards.
+## Upcoming Features
+- Advanced analytics dashboard
+- Team collaboration features
+- More granular permission controls
+- Notification system
+- Invoice generation

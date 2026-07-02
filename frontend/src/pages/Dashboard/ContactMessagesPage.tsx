@@ -14,9 +14,9 @@ import { cn } from '../../utils/cn';
 const statusOptions: ContactMessageStatus[] = ['new', 'read', 'replied'];
 
 const statusBadgeClasses: Record<ContactMessageStatus, string> = {
-  new: 'bg-cyan-50 text-cyan-700 ring-cyan-100',
-  read: 'bg-slate-100 text-slate-700 ring-slate-200',
-  replied: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+  new: 'border-cyan-200 bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100',
+  read: 'border-slate-200 bg-slate-100 text-slate-700 ring-1 ring-slate-200',
+  replied: 'border-emerald-200 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100',
 };
 
 function formatStatus(status: ContactMessageStatus) {
@@ -45,7 +45,7 @@ function getInitialPagination(): PaginatedContactMessages {
 
 function StatusBadge({ status }: { status: ContactMessageStatus }) {
   return (
-    <span className={cn('inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1', statusBadgeClasses[status])}>
+    <span className={cn('dashboard-badge', statusBadgeClasses[status])}>
       {formatStatus(status)}
     </span>
   );
@@ -257,8 +257,8 @@ export default function ContactMessagesPage() {
             </div>
           ) : hasMessages ? (
             <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-100">
+              <div className="dashboard-table-scroll">
+                <table className="dashboard-table dashboard-table-wide">
                   <thead>
                     <tr className="border-b border-slate-100">
                       <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">

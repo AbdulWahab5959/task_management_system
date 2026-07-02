@@ -221,7 +221,7 @@ export default function UsersPage() {
                   setRoleFilter(event.target.value as UserRole | '');
                   setPage(1);
                 }}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                className="dashboard-control"
               >
                 <option value="">All roles</option>
                 {roleOptions.map((role) => (
@@ -242,7 +242,7 @@ export default function UsersPage() {
                   setStatusFilter(event.target.value as UserStatus | '');
                   setPage(1);
                 }}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                className="dashboard-control"
               >
                 <option value="">All statuses</option>
                 {statusOptions.map((status) => (
@@ -263,7 +263,7 @@ export default function UsersPage() {
                   setVerifiedFilter(event.target.value as EmailVerificationFilter | '');
                   setPage(1);
                 }}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                className="dashboard-control"
               >
                 <option value="">All emails</option>
                 <option value="verified">Verified</option>
@@ -311,8 +311,8 @@ export default function UsersPage() {
             </div>
           ) : hasUsers ? (
             <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-100">
+              <div className="dashboard-table-scroll">
+                <table className="dashboard-table dashboard-table-wide">
                   <thead>
                     <tr className="border-b border-slate-100">
                       <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">

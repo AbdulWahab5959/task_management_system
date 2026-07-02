@@ -447,7 +447,7 @@ export default function PlansPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search plans..."
-                className="h-10 max-w-xs rounded-lg border border-slate-200 bg-white px-3 pr-10 text-sm text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                className="dashboard-control max-w-xs"
               />
               <Button
                 type="button"
@@ -497,8 +497,8 @@ export default function PlansPage() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-100">
+              <div className="dashboard-table-scroll">
+                <table className="dashboard-table dashboard-table-wide">
                   <thead>
                     <tr className="border-b border-slate-100">
                       <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -546,27 +546,27 @@ export default function PlansPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 capitalize">
+                          <span className="dashboard-badge border-slate-200 bg-slate-100 text-slate-700 capitalize ring-1 ring-slate-200">
                             {plan.interval}
                           </span>
                         </td>
                         <td className="px-6 py-4">
                           {plan.stripe_price_id ? (
-                            <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                            <span className="dashboard-badge border-emerald-200 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
                               Connected
                             </span>
                           ) : (
-                            <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                            <span className="dashboard-badge border-amber-200 bg-amber-50 text-amber-700 ring-1 ring-amber-100">
                               Missing
                             </span>
                           )}
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            className={`dashboard-badge ${
                               plan.is_active
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : 'bg-slate-100 text-slate-500'
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
+                                : 'border-slate-200 bg-slate-100 text-slate-500 ring-1 ring-slate-200'
                             }`}
                           >
                             {plan.is_active ? 'Active' : 'Inactive'}
@@ -574,7 +574,7 @@ export default function PlansPage() {
                         </td>
                         <td className="px-6 py-4">
                           {plan.is_popular ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                            <span className="dashboard-badge border-amber-200 bg-amber-50 text-amber-700 ring-1 ring-amber-100">
                               <Star className="h-3 w-3 fill-amber-500" />
                               Popular
                             </span>

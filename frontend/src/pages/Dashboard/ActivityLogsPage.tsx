@@ -25,22 +25,22 @@ function formatAction(action: string): string {
 }
 
 const actionBadgeColors: Record<string, string> = {
-  register: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  login: 'bg-blue-50 text-blue-700 ring-blue-200',
-  logout: 'bg-slate-100 text-slate-700 ring-slate-200',
-  profile_update: 'bg-violet-50 text-violet-700 ring-violet-200',
-  password_update: 'bg-amber-50 text-amber-700 ring-amber-200',
-  contact_form_submit: 'bg-cyan-50 text-cyan-700 ring-cyan-200',
-  admin_user_update: 'bg-rose-50 text-rose-700 ring-rose-200',
-  contact_message_status_update: 'bg-orange-50 text-orange-700 ring-orange-200',
+  register: 'border-emerald-200 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100',
+  login: 'border-blue-200 bg-blue-50 text-blue-700 ring-1 ring-blue-100',
+  logout: 'border-slate-200 bg-slate-100 text-slate-700 ring-1 ring-slate-200',
+  profile_update: 'border-violet-200 bg-violet-50 text-violet-700 ring-1 ring-violet-100',
+  password_update: 'border-amber-200 bg-amber-50 text-amber-700 ring-1 ring-amber-100',
+  contact_form_submit: 'border-cyan-200 bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100',
+  admin_user_update: 'border-rose-200 bg-rose-50 text-rose-700 ring-1 ring-rose-100',
+  contact_message_status_update: 'border-orange-200 bg-orange-50 text-orange-700 ring-1 ring-orange-100',
 };
 
 function ActionBadge({ action }: { action: string }) {
   return (
     <span
       className={cn(
-        'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
-        actionBadgeColors[action] ?? 'bg-slate-50 text-slate-700 ring-slate-200',
+        'dashboard-badge',
+        actionBadgeColors[action] ?? 'border-slate-200 bg-slate-50 text-slate-700 ring-1 ring-slate-200',
       )}
     >
       {formatAction(action)}
@@ -177,7 +177,7 @@ export default function ActivityLogsPage() {
                     setActionFilter(event.target.value);
                     setPage(1);
                   }}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="dashboard-control"
                 >
                   <option value="">All actions</option>
                   {availableActions.map((action) => (
@@ -199,7 +199,7 @@ export default function ActivityLogsPage() {
                     setDateFrom(event.target.value);
                     setPage(1);
                   }}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="dashboard-control"
                 />
               </div>
               <div>
@@ -214,7 +214,7 @@ export default function ActivityLogsPage() {
                     setDateTo(event.target.value);
                     setPage(1);
                   }}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="dashboard-control"
                 />
               </div>
               <div className="flex items-end gap-2">
@@ -257,8 +257,8 @@ export default function ActivityLogsPage() {
             </div>
           ) : hasLogs ? (
             <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-100">
+              <div className="dashboard-table-scroll">
+                <table className="dashboard-table dashboard-table-wide">
                   <thead>
                     <tr className="border-b border-slate-100">
                       <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">

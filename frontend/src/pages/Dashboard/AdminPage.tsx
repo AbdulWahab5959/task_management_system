@@ -203,8 +203,8 @@ export default function AdminPage() {
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                <div className="dashboard-table-scroll">
+                  <table className="dashboard-table">
                     <thead>
                       <tr className="border-b border-slate-100">
                         <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Name</th>
@@ -220,7 +220,7 @@ export default function AdminPage() {
                           <td className="px-6 py-4 font-medium text-slate-900">{user.name}</td>
                           <td className="px-6 py-4 text-slate-600">{user.email}</td>
                           <td className="px-6 py-4">
-                            <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-slate-200">
+                            <span className="dashboard-badge border-slate-200 bg-slate-100 text-slate-700 ring-1 ring-slate-200">
                               {formatRole(user.role)}
                             </span>
                           </td>
@@ -272,8 +272,8 @@ export default function AdminPage() {
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                <div className="dashboard-table-scroll">
+                  <table className="dashboard-table">
                     <thead>
                       <tr className="border-b border-slate-100">
                         <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Action</th>

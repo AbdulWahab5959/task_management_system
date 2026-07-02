@@ -50,7 +50,8 @@ const mainNavItems: NavigationItem[] = [
   { label: 'Payments', to: '/dashboard/admin/payments', icon: ReceiptText, roles: ['admin', 'super_admin'] },
   { label: 'Plans', to: '/dashboard/plans', icon: Package, roles: ['admin', 'super_admin'] },
   { label: 'Users', to: '/dashboard/users', icon: Users, nested: true, roles: ['admin', 'super_admin'] },
-  { label: 'Activity Logs', to: '/dashboard/activity-logs', icon: Activity, roles: ['admin', 'super_admin'] },
+  { label: 'Activity Logs', to: '/dashboard/activity-logs', icon: Activity },
+  { label: 'All Activity Logs', to: '/dashboard/admin/activity-logs', icon: Activity, roles: ['admin', 'super_admin'] },
   { label: 'Contact Messages', to: '/dashboard/contact-messages', icon: Mail, roles: ['admin', 'super_admin'] },
 ];
 
@@ -125,14 +126,14 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-72 transform flex-col bg-slate-950 transition duration-200 ease-out lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-white/10 bg-[#080d1d] transition duration-200 ease-out lg:z-30 lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center justify-between border-b border-slate-800 px-5">
+        <div className="flex h-14 items-center justify-between border-b border-white/10 px-4">
           <Link to="/dashboard" className="flex items-center gap-3" onClick={onClose}>
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500 text-white shadow-lg shadow-indigo-950/30">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 text-white shadow-lg shadow-indigo-950/30">
               <Rocket className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
             </span>
             <span>
@@ -152,7 +153,7 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="sidebar-scrollbar flex-1 overflow-y-auto scroll-smooth px-3 py-4" aria-label="Dashboard navigation">
+        <nav className="sidebar-scrollbar flex-1 overflow-y-auto scroll-smooth px-2.5 py-3" aria-label="Dashboard navigation">
           <div className="space-y-1">
             {mainNavItems
               .filter((item) => !item.roles || item.roles.includes(user?.role ?? 'user'))
@@ -167,26 +168,26 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
                     onClick={onClose}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(
-                      'group relative flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/50',
+                      'group relative flex min-h-9 items-center gap-2.5 rounded-lg px-3 text-[13px] font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/50',
                       isActive
-                        ? 'bg-white/[0.07] text-white shadow-sm'
-                        : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100',
+                        ? 'bg-white/[0.08] text-white shadow-sm ring-1 ring-white/10'
+                        : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-100',
                     )}
                   >
                     <span
                       className={cn(
-                        'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-indigo-400 transition-opacity duration-200',
+                        'absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-cyan-300 transition-opacity duration-200',
                         isActive ? 'opacity-100' : 'opacity-0',
                       )}
                     />
-                    <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} aria-hidden="true" />
+                    <Icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.9} aria-hidden="true" />
                     <span>{item.label}</span>
                   </Link>
                 );
               })}
           </div>
 
-          <div className="mt-4 pt-4 border-t border-slate-800">
+          <div className="mt-3 border-t border-white/10 pt-3">
             <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-widest text-slate-500">Account</p>
             <div className="space-y-1">
               {accountNavItems.map((item) => {
@@ -200,19 +201,19 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
                     onClick={onClose}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(
-                      'group relative flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/50',
+                      'group relative flex min-h-9 items-center gap-2.5 rounded-lg px-3 text-[13px] font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/50',
                       isActive
-                        ? 'bg-white/[0.07] text-white shadow-sm'
-                        : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100',
+                        ? 'bg-white/[0.08] text-white shadow-sm ring-1 ring-white/10'
+                        : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-100',
                     )}
                   >
                     <span
                       className={cn(
-                        'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-indigo-400 transition-opacity duration-200',
+                        'absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-cyan-300 transition-opacity duration-200',
                         isActive ? 'opacity-100' : 'opacity-0',
                       )}
                     />
-                    <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} aria-hidden="true" />
+                    <Icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.9} aria-hidden="true" />
                     <span>{item.label}</span>
                   </Link>
                 );
@@ -222,15 +223,15 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
         </nav>
 
         {/* User section */}
-        <div className="border-t border-slate-800 p-4">
-          <div className="mb-3 flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/20 text-sm font-semibold text-indigo-400">
+        <div className="border-t border-white/10 p-3">
+          <div className="mb-3 flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/20 text-xs font-semibold text-indigo-300 ring-1 ring-indigo-400/20">
               {getInitials(user?.name)}
             </div>
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-2">
                 <p className="truncate text-sm font-semibold text-slate-200">{user?.name}</p>
-                <span className="shrink-0 rounded-md border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                <span className="shrink-0 rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                   {getRoleLabel(user?.role)}
                 </span>
               </div>
@@ -241,7 +242,7 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
           <button
             type="button"
             onClick={() => void handleLogout()}
-            className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800/50 px-3 text-sm font-semibold text-slate-300 transition-all duration-150 hover:border-slate-600 hover:bg-slate-800 hover:text-white"
+            className="flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-slate-300 transition-all duration-150 hover:border-slate-600 hover:bg-white/[0.08] hover:text-white"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />
             Log out

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\Subscription;
@@ -12,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Stripe\Stripe;
 use Throwable;
 
 class BillingController extends Controller
@@ -102,29 +104,167 @@ class BillingController extends Controller
             ], 404);
         }
 
+        // If already cancelling at period end, return early
+        if ($subscription->cancel_at_period_end) {
+            return response()->json([
+                'message' => 'Your subscription is already scheduled to cancel at the end of the current billing period.',
+                'subscription' => $this->serializeSubscription($subscription),
+            ]);
+        }
+
+        // If already cancelled, return early
+        if ($subscription->status === 'cancelled') {
+            return response()->json([
+                'message' => 'Your subscription has already been cancelled.',
+            ], 400);
+        }
+
         try {
+            // If subscription has a Stripe subscription ID, cancel at period end via Stripe
+            if ($subscription->stripe_subscription_id) {
+                $stripeSecret = config('services.stripe.secret');
+
+                if (! is_string($stripeSecret) || trim($stripeSecret) === '') {
+                    Log::critical('Stripe secret key is not configured for cancellation.');
+
+                    return response()->json([
+                        'message' => 'Stripe is not configured. Please contact support.',
+                    ], 500);
+                }
+
+                Stripe::setApiKey($stripeSecret);
+
+                \Stripe\Subscription::update($subscription->stripe_subscription_id, [
+                    'cancel_at_period_end' => true,
+                ]);
+            }
+
             $subscription->update([
-                'status' => 'cancelled',
+                'cancel_at_period_end' => true,
                 'cancelled_at' => now(),
+                'ends_at' => $subscription->current_period_end,
+            ]);
+
+            $message = 'Your subscription will remain active until the end of your current billing period.';
+
+            Log::info('User cancelled subscription at period end.', [
+                'user_id' => $user->id,
+                'subscription_id' => $subscription->id,
+                'stripe_subscription_id' => $subscription->stripe_subscription_id,
             ]);
 
             return response()->json([
-                'message' => 'Your subscription has been cancelled successfully.',
-                'subscription' => [
-                    'id' => $subscription->id,
-                    'status' => $subscription->status,
-                    'cancelled_at' => $subscription->cancelled_at?->toISOString(),
-                ],
+                'message' => $message,
+                'subscription' => $this->serializeSubscription($subscription->fresh()),
             ]);
         } catch (Throwable $exception) {
-            Log::error('Failed to cancel subscription.', [
+            Log::error('Failed to cancel subscription at period end.', [
                 'user_id' => $user->id,
                 'subscription_id' => $subscription->id,
+                'stripe_subscription_id' => $subscription->stripe_subscription_id,
                 'exception' => $exception,
             ]);
 
             return response()->json([
                 'message' => 'Failed to cancel subscription. Please contact support if the issue persists.',
+            ], 500);
+        }
+    }
+
+    public function cancelNow(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $subscription = Subscription::query()
+            ->where('user_id', $user->id)
+            ->whereIn('status', ['active', 'trialing'])
+            ->latest()
+            ->first();
+
+        if (! $subscription) {
+            return response()->json([
+                'message' => 'No active subscription found for your account.',
+            ], 404);
+        }
+
+        // Do not allow immediate cancel if already cancelled
+        if ($subscription->status === 'cancelled') {
+            return response()->json([
+                'message' => 'Your subscription has already been cancelled.',
+            ], 400);
+        }
+
+        try {
+            // If subscription has a Stripe subscription ID, cancel immediately via Stripe
+            if ($subscription->stripe_subscription_id) {
+                $stripeSecret = config('services.stripe.secret');
+
+                if (! is_string($stripeSecret) || trim($stripeSecret) === '') {
+                    Log::critical('Stripe secret key is not configured for immediate cancellation.');
+
+                    return response()->json([
+                        'message' => 'Stripe is not configured. Please contact support.',
+                    ], 500);
+                }
+
+                Stripe::setApiKey($stripeSecret);
+
+                // Cancel at period end = false, then cancel immediately
+                \Stripe\Subscription::update($subscription->stripe_subscription_id, [
+                    'cancel_at_period_end' => false,
+                ]);
+
+                \Stripe\Subscription::retrieve($subscription->stripe_subscription_id)->cancel();
+            }
+
+            $now = now();
+
+            $subscription->update([
+                'status' => 'cancelled',
+                'cancel_at_period_end' => false,
+                'cancelled_at' => $now,
+                'ends_at' => $now,
+            ]);
+
+            // Log activity
+            try {
+                ActivityLog::create([
+                    'user_id' => $user->id,
+                    'action' => 'subscription_cancelled_immediately',
+                    'description' => 'Subscription cancelled immediately by user.',
+                    'properties' => [
+                        'subscription_id' => $subscription->id,
+                        'plan_id' => $subscription->plan_id,
+                    ],
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ]);
+            } catch (Throwable $logException) {
+                Log::warning('Failed to log activity for immediate cancellation.', [
+                    'exception' => $logException,
+                ]);
+            }
+
+            Log::info('User cancelled subscription immediately.', [
+                'user_id' => $user->id,
+                'subscription_id' => $subscription->id,
+                'stripe_subscription_id' => $subscription->stripe_subscription_id,
+            ]);
+
+            return response()->json([
+                'message' => 'Your subscription has been cancelled immediately.',
+                'subscription' => $this->serializeSubscription($subscription->fresh()),
+            ]);
+        } catch (Throwable $exception) {
+            Log::error('Failed to cancel subscription immediately.', [
+                'user_id' => $user->id,
+                'subscription_id' => $subscription->id,
+                'stripe_subscription_id' => $subscription->stripe_subscription_id,
+                'exception' => $exception,
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to cancel subscription immediately. Please contact support if the issue persists.',
             ], 500);
         }
     }
@@ -247,6 +387,7 @@ class BillingController extends Controller
             'current_period_start' => $subscription->current_period_start?->toISOString(),
             'current_period_end' => $subscription->current_period_end?->toISOString(),
             'cancelled_at' => $subscription->cancelled_at?->toISOString(),
+            'cancel_at_period_end' => $subscription->cancel_at_period_end,
             'created_at' => $subscription->created_at->toISOString(),
             'plan' => $this->serializePlan($subscription->plan),
         ];
@@ -276,6 +417,16 @@ class BillingController extends Controller
 
     private function serializePayment(Payment $payment): array
     {
+        $refunds = $payment->relationLoaded('refunds')
+            ? $payment->refunds->map(fn ($refund) => [
+                'id' => $refund->id,
+                'amount' => $refund->amount,
+                'status' => $refund->status,
+                'reason' => $refund->reason,
+                'refunded_at' => $refund->refunded_at?->toISOString(),
+            ])->toArray()
+            : [];
+
         return [
             'id' => $payment->id,
             'reference' => $payment->reference,
@@ -283,8 +434,11 @@ class BillingController extends Controller
             'amount' => $payment->amount,
             'currency' => $payment->currency,
             'status' => $payment->status,
+            'refunded_amount' => $payment->refunded_amount,
+            'refund_status' => $payment->refund_status,
             'paid_at' => $payment->paid_at?->toISOString(),
             'created_at' => $payment->created_at->toISOString(),
+            'refunds' => $refunds,
             'plan' => $payment->plan ? [
                 'id' => $payment->plan->id,
                 'name' => $payment->plan->name,

@@ -121,30 +121,30 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-      <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 shadow-sm shadow-slate-200/50 backdrop-blur-xl supports-[backdrop-filter]:bg-white/80">
+      <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-5 lg:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             aria-label="Open sidebar"
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 lg:hidden"
+            className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 lg:hidden"
             onClick={onMenuClick}
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
           <div className="min-w-0">
-            <p className="truncate text-xs font-medium uppercase tracking-wider text-slate-500">LaunchPad</p>
-            <h2 className="truncate text-xl font-semibold text-slate-900">{pageTitle}</h2>
+            <p className="truncate text-[11px] font-bold uppercase tracking-wider text-indigo-600/90">LaunchPad</p>
+            <h2 className="truncate text-lg font-semibold leading-6 text-slate-950">{pageTitle}</h2>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             aria-label="Notifications"
-            className="hidden rounded-lg border border-slate-200 bg-white p-2.5 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-slate-900 sm:inline-flex"
+            className="hidden h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white/90 text-slate-500 shadow-sm shadow-slate-200/50 transition-all duration-150 hover:border-slate-300 hover:bg-white hover:text-slate-900 sm:inline-flex"
           >
-            <Bell className="h-5 w-5" aria-hidden="true" />
+            <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
           </button>
 
           <div ref={dropdownRef} className="relative">
@@ -153,38 +153,38 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
               aria-expanded={profileOpen}
               aria-haspopup="menu"
               onClick={() => setProfileOpen((current) => !current)}
-              className="flex min-h-10 items-center gap-2.5 rounded-lg border border-slate-200 bg-white py-1.5 pl-1.5 pr-3 text-left transition-all duration-150 hover:bg-slate-50 hover:border-slate-300"
+              className="flex min-h-9 max-w-[14rem] items-center gap-2 rounded-lg border border-slate-200 bg-white/90 py-1 pl-1 pr-2.5 text-left shadow-sm shadow-slate-200/50 transition-all duration-150 hover:border-slate-300 hover:bg-white sm:max-w-[20rem]"
             >
               {user?.avatar_url ? (
                 <img
                   src={getAvatarUrl(user.avatar_url) ?? ''}
                   alt={user.name}
-                  className="h-8 w-8 rounded-lg object-cover"
+                  className="h-7 w-7 rounded-lg object-cover"
                   onError={(e) => {
                     const target = e.currentTarget;
                     target.style.display = 'none';
                     const parent = target.parentElement;
                     if (parent && !parent.querySelector('.nav-initials-fallback')) {
                       const fallback = document.createElement('span');
-                      fallback.className = 'nav-initials-fallback flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700';
+                      fallback.className = 'nav-initials-fallback flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700';
                       fallback.textContent = getInitials(user.name);
                       parent.appendChild(fallback);
                     }
                   }}
                 />
               ) : (
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700">
                   {getInitials(user?.name)}
                 </span>
               )}
               <span className="hidden min-w-0 sm:block">
                 <span className="flex max-w-44 items-center gap-2">
                   <span className="truncate text-sm font-semibold text-slate-900">{user?.name}</span>
-                  <span className="hidden shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 md:inline-flex">
+                  <span className="hidden shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-100 md:inline-flex">
                     {getRoleLabel(user?.role)}
                   </span>
                 </span>
-                <span className="block max-w-36 truncate text-xs text-slate-500">{user?.email}</span>
+                <span className="block max-w-40 truncate text-xs leading-4 text-slate-500">{user?.email}</span>
               </span>
               <ChevronDown
                 className={cn('h-4 w-4 text-slate-400 transition-all duration-150', profileOpen && 'rotate-180')}
