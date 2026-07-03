@@ -1,8 +1,9 @@
-import { Bell, ChevronDown, LogOut, Menu, Settings, UserCircle } from 'lucide-react';
+import { ChevronDown, LogOut, Menu, Settings, UserCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { cn } from '../../utils/cn';
+import NotificationDropdown from './NotificationDropdown';
 
 interface DashboardNavbarProps {
   onMenuClick: () => void;
@@ -139,13 +140,7 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="hidden h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white/90 text-slate-500 shadow-sm shadow-slate-200/50 transition-all duration-150 hover:border-slate-300 hover:bg-white hover:text-slate-900 sm:inline-flex"
-          >
-            <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
-          </button>
+          <NotificationDropdown unreadCount={0} onUnreadCountChange={() => {}} />
 
           <div ref={dropdownRef} className="relative">
             <button

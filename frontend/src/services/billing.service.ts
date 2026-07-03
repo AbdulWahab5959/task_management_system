@@ -46,6 +46,13 @@ export interface PaymentRecord {
   amount: string;
   currency: string;
   status: string;
+  refunded_amount?: number;
+  refund_status?: string;
+  refund_display?: {
+    label: string;
+    status: string;
+    description: string;
+  } | null;
   paid_at?: string;
   created_at: string;
   plan?: {

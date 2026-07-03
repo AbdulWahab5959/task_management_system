@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Payment;
 use App\Models\Refund;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,17 +20,18 @@ class PaymentActionController extends Controller
      * Admin: Refund a payment (full or partial).
      * POST /api/admin/payments/{payment}/refund
      */
-    public function refund(Request $request, Payment $payment): JsonResponse
+    public function refund(Request $request, Payment $payment, NotificationService $notificationService): JsonResponse
     {
         $validated = $request->validate([
             'amount' => ['nullable', 'numeric', 'min:0.01'],
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
-        // Only paid payments can be refunded
-        if (! in_array($payment->status, [Payment::STATUS_PAID, Payment::STATUS_PARTIALLY_REFUNDED])) {
+        // Check refund eligibility using the business rules
+        if (!$payment->canBeRefunded()) {
+            $reason = $payment->getRefundDisabledReason();
             return response()->json([
-                'message' => 'Only paid payments can be refunded.',
+                'message' => $reason ?? 'This payment cannot be refunded.',
             ], 400);
         }
 
@@ -52,192 +55,71 @@ class PaymentActionController extends Controller
         $isPartial = $refundAmount < (float) $payment->amount;
 
         $stripeSecret = config('services.stripe.secret');
+        $stripeRefundParams = [];
+        $refundSourceId = null;
 
-        // Determine refund source - must be PaymentIntent (pi_...) or Charge (ch_...)
-        $refundSourceId = $payment->provider_payment_intent_id
-            ?? $payment->provider_charge_id
-            ?? null;
+        if ($payment->provider_payment_intent_id && str_starts_with($payment->provider_payment_intent_id, 'pi_')) {
+            $refundSourceId = $payment->provider_payment_intent_id;
+            $stripeRefundParams['payment_intent'] = $refundSourceId;
+        } elseif ($payment->provider_charge_id && str_starts_with($payment->provider_charge_id, 'ch_')) {
+            $refundSourceId = $payment->provider_charge_id;
+            $stripeRefundParams['charge'] = $refundSourceId;
+        }
 
-        // Validate the refund source is a proper Stripe refundable ID (pi_ or ch_)
-        $hasValidRefundSource = $refundSourceId
-            && (str_starts_with($refundSourceId, 'pi_') || str_starts_with($refundSourceId, 'ch_'));
+        if (! $refundSourceId) {
+            Log::warning('Cannot refund via Stripe: no valid PaymentIntent or Charge ID.', [
+                'payment_id' => $payment->id,
+                'reference' => $payment->reference,
+                'provider_payment_id' => $payment->provider_payment_id,
+                'provider_payment_intent_id' => $payment->provider_payment_intent_id,
+                'provider_charge_id' => $payment->provider_charge_id,
+            ]);
 
-        // If no valid source, try to retrieve PaymentIntent from Stripe using available data
-        if (! $hasValidRefundSource && $payment->gateway === 'stripe' && is_string($stripeSecret) && trim($stripeSecret) !== '') {
-            Stripe::setApiKey($stripeSecret);
+            return response()->json([
+                'message' => 'Refund unavailable: missing Stripe PaymentIntent or Charge ID.',
+            ], 400);
+        }
 
-            try {
-                // Try to get payment intent from subscription's latest invoice
-                if ($payment->provider_payment_id && str_starts_with($payment->provider_payment_id, 'sub_')) {
-                    try {
-                        $subscription = \Stripe\Subscription::retrieve($payment->provider_payment_id);
-                        $latestInvoiceId = $subscription->latest_invoice ?? null;
+        if (! is_string($stripeSecret) || trim($stripeSecret) === '') {
+            Log::critical('Stripe secret key is not configured for refunds.', [
+                'payment_id' => $payment->id,
+            ]);
 
-                        if ($latestInvoiceId) {
-                            $invoice = \Stripe\Invoice::retrieve($latestInvoiceId);
-                            $paymentIntentId = $invoice->payment_intent ?? null;
-
-                            if ($paymentIntentId && str_starts_with($paymentIntentId, 'pi_')) {
-                                $refundSourceId = $paymentIntentId;
-                                $hasValidRefundSource = true;
-
-                                // Save the retrieved IDs for future use
-                                $payment->update([
-                                    'provider_payment_intent_id' => $paymentIntentId,
-                                    'provider_payment_id' => $paymentIntentId,
-                                ]);
-
-                                Log::info('Retrieved PaymentIntent from subscription latest invoice.', [
-                                    'payment_id' => $payment->id,
-                                    'subscription_id' => $payment->provider_payment_id,
-                                    'invoice_id' => $latestInvoiceId,
-                                    'payment_intent_id' => $paymentIntentId,
-                                ]);
-                            }
-                        }
-                    } catch (Throwable $subscriptionException) {
-                        Log::warning('Failed to retrieve subscription for refund source fallback.', [
-                            'payment_id' => $payment->id,
-                            'subscription_id' => $payment->provider_payment_id,
-                            'exception' => $subscriptionException->getMessage(),
-                        ]);
-                    }
-                }
-
-                // Try to get payment intent from session
-                if (! $hasValidRefundSource && $payment->provider_session_id) {
-                    try {
-                        $session = \Stripe\Checkout\Session::retrieve($payment->provider_session_id);
-                        $invoiceId = $session->invoice ?? null;
-
-                        if ($invoiceId) {
-                            $invoice = \Stripe\Invoice::retrieve($invoiceId);
-                            $paymentIntentId = $invoice->payment_intent ?? null;
-
-                            if ($paymentIntentId && str_starts_with($paymentIntentId, 'pi_')) {
-                                $refundSourceId = $paymentIntentId;
-                                $hasValidRefundSource = true;
-
-                                $payment->update([
-                                    'provider_payment_intent_id' => $paymentIntentId,
-                                    'provider_payment_id' => $paymentIntentId,
-                                    'provider_invoice_id' => $invoiceId,
-                                ]);
-
-                                Log::info('Retrieved PaymentIntent from checkout session invoice.', [
-                                    'payment_id' => $payment->id,
-                                    'session_id' => $payment->provider_session_id,
-                                    'invoice_id' => $invoiceId,
-                                    'payment_intent_id' => $paymentIntentId,
-                                ]);
-                            }
-                        }
-                    } catch (Throwable $sessionException) {
-                        Log::warning('Failed to retrieve session for refund source fallback.', [
-                            'payment_id' => $payment->id,
-                            'session_id' => $payment->provider_session_id,
-                            'exception' => $sessionException->getMessage(),
-                        ]);
-                    }
-                }
-            } catch (Throwable $fallbackException) {
-                Log::warning('Refund source fallback failed.', [
-                    'payment_id' => $payment->id,
-                    'exception' => $fallbackException->getMessage(),
-                ]);
-            }
+            return response()->json([
+                'message' => 'Stripe key is not configured.',
+            ], 500);
         }
 
         try {
             DB::beginTransaction();
 
-            $stripeSecret = config('services.stripe.secret');
             $refundResult = null;
             $providerRefundId = null;
 
-            if ($payment->gateway === 'stripe' && is_string($stripeSecret) && trim($stripeSecret) !== '' && $hasValidRefundSource) {
-                Stripe::setApiKey($stripeSecret);
+            Stripe::setApiKey($stripeSecret);
 
-                $stripeRefundParams = [];
+            // Amount in cents
+            $stripeRefundParams['amount'] = (int) round($refundAmount * 100);
 
-                // Use PaymentIntent ID if available
-                if ($payment->provider_payment_intent_id && str_starts_with($payment->provider_payment_intent_id, 'pi_')) {
-                    $stripeRefundParams['payment_intent'] = $payment->provider_payment_intent_id;
-                } elseif ($payment->provider_charge_id && str_starts_with($payment->provider_charge_id, 'ch_')) {
-                    $stripeRefundParams['charge'] = $payment->provider_charge_id;
+            // Add reason if valid Stripe reason
+            if (! empty($validated['reason'])) {
+                $validReasons = ['duplicate', 'fraudulent', 'requested_by_customer'];
+                $reasonLower = strtolower($validated['reason']);
+                if (in_array($reasonLower, $validReasons, true)) {
+                    $stripeRefundParams['reason'] = $reasonLower;
                 }
+            }
 
-                if (empty($stripeRefundParams)) {
-                    throw new \RuntimeException('No valid Stripe PaymentIntent or Charge ID found for refund.');
+            $refundResult = \Stripe\Refund::create($stripeRefundParams);
+
+            $providerRefundId = $refundResult->id ?? null;
+
+            // Store charge ID from refund result if available
+            if ($refundResult->charge ?? null) {
+                $chargeId = $refundResult->charge;
+                if ($chargeId && str_starts_with($chargeId, 'ch_')) {
+                    $payment->update(['provider_charge_id' => $chargeId]);
                 }
-
-                // Amount in cents
-                $stripeRefundParams['amount'] = (int) round($refundAmount * 100);
-
-                // Add reason if valid Stripe reason
-                if (! empty($validated['reason'])) {
-                    $validReasons = ['duplicate', 'fraudulent', 'requested_by_customer'];
-                    $reasonLower = strtolower($validated['reason']);
-                    if (in_array($reasonLower, $validReasons, true)) {
-                        $stripeRefundParams['reason'] = $reasonLower;
-                    }
-                }
-
-                $refundResult = \Stripe\Refund::create($stripeRefundParams);
-
-                $providerRefundId = $refundResult->id ?? null;
-
-                // Store charge ID from refund result if available
-                if ($refundResult->charge ?? null) {
-                    $chargeId = $refundResult->charge;
-                    if ($chargeId && str_starts_with($chargeId, 'ch_')) {
-                        $payment->update(['provider_charge_id' => $chargeId]);
-                    }
-                }
-            } elseif ($payment->gateway === 'stripe' && ! $hasValidRefundSource) {
-                // No valid refund source - mark as failed
-                Log::warning('Cannot refund via Stripe: no valid PaymentIntent or Charge ID.', [
-                    'payment_id' => $payment->id,
-                    'reference' => $payment->reference,
-                    'provider_payment_id' => $payment->provider_payment_id,
-                    'provider_payment_intent_id' => $payment->provider_payment_intent_id,
-                    'provider_charge_id' => $payment->provider_charge_id,
-                ]);
-
-                // Create a failed refund record
-                $refundRecord = Refund::create([
-                    'payment_id' => $payment->id,
-                    'user_id' => $payment->user_id,
-                    'gateway' => $payment->gateway,
-                    'provider_refund_id' => null,
-                    'provider_payment_id' => $payment->provider_payment_id,
-                    'amount' => $refundAmount,
-                    'currency' => $payment->currency,
-                    'status' => 'failed',
-                    'reason' => 'Invalid refund source: subscription ID was used instead of PaymentIntent/Charge ID.',
-                    'raw_response' => null,
-                    'refunded_at' => now(),
-                ]);
-
-                DB::commit();
-
-                return response()->json([
-                    'message' => 'This payment cannot be refunded because no valid Stripe PaymentIntent or Charge ID was saved. The refund has been marked as failed.',
-                    'refund' => [
-                        'id' => $refundRecord->id,
-                        'amount' => $refundRecord->amount,
-                        'status' => $refundRecord->status,
-                        'provider_refund_id' => $refundRecord->provider_refund_id,
-                        'reason' => $refundRecord->reason,
-                        'refunded_at' => $refundRecord->refunded_at?->toISOString(),
-                    ],
-                    'payment' => [
-                        'id' => $payment->id,
-                        'status' => $payment->status,
-                        'refunded_amount' => $payment->refunded_amount,
-                        'refund_status' => $payment->refund_status,
-                    ],
-                ], 400);
             }
 
             // Create refund record
@@ -246,13 +128,13 @@ class PaymentActionController extends Controller
                 'user_id' => $payment->user_id,
                 'gateway' => $payment->gateway,
                 'provider_refund_id' => $providerRefundId,
-                'provider_payment_id' => $payment->provider_payment_intent_id ?? $payment->provider_charge_id ?? $payment->provider_payment_id,
+                'provider_payment_id' => $refundSourceId,
                 'amount' => $refundAmount,
                 'currency' => $payment->currency,
-                'status' => $refundResult ? 'succeeded' : 'pending',
+                'status' => 'succeeded',
                 'reason' => $validated['reason'] ?? null,
-                'raw_response' => $refundResult ? json_decode(json_encode($refundResult), true) : null,
-                'refunded_at' => $refundResult ? now() : null,
+                'raw_response' => json_decode(json_encode($refundResult), true),
+                'refunded_at' => now(),
             ]);
 
             // Update payment refund amounts
@@ -284,6 +166,48 @@ class PaymentActionController extends Controller
                 'provider_refund_id' => $providerRefundId,
                 'refund_source' => $refundSourceId,
             ]);
+
+            // Create user notification for refund initiated
+            try {
+                $notificationService->refundInitiated(
+                    $payment->user_id,
+                    $refundAmount,
+                    $payment->currency,
+                    $payment->id,
+                    $refundRecord->id,
+                );
+            } catch (Throwable $notificationException) {
+                Log::warning('Failed to send refund notification.', [
+                    'payment_id' => $payment->id,
+                    'user_id' => $payment->user_id,
+                    'exception' => $notificationException->getMessage(),
+                ]);
+            }
+
+            // Log activity
+            try {
+                ActivityLog::create([
+                    'user_id' => $request->user()->id,
+                    'action' => $isPartial ? 'partial_refund_initiated' : 'refund_initiated',
+                    'description' => "Admin initiated {$action} of {$refundAmount} {$payment->currency} for payment #{$payment->id}.",
+                    'properties' => [
+                        'payment_id' => $payment->id,
+                        'payment_reference' => $payment->reference,
+                        'refund_id' => $refundRecord->id,
+                        'refund_amount' => $refundAmount,
+                        'currency' => $payment->currency,
+                        'is_partial' => $isPartial,
+                        'provider_refund_id' => $providerRefundId,
+                        'target_user_id' => $payment->user_id,
+                    ],
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ]);
+            } catch (Throwable $logException) {
+                Log::warning('Failed to log activity for refund.', [
+                    'exception' => $logException->getMessage(),
+                ]);
+            }
 
             return response()->json([
                 'message' => "{$action} of {$refundAmount} {$payment->currency} processed successfully.",

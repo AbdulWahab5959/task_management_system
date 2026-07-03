@@ -8,49 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **User Cancel Immediately** - POST /api/billing/cancel-now endpoint for authenticated users to cancel subscription immediately
-- **Cancel Immediately Confirmation Modal** - Danger-styled modal with plan details, billing period, and clear warnings
-- **"Cancelled Immediately" Badge** - UI shows badge and details after immediate cancellation
-- **cancel_at_period_end Webhook Sync** - `customer.subscription.updated` and `customer.subscription.deleted` now sync `cancel_at_period_end` from Stripe
-- **Activity Logging** - Immediate cancellation creates activity log entry with `subscription_cancelled_immediately` action
-- **Frontend cancel-now API** - `cancelNowUserSubscription()` service function in billing service
+- **Refund Eligibility Rules** - Payment model now implements `canBeRefunded()` and `getRefundDisabledReason()` methods with business logic validation
+- **Admin Payments API Refund Data** - GET `/api/admin/payments` now returns:
+  - `can_refund` (boolean) - whether payment is eligible for refund
+  - `refund_disabled_reason` (string|null) - explanation if refund is unavailable
+  - `refundable_amount` (decimal) - remaining amount available to refund
+  - `provider_payment_intent_id` and `provider_charge_id` - for eligibility verification
+  - `subscription_status`, `subscription_cancel_at_period_end`, `subscription_cancelled_at`, `subscription_ends_at` - subscription context
+- **Refund Button UX** - Admin Payments Page shows:
+  - Active "Refund" button for eligible payments
+  - Disabled "Unavailable" button with tooltip for ineligible payments
+- **Refund Modal Warning** - Added prominent warning: "Refunding returns money to the customer. This does not automatically reactivate or cancel subscription access."
+- **Stripe Invoice Payment Webhook Support** - `invoice_payment.paid` and `invoice.paid` now save nested `payment.payment_intent` values to payments.
+- **Stripe PaymentIntent Backfill Command** - Added `php artisan payments:backfill-stripe-intents` for dry-run or applied backfills from saved webhook payloads, with manual `--payment-id`, `--payment-intent`, and `--invoice` options.
+- **Stripe Checkout Backfill Command** - Added `php artisan payments:backfill-stripe-checkout` to repair paid subscription checkout rows from known session, subscription, invoice, amount, and currency values.
+ - **Auto Backfill After Checkout** - `checkout.session.completed` now triggers an automatic backfill attempt that fetches invoice/payment references (PaymentIntent `pi_...` and Charge `ch_...`) when a Stripe invoice ID is present.
+ - **Stripe Backfill Command Improvements** - `php artisan payments:backfill-stripe-references` added with `--payment` single-payment mode and improved scanned/updated/skipped/failed reporting.
+- **Payment Stripe Schema Repair Migration** - Added an idempotent migration that ensures payment rows have `gateway_subscription_id`, invoice, PaymentIntent, charge, and refund columns even when an older edited migration was already marked as run.
 
 ### Changed
-- **BillingPage** - Shows both "Cancel at Period End" and "Cancel Immediately" buttons for active subscriptions
-- **BillingPage** - When subscription is scheduled to cancel at period end, hides "Cancel at Period End" button, still shows "Cancel Immediately"
-- **BillingPage** - After immediate cancellation, shows "Cancelled Immediately" badge, cancelled date, access ended date, and original billing period
-- **BillingPage** - "Cancel at Period End" modal and "Cancel Immediately" modal are now separate with distinct styling and messaging
-- **Webhook syncSubscriptionFromStripeObject** - Now syncs `cancel_at_period_end` field from Stripe
-- **BillingController** - Added `use App\Models\ActivityLog` import and `cancelNow()` method
+- **PaymentActionController::refund** - Now validates refund eligibility first using `Payment::canBeRefunded()`
+- **AdminPaymentsPage** - Refund button logic updated to use backend `can_refund` field instead of client-side status check
+- **AdminPaymentsPage** - Disabled refund button now shows `refund_disabled_reason` in hover tooltip
+- **Refund Modal Button** - Changed "Full Refund" text to "Confirm Refund" for clarity
+- **Stripe Payment Saving** - Subscription checkout no longer saves `sub_...` as `provider_payment_id`; paid invoice webhooks promote `pi_...` into `provider_payment_id` and `provider_payment_intent_id`, and save `in_...` into `provider_invoice_id`.
+- **Stripe Checkout Webhook Matching** - `checkout.session.completed` now matches pending payments by `metadata.reference`, then `client_reference_id`, then `provider_session_id`, and treats metadata payment id as a final fallback.
+- **Stripe Checkout Payment Updates** - Subscription checkout completion now marks the existing payment row paid, stores `gateway_subscription_id=sub_...`, stores `provider_invoice_id=in_...`, updates amount/currency from the session when present, and leaves `provider_payment_intent_id` null until a real `pi_...` arrives.
+- **AdminPaymentsPage** - Refund unavailable state now shows “Refund unavailable: missing Stripe PaymentIntent or Charge ID.” when no `pi_...` or `ch_...` source is present.
 
 ### Security
-- User can only cancel their own subscription immediately
-- User cannot immediately cancel a subscription that's already cancelled
-- Guest cannot call cancel-now endpoint (requires auth:sanctum)
-- Admin cancel-now endpoint is unaffected and continues to work
-
-## Refund Source Fix
-### Added
-- **Invalid Refund Detection** - Admin refund endpoint now validates Stripe refund source before creating refund
-- **Failed Refund Record** - When no valid PaymentIntent or Charge ID exists, creates a failed refund record with reason
-- **provider_invoice_id Column** - Added to payments table for tracking Stripe invoice IDs
-- **Webhook Invoice Saving** - `invoice.payment_succeeded` now saves `provider_payment_intent_id`, `provider_charge_id`, and `provider_invoice_id`
-- **Checkout Webhook Fix** - `checkout.session.completed` now stores PaymentIntent ID as `provider_payment_intent_id` when available
-- **needs_review Refund Status** - Admin payments page supports "needs review" status for invalid pending refunds
-
-### Changed
-- **PaymentActionController::refund** - Requires `pi_...` PaymentIntent ID or `ch_...` Charge ID for Stripe refunds
-- **PaymentActionController::refund** - Falls back to Charge ID if PaymentIntent ID is unavailable
-- **PaymentActionController::refund** - Returns clear error when refund source is invalid instead of failing silently
-- **StripeWebhookController::upsertInvoicePayment** - Saves PaymentIntent, Charge, and Invoice IDs from invoice payload
-- **StripeWebhookController::handleCheckoutSessionCompleted** - Separates PaymentIntent ID from subscription ID storage
-- **AdminPaymentsPage** - Added `needs_review` badge for invalid pending refunds
-
-### Security
-- Refund amount validation enforced on backend
+- Backend refund endpoint validates all eligibility rules even if frontend button is bypassed
+- Only payments with active subscription cancellations allow refunds (prevents refunding active subscriptions)
+- Refund disabled reason returned to admin but does not expose sensitive data
 - Only admin/super_admin can refund
 - Refund reason validated against Stripe-supported reasons
 - Subscription IDs are no longer used as Stripe refund identifiers
+- Admin refund API uses `provider_payment_intent_id` first and `provider_charge_id` second; it never falls back to a `sub_...` provider payment id.
+- Missing Stripe refund sources now return an error without creating failed or fake refund records.
+- Webhook payment updates skip missing optional columns with warning logs instead of failing the whole checkout event.
 - Clear error messages returned when refund source is invalid
 
 ## [1.3.0] - 2026-07-02

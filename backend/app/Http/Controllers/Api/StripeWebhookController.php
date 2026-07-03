@@ -6,27 +6,34 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\WebhookEvent;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\Stripe;
 use Stripe\StripeObject;
 use Stripe\Subscription as StripeSubscriptionResource;
 use Stripe\Webhook;
+use App\Services\StripeBackfillService;
 use Throwable;
 use UnexpectedValueException;
 
 class StripeWebhookController extends Controller
 {
+    private ?array $paymentColumns = null;
+
     private const REPROCESSABLE_EVENT_TYPES = [
         'checkout.session.completed',
         'customer.subscription.created',
         'customer.subscription.updated',
         'customer.subscription.deleted',
         'invoice.payment_succeeded',
+        'invoice.paid',
+        'invoice_payment.paid',
         'invoice.payment_failed',
         'charge.refunded',
         'refund.created',
@@ -112,11 +119,12 @@ class StripeWebhookController extends Controller
                 return $alreadyProcessed ? 'reprocessed' : 'processed';
             });
         } catch (Throwable $exception) {
-            Log::error('Stripe webhook processing failed.', [
+            Log::error('Stripe webhook processing failed.', array_merge([
                 'event_id' => $event->id,
                 'event_type' => $event->type,
+                'exception_message' => $exception->getMessage(),
                 'exception' => $exception,
-            ]);
+            ], $this->webhookFailureContext($event->data->object ?? null)));
 
             return response()->json(['message' => 'Webhook processing failed.'], 500);
         }
@@ -130,6 +138,8 @@ class StripeWebhookController extends Controller
             'checkout.session.completed' => $this->handleCheckoutSessionCompleted($object),
             'checkout.session.expired' => $this->handleCheckoutSessionExpired($object),
             'invoice.payment_succeeded' => $this->handleInvoicePaymentSucceeded($object),
+            'invoice.paid' => $this->handleInvoicePaid($object),
+            'invoice_payment.paid' => $this->handleInvoicePaymentPaid($object),
             'invoice.payment_failed' => $this->handleInvoicePaymentFailed($object),
             'customer.subscription.created' => $this->handleCustomerSubscriptionCreated($object),
             'customer.subscription.updated' => $this->handleCustomerSubscriptionUpdated($object),
@@ -152,6 +162,7 @@ class StripeWebhookController extends Controller
         $metadataReference = $this->metadataValue($session, 'reference');
         $stripeSubscriptionId = $this->stringValue($session, 'subscription');
         $paymentIntentId = $this->stringValue($session, 'payment_intent');
+        $invoiceId = $this->stringValue($session, 'invoice');
 
         Log::info('Stripe checkout.session.completed received.', [
             'session_id' => $sessionId,
@@ -161,6 +172,8 @@ class StripeWebhookController extends Controller
             'session_status' => $sessionStatus,
             'payment_status' => $paymentStatus,
             'subscription' => $stripeSubscriptionId,
+            'invoice_id' => $invoiceId,
+            'payment_intent_id' => $paymentIntentId,
         ]);
 
         if ($sessionStatus !== 'complete' || $paymentStatus !== 'paid') {
@@ -205,7 +218,31 @@ class StripeWebhookController extends Controller
                 'session_id' => $sessionId,
             ]);
 
+            $this->updatePaymentStripeIdentifiers($payment, [
+                'provider_session_id' => $sessionId,
+                'gateway_subscription_id' => $stripeSubscriptionId,
+                'provider_payment_intent_id' => $paymentIntentId,
+                'provider_invoice_id' => $invoiceId,
+            ]);
+
             $this->activateSubscriptionForPayment($payment, $session);
+
+            // Attempt to backfill missing Stripe payment references (pi_/ch_) if possible
+            try {
+                $backfillService = app(StripeBackfillService::class);
+                $result = $backfillService->backfillStripePaymentReferences($payment->fresh());
+
+                Log::info('Stripe backfill attempted after checkout.session.completed (already paid).', [
+                    'payment_id' => $payment->id,
+                    'invoice_id' => $payment->provider_invoice_id,
+                    'result' => $result,
+                ]);
+            } catch (Throwable $e) {
+                Log::warning('Stripe backfill failed after checkout.session.completed (already paid).', [
+                    'payment_id' => $payment->id,
+                    'exception' => $e->getMessage(),
+                ]);
+            }
 
             return;
         }
@@ -218,28 +255,100 @@ class StripeWebhookController extends Controller
             'paid_at' => now(),
         ];
 
+        if ($stripeSubscriptionId && str_starts_with($stripeSubscriptionId, 'sub_')) {
+            $updateData['gateway_subscription_id'] = $stripeSubscriptionId;
+        }
+
+        $amountTotal = $this->floatValue($session, 'amount_total');
+        if ($amountTotal !== null && $amountTotal > 0) {
+            $updateData['amount'] = $amountTotal / 100;
+        }
+
+        $sessionCurrency = $this->stringValue($session, 'currency');
+        if ($sessionCurrency) {
+            $updateData['currency'] = strtoupper($sessionCurrency);
+        }
+
+        // For subscription mode, payment_intent is NULL on the session.
+        // Fetch it from the subscription's latest invoice.
+        if (! $paymentIntentId && $stripeSubscriptionId && str_starts_with($stripeSubscriptionId, 'sub_')) {
+            try {
+                $fetchedInvoice = $this->fetchLatestInvoiceForSubscription($stripeSubscriptionId);
+                if ($fetchedInvoice) {
+                    $fetchedPi = $this->stringValue($fetchedInvoice, 'payment_intent');
+                    if ($fetchedPi && str_starts_with($fetchedPi, 'pi_')) {
+                        $paymentIntentId = $fetchedPi;
+                        $updateData['provider_payment_intent_id'] = $fetchedPi;
+                        $updateData['provider_payment_id'] = $fetchedPi;
+                        Log::info('Backfilled payment_intent from subscription invoice in checkout.session.completed.', [
+                            'payment_id' => $payment->id,
+                            'payment_intent' => $fetchedPi,
+                            'subscription_id' => $stripeSubscriptionId,
+                            'invoice_id' => $this->stringValue($fetchedInvoice, 'id'),
+                        ]);
+                    }
+                    $fetchedCharge = $this->stringValue($fetchedInvoice, 'charge');
+                    if ($fetchedCharge && str_starts_with($fetchedCharge, 'ch_')) {
+                        $updateData['provider_charge_id'] = $fetchedCharge;
+                    }
+                    $fetchedInvoiceId = $this->stringValue($fetchedInvoice, 'id');
+                    if ($fetchedInvoiceId && str_starts_with($fetchedInvoiceId, 'in_') && ! $invoiceId) {
+                        $invoiceId = $fetchedInvoiceId;
+                        $updateData['provider_invoice_id'] = $fetchedInvoiceId;
+                    }
+                }
+            } catch (Throwable $e) {
+                Log::warning('Failed to fetch invoice for subscription payment_intent backfill.', [
+                    'payment_id' => $payment->id,
+                    'subscription_id' => $stripeSubscriptionId,
+                    'exception' => $e->getMessage(),
+                ]);
+            }
+        }
+
         // Store PaymentIntent ID (pi_...) as the refundable payment ID
         if ($paymentIntentId && str_starts_with($paymentIntentId, 'pi_')) {
             $updateData['provider_payment_intent_id'] = $paymentIntentId;
             $updateData['provider_payment_id'] = $paymentIntentId;
         }
 
-        // Store subscription ID separately - never use as refundable payment ID
-        if ($stripeSubscriptionId) {
-            $updateData['provider_payment_id'] = $updateData['provider_payment_id'] ?? $stripeSubscriptionId;
+        if ($invoiceId && str_starts_with($invoiceId, 'in_')) {
+            $updateData['provider_invoice_id'] = $invoiceId;
         }
 
-        $payment->update($updateData);
+        if (! isset($updateData['provider_payment_id']) && str_starts_with((string) $payment->provider_payment_id, 'sub_')) {
+            $updateData['provider_payment_id'] = null;
+        }
+
+        $this->updatePaymentSafely($payment, $updateData, 'checkout.session.completed');
 
         Log::info('Payment marked paid from Stripe checkout.session.completed.', [
             'payment_id' => $payment->id,
             'payment_reference' => $payment->reference,
             'provider_payment_intent_id' => $paymentIntentId,
+            'provider_invoice_id' => $invoiceId,
             'provider_payment_id' => $payment->fresh()->provider_payment_id,
             'session_id' => $sessionId,
         ]);
 
         $this->activateSubscriptionForPayment($payment, $session);
+
+        // Attempt to backfill missing Stripe payment references (pi_/ch_) now that invoice id may be saved
+        try {
+            $backfillService = app(StripeBackfillService::class);
+            $result = $backfillService->backfillStripePaymentReferences($payment->fresh());
+
+            Log::info('Stripe backfill attempted after checkout.session.completed.', [
+                'payment_id' => $payment->id,
+                'invoice_id' => $payment->provider_invoice_id,
+                'result' => $result,
+            ]);
+        } catch (Throwable $e) {
+            Log::warning('Stripe backfill failed after checkout.session.completed.', [
+                'payment_id' => $payment->id,
+                'exception' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function handleCheckoutSessionExpired(StripeObject $session): void
@@ -262,29 +371,60 @@ class StripeWebhookController extends Controller
 
     private function handleInvoicePaymentSucceeded(StripeObject $invoice): void
     {
-        $subscriptionId = $this->stringValue($invoice, 'subscription');
-        if (! $subscriptionId) {
+        $this->handlePaidInvoiceObject($invoice, 'invoice.payment_succeeded');
+    }
+
+    private function handleInvoicePaid(StripeObject $invoice): void
+    {
+        $this->handlePaidInvoiceObject($invoice, 'invoice.paid');
+    }
+
+    private function handleInvoicePaymentPaid(StripeObject $invoicePayment): void
+    {
+        $this->handlePaidInvoiceObject($invoicePayment, 'invoice_payment.paid');
+    }
+
+    private function handlePaidInvoiceObject(StripeObject $invoiceObject, string $eventType): void
+    {
+        $subscriptionId = $this->subscriptionIdFromPaidInvoiceObject($invoiceObject);
+        $matchedPayment = $this->findPaymentForPaidInvoiceObject($invoiceObject, null);
+        $subscription = $subscriptionId
+            ? $this->findLocalSubscriptionByStripeSubscriptionId($subscriptionId)
+            : null;
+
+        if ($subscriptionId) {
+            $stripeSubscription = $this->retrieveStripeSubscription($subscriptionId);
+
+            if ($stripeSubscription) {
+                $this->syncSubscriptionFromStripeObject($stripeSubscription, $subscription);
+                $subscription = $this->findLocalSubscriptionByStripeSubscriptionId($subscriptionId) ?? $subscription;
+            } elseif ($subscription) {
+                $subscription->update(['status' => 'active']);
+            }
+        }
+
+        if (! $subscription && $matchedPayment?->subscription_id) {
+            $subscription = Subscription::query()
+                ->whereKey($matchedPayment->subscription_id)
+                ->lockForUpdate()
+                ->first();
+        }
+
+        if ($subscription && ! $matchedPayment) {
+            $matchedPayment = $this->findPaymentForPaidInvoiceObject($invoiceObject, $subscription);
+        }
+
+        if ($subscription || $matchedPayment) {
+            $this->upsertInvoicePayment($invoiceObject, $subscription, $eventType, $matchedPayment);
+
             return;
         }
 
-        $subscription = $this->findLocalSubscriptionByStripeSubscriptionId($subscriptionId);
-        $stripeSubscription = $this->retrieveStripeSubscription($subscriptionId);
-
-        if ($stripeSubscription) {
-            $this->syncSubscriptionFromStripeObject($stripeSubscription, $subscription);
-            $subscription = $this->findLocalSubscriptionByStripeSubscriptionId($subscriptionId) ?? $subscription;
-        } elseif ($subscription) {
-            $subscription->update(['status' => 'active']);
-        }
-
-        if ($subscription) {
-            $this->upsertInvoicePayment($invoice, $subscription);
-        } else {
-            Log::warning('Stripe invoice.payment_succeeded could not find a local subscription.', [
-                'stripe_subscription_id' => $subscriptionId,
-                'invoice_id' => $this->stringValue($invoice, 'id'),
-            ]);
-        }
+        Log::warning("Stripe {$eventType} could not find a local subscription or payment.", [
+            'stripe_subscription_id' => $subscriptionId,
+            'invoice_id' => $this->invoiceIdFromPaidInvoiceObject($invoiceObject),
+            'payment_intent_id' => $this->paymentIntentIdFromPaidInvoiceObject($invoiceObject),
+        ]);
     }
 
     private function handleInvoicePaymentFailed(StripeObject $invoice): void
@@ -376,12 +516,13 @@ class StripeWebhookController extends Controller
             return;
         }
 
-        $payment->update([
+        $this->updatePaymentSafely($payment, [
             'status' => Payment::STATUS_FAILED,
             'provider_payment_id' => $this->stringValue($paymentIntent, 'id'),
+            'provider_payment_intent_id' => $this->stringValue($paymentIntent, 'id'),
             'failure_reason' => $this->paymentIntentFailureMessage($paymentIntent),
             'raw_provider_status' => $this->rawProviderStatus($paymentIntent, 'payment_intent.payment_failed'),
-        ]);
+        ], 'payment_intent.payment_failed');
     }
 
     private function handleChargeRefunded(StripeObject $refund): void
@@ -431,11 +572,15 @@ class StripeWebhookController extends Controller
         $totalRefunded = (float) $payment->refunded_amount + $amountRefunded;
         $isFullRefund = $totalRefunded >= (float) $payment->amount;
 
-        $payment->update([
+        $this->updatePaymentSafely($payment, [
             'refunded_amount' => $totalRefunded,
             'refund_status' => $isFullRefund ? 'refunded' : 'partially_refunded',
             'status' => $isFullRefund ? Payment::STATUS_REFUNDED : Payment::STATUS_PARTIALLY_REFUNDED,
-        ]);
+        ], 'charge.refunded');
+
+        // Track if this is a new refund or status change for notification
+        $isNewRefund = false;
+        $previousStatus = null;
 
         // Update or create refund record
         if ($refundId) {
@@ -445,12 +590,14 @@ class StripeWebhookController extends Controller
                 ->first();
 
             if ($existingRefund) {
+                $previousStatus = $existingRefund->status;
                 $existingRefund->update([
                     'status' => $status === 'succeeded' ? 'succeeded' : $status,
                     'raw_response' => json_decode(json_encode($refund), true),
                     'refunded_at' => $status === 'succeeded' ? now() : $existingRefund->refunded_at,
                 ]);
             } else {
+                $isNewRefund = true;
                 \App\Models\Refund::create([
                     'payment_id' => $payment->id,
                     'user_id' => $payment->user_id,
@@ -471,6 +618,25 @@ class StripeWebhookController extends Controller
             'refunded_amount' => $payment->fresh()->refunded_amount,
             'refund_status' => $payment->fresh()->refund_status,
         ]);
+
+        // Send notification for completed refunds
+        if ($status === 'succeeded' && $payment->user_id) {
+            try {
+                $notificationService = app(NotificationService::class);
+                $notificationService->refundCompleted(
+                    $payment->user_id,
+                    $amountRefunded,
+                    $payment->currency,
+                    $payment->id,
+                    $refundId ? 0 : 0, // We don't have local refund ID here
+                );
+            } catch (Throwable $e) {
+                Log::warning('Failed to send refund completed notification from webhook.', [
+                    'payment_id' => $payment->id,
+                    'exception' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     private function handleRefundCreated(StripeObject $refund): void
@@ -562,10 +728,10 @@ class StripeWebhookController extends Controller
             $totalRefunded = (float) $payment->refunded_amount;
             $isFullRefund = $totalRefunded >= (float) $payment->amount;
 
-            $payment->update([
+            $this->updatePaymentSafely($payment, [
                 'refund_status' => $isFullRefund ? 'refunded' : 'partially_refunded',
                 'status' => $isFullRefund ? Payment::STATUS_REFUNDED : Payment::STATUS_PARTIALLY_REFUNDED,
-            ]);
+            ], 'refund.updated');
         }
     }
 
@@ -672,14 +838,14 @@ class StripeWebhookController extends Controller
         ?string $metadataReference,
         ?string $sessionId,
     ): array {
-        if ($metadataPaymentId && ctype_digit($metadataPaymentId)) {
+        if ($metadataReference) {
             $payment = Payment::query()
-                ->whereKey($metadataPaymentId)
+                ->where('reference', $metadataReference)
                 ->lockForUpdate()
                 ->first();
 
             if ($payment) {
-                return [$payment, 'metadata.payment_id'];
+                return [$payment, 'metadata.reference'];
             }
         }
 
@@ -694,17 +860,6 @@ class StripeWebhookController extends Controller
             }
         }
 
-        if ($metadataReference) {
-            $payment = Payment::query()
-                ->where('reference', $metadataReference)
-                ->lockForUpdate()
-                ->first();
-
-            if ($payment) {
-                return [$payment, 'metadata.reference'];
-            }
-        }
-
         if ($sessionId) {
             $payment = Payment::query()
                 ->where('provider_session_id', $sessionId)
@@ -716,7 +871,220 @@ class StripeWebhookController extends Controller
             }
         }
 
+        if ($metadataPaymentId && ctype_digit($metadataPaymentId)) {
+            $payment = Payment::query()
+                ->whereKey($metadataPaymentId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($payment) {
+                return [$payment, 'metadata.payment_id'];
+            }
+        }
+
         return [null, null];
+    }
+
+    private function updatePaymentStripeIdentifiers(Payment $payment, array $identifiers): void
+    {
+        $updates = [];
+
+        $sessionId = $identifiers['provider_session_id'] ?? null;
+        if ($sessionId && ! $payment->provider_session_id) {
+            $updates['provider_session_id'] = $sessionId;
+        }
+
+        $stripeSubscriptionId = $identifiers['gateway_subscription_id'] ?? null;
+        if ($stripeSubscriptionId && str_starts_with($stripeSubscriptionId, 'sub_') && ! $payment->gateway_subscription_id) {
+            $updates['gateway_subscription_id'] = $stripeSubscriptionId;
+        }
+
+        $paymentIntentId = $identifiers['provider_payment_intent_id'] ?? null;
+        if ($paymentIntentId && str_starts_with($paymentIntentId, 'pi_')) {
+            $updates['provider_payment_intent_id'] = $paymentIntentId;
+            $updates['provider_payment_id'] = $paymentIntentId;
+        }
+
+        $invoiceId = $identifiers['provider_invoice_id'] ?? null;
+        if ($invoiceId && str_starts_with($invoiceId, 'in_') && ! $payment->provider_invoice_id) {
+            $updates['provider_invoice_id'] = $invoiceId;
+        }
+
+        if (! isset($updates['provider_payment_id']) && str_starts_with((string) $payment->provider_payment_id, 'sub_')) {
+            $updates['provider_payment_id'] = null;
+        }
+
+        if ($updates !== []) {
+            $this->updatePaymentSafely($payment, $updates, 'stripe.identifier.sync');
+        }
+    }
+
+    private function updatePaymentSafely(Payment $payment, array $updates, string $context): void
+    {
+        $filteredUpdates = $this->filterPaymentColumns($updates, $context);
+
+        if ($filteredUpdates === []) {
+            return;
+        }
+
+        $payment->update($filteredUpdates);
+    }
+
+    private function filterPaymentColumns(array $updates, string $context): array
+    {
+        $columns = $this->paymentColumns();
+        $allowed = array_fill_keys($columns, true);
+        $missing = array_values(array_diff(array_keys($updates), $columns));
+
+        if ($missing !== []) {
+            Log::warning('Skipping payment update columns that are missing from the database schema.', [
+                'context' => $context,
+                'missing_columns' => $missing,
+            ]);
+        }
+
+        return array_intersect_key($updates, $allowed);
+    }
+
+    private function paymentColumns(): array
+    {
+        if ($this->paymentColumns === null) {
+            $this->paymentColumns = Schema::getColumnListing('payments');
+        }
+
+        return $this->paymentColumns;
+    }
+
+    private function paymentHasColumn(string $column): bool
+    {
+        return in_array($column, $this->paymentColumns(), true);
+    }
+
+    private function findPaymentForPaidInvoiceObject(StripeObject $invoiceObject, ?Subscription $subscription): ?Payment
+    {
+        $metadataPaymentId = $this->metadataValue($invoiceObject, 'payment_id')
+            ?? $this->nestedStringValue($invoiceObject, ['invoice', 'metadata', 'payment_id']);
+
+        if ($metadataPaymentId && ctype_digit($metadataPaymentId)) {
+            $payment = Payment::query()
+                ->whereKey($metadataPaymentId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($payment) {
+                return $payment;
+            }
+        }
+
+        $reference = $this->metadataValue($invoiceObject, 'reference')
+            ?? $this->nestedStringValue($invoiceObject, ['invoice', 'metadata', 'reference'])
+            ?? $this->stringValue($invoiceObject, 'client_reference_id');
+
+        if ($reference) {
+            $payment = Payment::query()
+                ->where('reference', $reference)
+                ->lockForUpdate()
+                ->first();
+
+            if ($payment) {
+                return $payment;
+            }
+        }
+
+        $checkoutSessionId = $this->stringValue($invoiceObject, 'checkout_session')
+            ?? $this->nestedStringValue($invoiceObject, ['checkout_session', 'id']);
+
+        if ($checkoutSessionId) {
+            $payment = Payment::query()
+                ->where('provider_session_id', $checkoutSessionId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($payment) {
+                return $payment;
+            }
+        }
+
+        $invoiceId = $this->invoiceIdFromPaidInvoiceObject($invoiceObject);
+        if ($invoiceId) {
+            $payment = Payment::query()
+                ->where(function ($query) use ($invoiceId): void {
+                    $query->where('reference', $invoiceId);
+
+                    if ($this->paymentHasColumn('provider_invoice_id')) {
+                        $query->orWhere('provider_invoice_id', $invoiceId);
+                    }
+                })
+                ->lockForUpdate()
+                ->first();
+
+            if ($payment) {
+                return $payment;
+            }
+        }
+
+        $paymentIntentId = $this->paymentIntentIdFromPaidInvoiceObject($invoiceObject);
+        if ($paymentIntentId) {
+            $payment = Payment::query()
+                ->where(function ($query) use ($paymentIntentId): void {
+                    $query->where('provider_payment_id', $paymentIntentId);
+
+                    if ($this->paymentHasColumn('provider_payment_intent_id')) {
+                        $query->orWhere('provider_payment_intent_id', $paymentIntentId);
+                    }
+                })
+                ->lockForUpdate()
+                ->first();
+
+            if ($payment) {
+                return $payment;
+            }
+        }
+
+        if ($subscription?->id && $subscription->user_id && $subscription->plan_id) {
+            return Payment::query()
+                ->where('subscription_id', $subscription->id)
+                ->where('user_id', $subscription->user_id)
+                ->where('plan_id', $subscription->plan_id)
+                ->where('gateway', 'stripe')
+                ->whereIn('status', [Payment::STATUS_PENDING, Payment::STATUS_PAID])
+                ->when($this->paymentHasColumn('provider_invoice_id'), fn ($query) => $query->whereNull('provider_invoice_id'))
+                ->latest()
+                ->lockForUpdate()
+                ->first();
+        }
+
+        return null;
+    }
+
+    private function invoiceIdFromPaidInvoiceObject(StripeObject $invoiceObject): ?string
+    {
+        if ($this->stringValue($invoiceObject, 'object') === 'invoice') {
+            return $this->stringValue($invoiceObject, 'id');
+        }
+
+        return $this->stringValue($invoiceObject, 'invoice')
+            ?? $this->nestedStringValue($invoiceObject, ['invoice', 'id']);
+    }
+
+    private function paymentIntentIdFromPaidInvoiceObject(StripeObject $invoiceObject): ?string
+    {
+        return $this->nestedStringValue($invoiceObject, ['payment', 'payment_intent'])
+            ?? $this->stringValue($invoiceObject, 'payment_intent')
+            ?? $this->nestedStringValue($invoiceObject, ['payment_intent', 'id']);
+    }
+
+    private function chargeIdFromPaidInvoiceObject(StripeObject $invoiceObject): ?string
+    {
+        return $this->nestedStringValue($invoiceObject, ['payment', 'charge'])
+            ?? $this->stringValue($invoiceObject, 'charge')
+            ?? $this->nestedStringValue($invoiceObject, ['payment_intent', 'latest_charge']);
+    }
+
+    private function subscriptionIdFromPaidInvoiceObject(StripeObject $invoiceObject): ?string
+    {
+        return $this->stringValue($invoiceObject, 'subscription')
+            ?? $this->nestedStringValue($invoiceObject, ['invoice', 'subscription']);
     }
 
     private function syncSubscriptionFromStripeObject($stripeSubscription, ?Subscription $localSubscription = null): void
@@ -759,6 +1127,8 @@ class StripeWebhookController extends Controller
         $cancelAtPeriodEnd = $stripeSubscription->cancel_at_period_end ?? null;
         if ($cancelAtPeriodEnd !== null) {
             $cancelAtPeriodEnd = (bool) $cancelAtPeriodEnd;
+        } else {
+            $cancelAtPeriodEnd = (bool) ($localSubscription->cancel_at_period_end ?? false);
         }
 
         $updateData = [
@@ -865,6 +1235,28 @@ class StripeWebhookController extends Controller
             ->first();
     }
 
+    private function fetchLatestInvoiceForSubscription(string $subscriptionId): ?StripeObject
+    {
+        try {
+            Stripe::setApiKey(config('services.stripe.secret'));
+
+            $invoices = \Stripe\Invoice::all([
+                'subscription' => $subscriptionId,
+                'limit' => 1,
+                'status' => 'paid',
+            ]);
+
+            return $invoices->data[0] ?? null;
+        } catch (Throwable $e) {
+            Log::warning('Failed to fetch latest invoice for subscription.', [
+                'subscription_id' => $subscriptionId,
+                'exception' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     private function retrieveStripeSubscription(?string $stripeSubscriptionId): ?StripeObject
     {
         if (! $stripeSubscriptionId) {
@@ -891,7 +1283,12 @@ class StripeWebhookController extends Controller
         }
     }
 
-    private function upsertInvoicePayment(StripeObject $invoice, Subscription $subscription): void
+    private function upsertInvoicePayment(
+        StripeObject $invoice,
+        ?Subscription $subscription,
+        string $eventType,
+        ?Payment $matchedPayment = null,
+    ): void
     {
         $amount = (($this->floatValue($invoice, 'amount_paid') ?? 0.0) / 100);
 
@@ -899,33 +1296,43 @@ class StripeWebhookController extends Controller
             return;
         }
 
-        $invoiceId = $this->stringValue($invoice, 'id');
-        $paymentIntent = $this->stringValue($invoice, 'payment_intent');
-        $chargeId = $this->stringValue($invoice, 'charge');
+        $invoiceId = $this->invoiceIdFromPaidInvoiceObject($invoice);
+        $paymentIntent = $this->paymentIntentIdFromPaidInvoiceObject($invoice);
+        $chargeId = $this->chargeIdFromPaidInvoiceObject($invoice);
+        $stripeSubscriptionId = $this->subscriptionIdFromPaidInvoiceObject($invoice)
+            ?? $subscription?->gateway_subscription_id
+            ?? $subscription?->stripe_subscription_id;
         $reference = $invoiceId ?: ($paymentIntent ? 'in_'.$paymentIntent : null);
 
         if (! $reference) {
             return;
         }
 
+        $paidAt = $this->stripeTimestampToDateTime($this->nestedValue($invoice, ['status_transitions', 'paid_at']))
+            ?? now();
+
         $updateData = [
-            'user_id' => $subscription->user_id,
-            'subscription_id' => $subscription->id,
-            'plan_id' => $subscription->plan_id,
+            'user_id' => $subscription?->user_id ?? $matchedPayment?->user_id,
+            'subscription_id' => $subscription?->id ?? $matchedPayment?->subscription_id,
+            'plan_id' => $subscription?->plan_id ?? $matchedPayment?->plan_id,
             'gateway' => 'stripe',
             'amount' => $amount,
             'currency' => strtoupper($this->stringValue($invoice, 'currency') ?? 'usd'),
             'status' => Payment::STATUS_PAID,
-            'raw_provider_status' => $this->rawProviderStatus($invoice, 'invoice.payment_succeeded'),
-            'paid_at' => now(),
+            'raw_provider_status' => $this->rawProviderStatus($invoice, $eventType),
+            'paid_at' => $paidAt,
         ];
+
+        if ($stripeSubscriptionId && str_starts_with($stripeSubscriptionId, 'sub_')) {
+            $updateData['gateway_subscription_id'] = $stripeSubscriptionId;
+        }
 
         // Store PaymentIntent ID (pi_...) as the refundable payment ID
         if ($paymentIntent && str_starts_with($paymentIntent, 'pi_')) {
             $updateData['provider_payment_intent_id'] = $paymentIntent;
             $updateData['provider_payment_id'] = $paymentIntent;
-        } else {
-            $updateData['provider_payment_id'] = $paymentIntent ?? $invoiceId;
+        } elseif ($matchedPayment && str_starts_with((string) $matchedPayment->provider_payment_id, 'sub_')) {
+            $updateData['provider_payment_id'] = null;
         }
 
         // Store charge ID if available
@@ -938,10 +1345,24 @@ class StripeWebhookController extends Controller
             $updateData['provider_invoice_id'] = $invoiceId;
         }
 
-        Payment::updateOrCreate(
-            ['reference' => $reference],
-            $updateData,
-        );
+        $updateData = $this->filterPaymentColumns($updateData, $eventType);
+
+        if ($matchedPayment) {
+            $matchedPayment->update($updateData);
+
+            return;
+        }
+
+        if (! $updateData['user_id']) {
+            Log::warning("Stripe {$eventType} could not create a payment because user_id is missing.", [
+                'invoice_id' => $invoiceId,
+                'payment_intent_id' => $paymentIntent,
+            ]);
+
+            return;
+        }
+
+        Payment::updateOrCreate(['reference' => $reference], $updateData);
     }
 
     private function localSubscriptionStatus(?string $stripeStatus, Subscription $localSubscription): string
@@ -1002,19 +1423,50 @@ class StripeWebhookController extends Controller
     {
         $value = $object->{$key} ?? null;
 
+        return $this->stringFromStripeValue($value);
+    }
+
+    private function nestedStringValue(StripeObject|array|null $object, array $path): ?string
+    {
+        return $this->stringFromStripeValue($this->nestedValue($object, $path));
+    }
+
+    private function nestedValue(StripeObject|array|null $object, array $path)
+    {
+        $value = $object;
+
+        foreach ($path as $key) {
+            if ($value instanceof StripeObject) {
+                $value = $value->{$key} ?? null;
+            } elseif (is_array($value)) {
+                $value = $value[$key] ?? null;
+            } else {
+                return null;
+            }
+        }
+
+        return $value;
+    }
+
+    private function stringFromStripeValue($value): ?string
+    {
         if ($value === null || $value === '') {
             return null;
         }
 
         if ($value instanceof StripeObject) {
-            return $this->stringValue($value, 'id');
+            return $this->stringFromStripeValue($value->id ?? null);
         }
 
-        if (is_array($value) && isset($value['id'])) {
-            return (string) $value['id'];
+        if (is_array($value) && array_key_exists('id', $value)) {
+            return $this->stringFromStripeValue($value['id']);
         }
 
-        return (string) $value;
+        if (is_scalar($value)) {
+            return (string) $value;
+        }
+
+        return null;
     }
 
     private function floatValue(StripeObject $object, string $key): ?float
@@ -1064,6 +1516,33 @@ class StripeWebhookController extends Controller
         return null;
     }
 
+    private function webhookFailureContext($object): array
+    {
+        if (! $object instanceof StripeObject && ! is_array($object)) {
+            return [];
+        }
+
+        return [
+            'reference' => $object instanceof StripeObject
+                ? $this->metadataValue($object, 'reference')
+                : $this->arrayMetadataValue($object, 'reference'),
+            'session_id' => $this->stringFromStripeValue($object instanceof StripeObject ? ($object->id ?? null) : ($object['id'] ?? null)),
+            'checkout_session_id' => $this->stringFromStripeValue($object instanceof StripeObject ? ($object->checkout_session ?? null) : ($object['checkout_session'] ?? null)),
+            'subscription_id' => $this->stringFromStripeValue($object instanceof StripeObject ? ($object->subscription ?? null) : ($object['subscription'] ?? null)),
+            'invoice_id' => $this->stringFromStripeValue($object instanceof StripeObject ? ($object->invoice ?? null) : ($object['invoice'] ?? null)),
+            'payment_intent_id' => $object instanceof StripeObject
+                ? ($this->paymentIntentIdFromPaidInvoiceObject($object) ?? $this->stringValue($object, 'payment_intent'))
+                : ($this->stringFromStripeValue(data_get($object, 'payment.payment_intent')) ?? $this->stringFromStripeValue(data_get($object, 'payment_intent'))),
+        ];
+    }
+
+    private function arrayMetadataValue(array $object, string $key): ?string
+    {
+        $value = data_get($object, "metadata.{$key}");
+
+        return $value === null || $value === '' ? null : (string) $value;
+    }
+
     private function paymentIntentFailureMessage(StripeObject $paymentIntent): string
     {
         $lastPaymentError = $paymentIntent->last_payment_error ?? null;
@@ -1084,7 +1563,12 @@ class StripeWebhookController extends Controller
             'session_status' => $this->stringValue($object, 'status'),
             'payment_status' => $this->stringValue($object, 'payment_status'),
             'subscription' => $this->stringValue($object, 'subscription'),
-            'invoice' => $this->stringValue($object, 'invoice'),
+            'invoice' => $this->invoiceIdFromPaidInvoiceObject($object)
+                ?? $this->stringValue($object, 'invoice'),
+            'payment_intent' => $this->paymentIntentIdFromPaidInvoiceObject($object)
+                ?? $this->stringValue($object, 'payment_intent'),
+            'charge' => $this->chargeIdFromPaidInvoiceObject($object)
+                ?? $this->stringValue($object, 'charge'),
             'customer' => $this->stringValue($object, 'customer'),
             'mode' => $this->stringValue($object, 'mode'),
         ], JSON_UNESCAPED_SLASHES) ?: '{}';

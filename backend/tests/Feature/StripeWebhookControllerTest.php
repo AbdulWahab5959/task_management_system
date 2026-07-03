@@ -97,7 +97,10 @@ class StripeWebhookControllerTest extends TestCase
 
         $this->assertSame(Payment::STATUS_PAID, $payment->status);
         $this->assertSame('cs_test_123', $payment->provider_session_id);
-        $this->assertSame('sub_test_123', $payment->provider_payment_id);
+        $this->assertSame('sub_test_123', $payment->gateway_subscription_id);
+        $this->assertNull($payment->provider_payment_id);
+        $this->assertNull($payment->provider_payment_intent_id);
+        $this->assertSame('in_test_123', $payment->provider_invoice_id);
         $this->assertNotNull($payment->paid_at);
 
         $rawProviderStatus = json_decode($payment->raw_provider_status, true);
@@ -122,6 +125,98 @@ class StripeWebhookControllerTest extends TestCase
             'failed_at' => null,
             'failure_reason' => null,
         ]);
+    }
+
+    public function test_invoice_payment_paid_backfills_payment_intent_and_invoice_on_existing_payment(): void
+    {
+        config([
+            'services.stripe.secret' => null,
+            'services.stripe.webhook_secret' => 'whsec_test_secret',
+        ]);
+
+        $user = User::factory()->create();
+        $plan = Plan::create([
+            'name' => 'Pro',
+            'slug' => 'pro-invoice-payment',
+            'description' => 'Pro plan',
+            'stripe_plan_id' => 'price_legacy_invoice_payment',
+            'price' => 29.99,
+            'interval' => 'month',
+            'amount' => 29.99,
+            'amount_minor' => 2999,
+            'currency' => 'USD',
+            'billing_interval' => 'month',
+            'stripe_price_id' => 'price_invoice_payment_123',
+            'features' => [],
+            'limits' => [],
+            'is_active' => true,
+        ]);
+
+        $subscription = Subscription::create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'gateway' => 'stripe',
+            'status' => 'active',
+            'gateway_subscription_id' => 'sub_invoice_payment_test',
+            'stripe_subscription_id' => 'sub_invoice_payment_test',
+        ]);
+
+        $payment = Payment::create([
+            'user_id' => $user->id,
+            'subscription_id' => $subscription->id,
+            'plan_id' => $plan->id,
+            'gateway' => 'stripe',
+            'reference' => 'pay_invoice_payment_reference',
+            'provider_session_id' => 'cs_invoice_payment_test',
+            'provider_invoice_id' => 'in_1TosFK1Oz8XVPHYW2v5wgx7N',
+            'amount' => 29.99,
+            'currency' => 'USD',
+            'status' => Payment::STATUS_PAID,
+            'paid_at' => now(),
+        ]);
+
+        $paidAt = Carbon::parse('2026-07-02 12:00:00 UTC')->timestamp;
+        $payload = json_encode([
+            'id' => 'evt_invoice_payment_paid_test',
+            'object' => 'event',
+            'type' => 'invoice_payment.paid',
+            'data' => [
+                'object' => [
+                    'id' => 'ipmt_invoice_payment_test',
+                    'object' => 'invoice_payment',
+                    'invoice' => 'in_1TosFK1Oz8XVPHYW2v5wgx7N',
+                    'status' => 'paid',
+                    'amount_paid' => 2999,
+                    'currency' => 'usd',
+                    'payment' => [
+                        'payment_intent' => 'pi_3TosFK1Oz8XVPHYW0HgnRZb0',
+                    ],
+                    'status_transitions' => [
+                        'paid_at' => $paidAt,
+                    ],
+                ],
+            ],
+        ], JSON_UNESCAPED_SLASHES);
+
+        $this->postSignedStripeWebhook($payload)
+            ->assertOk()
+            ->assertJson(['status' => 'processed']);
+
+        $payment->refresh();
+
+        $this->assertSame(Payment::STATUS_PAID, $payment->status);
+        $this->assertSame('pi_3TosFK1Oz8XVPHYW0HgnRZb0', $payment->provider_payment_intent_id);
+        $this->assertSame('pi_3TosFK1Oz8XVPHYW0HgnRZb0', $payment->provider_payment_id);
+        $this->assertSame('sub_invoice_payment_test', $payment->gateway_subscription_id);
+        $this->assertSame('in_1TosFK1Oz8XVPHYW2v5wgx7N', $payment->provider_invoice_id);
+        $this->assertSame('29.99', (string) $payment->amount);
+        $this->assertSame('USD', $payment->currency);
+        $this->assertSame($paidAt, $payment->paid_at->timestamp);
+
+        $rawProviderStatus = json_decode($payment->raw_provider_status, true);
+        $this->assertSame('invoice_payment.paid', $rawProviderStatus['event_type']);
+        $this->assertSame('pi_3TosFK1Oz8XVPHYW0HgnRZb0', $rawProviderStatus['payment_intent']);
+        $this->assertSame('in_1TosFK1Oz8XVPHYW2v5wgx7N', $rawProviderStatus['invoice']);
     }
 
     public function test_customer_subscription_updated_syncs_period_dates_idempotently(): void

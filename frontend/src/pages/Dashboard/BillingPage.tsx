@@ -10,6 +10,7 @@ import {
   Loader2,
   Package,
   ReceiptText,
+  RotateCcw,
   ShieldCheck,
   X,
   XCircle,
@@ -224,6 +225,48 @@ function PaymentStatusBadge({ status }: { status: string }) {
       {formatStatusLabel(status)}
     </span>
   );
+}
+
+function RefundStatusBadge({ refundStatus, refundedAmount, currency }: { refundStatus?: string; refundedAmount?: number; currency?: string }) {
+  if (!refundStatus || !refundedAmount) return null;
+
+  const formattedAmount = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency || 'USD',
+  }).format(refundedAmount);
+
+  switch (refundStatus) {
+    case 'refunded':
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+          Refunded {formattedAmount}
+        </span>
+      );
+    case 'partially_refunded':
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
+          <ReceiptText className="h-3.5 w-3.5" aria-hidden="true" />
+          Partially refunded {formattedAmount}
+        </span>
+      );
+    case 'refund_pending':
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+          <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+          Refund pending
+        </span>
+      );
+    case 'refund_failed':
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">
+          <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+          Refund failed — contact support
+        </span>
+      );
+    default:
+      return null;
+  }
 }
 
 function getPlanActionLabel(plan: BillingPlan, currentPlan?: BillingPlan | null): string {
@@ -653,7 +696,16 @@ export default function BillingPage() {
                             {formatAmount(payment.amount, payment.currency)}
                           </td>
                           <td className="whitespace-nowrap">
-                            <PaymentStatusBadge status={payment.status} />
+                            <div className="flex flex-col gap-1">
+                              <PaymentStatusBadge status={payment.status} />
+                              {payment.refund_status ? (
+                                <RefundStatusBadge
+                                  refundStatus={payment.refund_status}
+                                  refundedAmount={payment.refunded_amount}
+                                  currency={payment.currency}
+                                />
+                              ) : null}
+                            </div>
                           </td>
                           <td className="whitespace-nowrap text-sm text-slate-600">
                             {formatDate(payment.paid_at || payment.created_at)}

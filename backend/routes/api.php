@@ -41,6 +41,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Stripe Checkout route
     Route::post('/billing/stripe/checkout', [App\Http\Controllers\Api\StripeCheckoutController::class, 'createSession']);
+
+    // Notification routes
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [App\Http\Controllers\Api\NotificationController::class, 'index']);
+        Route::post('/{id}/read', [App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
+        Route::post('/read-all', [App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
+        Route::get('/unread-count', [App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+    });
 });
 
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {

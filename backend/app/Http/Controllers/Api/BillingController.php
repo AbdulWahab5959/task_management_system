@@ -427,6 +427,9 @@ class BillingController extends Controller
             ])->toArray()
             : [];
 
+        $refundStatus = $payment->refund_status;
+        $refundedAmount = (float) ($payment->refunded_amount ?? 0);
+
         return [
             'id' => $payment->id,
             'reference' => $payment->reference,
@@ -434,8 +437,8 @@ class BillingController extends Controller
             'amount' => $payment->amount,
             'currency' => $payment->currency,
             'status' => $payment->status,
-            'refunded_amount' => $payment->refunded_amount,
-            'refund_status' => $payment->refund_status,
+            'refunded_amount' => $refundedAmount,
+            'refund_status' => $refundStatus,
             'paid_at' => $payment->paid_at?->toISOString(),
             'created_at' => $payment->created_at->toISOString(),
             'refunds' => $refunds,
@@ -443,6 +446,41 @@ class BillingController extends Controller
                 'id' => $payment->plan->id,
                 'name' => $payment->plan->name,
             ] : null,
+            // User-friendly refund display fields
+            'refund_display' => $this->refundDisplay($refundStatus, $refundedAmount, $payment->amount, $payment->currency),
         ];
+    }
+
+    private function refundDisplay(?string $refundStatus, float $refundedAmount, float $paymentAmount, string $currency): ?array
+    {
+        if (! $refundStatus || $refundedAmount <= 0) {
+            return null;
+        }
+
+        $formattedAmount = number_format($refundedAmount, 2) . ' ' . strtoupper($currency);
+
+        return match ($refundStatus) {
+            'refunded' => [
+                'label' => "Refunded {$formattedAmount}",
+                'status' => 'refunded',
+                'description' => 'This payment has been fully refunded.',
+            ],
+            'partially_refunded' => [
+                'label' => "Partially refunded {$formattedAmount}",
+                'status' => 'partially_refunded',
+                'description' => 'A partial refund has been issued for this payment.',
+            ],
+            'refund_pending' => [
+                'label' => 'Refund pending',
+                'status' => 'refund_pending',
+                'description' => 'A refund is being processed.',
+            ],
+            'refund_failed' => [
+                'label' => 'Refund failed — contact support',
+                'status' => 'refund_failed',
+                'description' => 'The refund could not be completed. Please contact support.',
+            ],
+            default => null,
+        };
     }
 }

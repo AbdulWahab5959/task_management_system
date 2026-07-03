@@ -39,15 +39,28 @@ interface AdminPayment {
   user_name?: string;
   user_email?: string;
   plan_name?: string;
+  // New refund eligibility fields
+  can_refund: boolean;
+  refund_disabled_reason?: string | null;
+  refundable_amount?: string;
+  provider_payment_intent_id?: string;
+  provider_charge_id?: string;
+  // Subscription information
+  subscription_status?: string;
+  subscription_cancel_at_period_end?: boolean;
+  subscription_cancelled_at?: string;
+  subscription_ends_at?: string;
 }
 
 interface PaymentSummaryStats {
   total_payments: number;
-  pending_payments: number;
+  pending_payments: number; 
   paid_payments: number;
   failed_payments: number;
   total_paid_amount: number;
 }
+
+const MISSING_REFUND_SOURCE_REASON = 'Refund unavailable: missing Stripe PaymentIntent or Charge ID.';
 
 function getStatusBadgeTone(status: string): { className: string; icon: ReactNode } {
   switch (status) {
@@ -205,7 +218,22 @@ export default function AdminPaymentsPage() {
   };
 
   const canRefund = (payment: AdminPayment): boolean => {
-    return payment.status === 'paid' || payment.status === 'partially_refunded';
+    return payment.can_refund === true && hasStripeRefundSource(payment);
+  };
+
+  const hasStripeRefundSource = (payment: AdminPayment): boolean => {
+    return Boolean(
+      payment.provider_payment_intent_id?.startsWith('pi_') ||
+      payment.provider_charge_id?.startsWith('ch_'),
+    );
+  };
+
+  const getRefundUnavailableReason = (payment: AdminPayment): string => {
+    if (!hasStripeRefundSource(payment)) {
+      return MISSING_REFUND_SOURCE_REASON;
+    }
+
+    return payment.refund_disabled_reason || 'Refund unavailable.';
   };
 
   const getRefundableAmount = (payment: AdminPayment): number => {
@@ -367,7 +395,7 @@ export default function AdminPaymentsPage() {
                               <span className="font-mono text-xs font-medium text-slate-600">{payment.reference || 'Not set'}</span>
                             </td>
                             <td className="whitespace-nowrap text-sm text-slate-600">{formatDate(payment.paid_at || payment.created_at)}</td>
-                            <td className="whitespace-nowrap">
+                            <td className="align-top">
                               {canRefund(payment) ? (
                                 <button
                                   type="button"
@@ -377,7 +405,23 @@ export default function AdminPaymentsPage() {
                                   <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                                   Refund
                                 </button>
-                              ) : null}
+                              ) : (
+                                <div className="inline-flex max-w-56 flex-col items-start gap-1">
+                                  <button
+                                    type="button"
+                                    aria-disabled="true"
+                                    aria-describedby={`refund-unavailable-${payment.id}`}
+                                    title={getRefundUnavailableReason(payment)}
+                                    className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-400 cursor-not-allowed opacity-50"
+                                  >
+                                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                                    Unavailable
+                                  </button>
+                                  <span id={`refund-unavailable-${payment.id}`} className="max-w-56 whitespace-normal text-xs leading-5 text-slate-500">
+                                    {getRefundUnavailableReason(payment)}
+                                  </span>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -486,6 +530,11 @@ export default function AdminPaymentsPage() {
                 </div>
               ) : null}
 
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+                <p className="font-medium mb-1">⚠️ Important</p>
+                <p>Refunding returns money to the customer. This does not automatically reactivate or cancel subscription access. The customer's access will be determined by their current subscription status.</p>
+              </div>
+
               <div>
                 <label htmlFor="refund-reason" className="block text-sm font-medium text-slate-700 mb-1">
                   Reason (optional)
@@ -522,7 +571,7 @@ export default function AdminPaymentsPage() {
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-200 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {refunding ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <RotateCcw className="h-4 w-4" aria-hidden="true" />}
-                {refunding ? 'Processing...' : (isPartialRefund ? `Refund ${formatAmount(refundAmount || '0', refundModal.currency)}` : 'Full Refund')}
+                {refunding ? 'Processing...' : (isPartialRefund ? `Refund ${formatAmount(refundAmount || '0', refundModal.currency)}` : 'Confirm Refund')}
               </button>
             </div>
           </div>

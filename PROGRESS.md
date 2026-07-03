@@ -1,3 +1,4 @@
+
 # Project Progress
 
 ## Completed Features
@@ -35,7 +36,16 @@
 - Refund source validation: requires PaymentIntent ID (pi_...) or Charge ID (ch_...)
 - Invoice webhook saves provider_payment_intent_id and provider_charge_id
 - checkout.session.completed webhook saves PaymentIntent ID when available
-- Pending invalid refund rows are created with failed status instead of succeeding
+- checkout.session.completed webhook saves Stripe invoice ID when available
+- checkout.session.completed webhook now updates pending subscription payments to paid even when payment_intent is null
+- Payment rows now store Stripe subscription IDs in gateway_subscription_id instead of provider_payment_id
+- invoice_payment.paid webhook saves nested payment.payment_intent for subscription refunds
+- Stripe backfill command for old payments missing PaymentIntent or invoice IDs
+- Stripe checkout backfill command for paid subscription sessions that failed before migration/schema repair
+ - Automatic backfill of Stripe PaymentIntent/Charge after `checkout.session.completed` when invoice id is present
+ - Artisan command `payments:backfill-stripe-references` supports `--payment` single-payment mode and improved reporting
+- Idempotent migration ensures payment Stripe invoice, intent, charge, refund, and subscription reference columns exist
+- Missing refund sources return an error without creating fake refund rows
 - Admin refund endpoint returns clear error when no valid Stripe refund source exists
 - Admin refund management (full and partial) via Stripe
 - Refund records stored in refunds table
@@ -47,6 +57,19 @@
 - Webhook handling for refund events (charge.refunded, refund.created, refund.updated)
 - Automatic monthly renewal via Stripe webhooks (no cron required)
 - Duplicate webhook prevention via webhook_events table
+- **Refund Eligibility Rules** - Payment model validates refund eligibility:
+  - Payment status must be paid or partially_refunded
+  - Payment gateway must be Stripe
+  - Payment must have valid PaymentIntent (pi_) or Charge (ch_) ID
+  - Refundable amount must be > 0
+  - Related subscription must be cancelled
+- **Admin Refund UX Improvements**:
+  - Refund button only shows for eligible payments
+  - Disabled refund button with tooltip explaining why refund is unavailable
+  - Backend returns `can_refund` and `refund_disabled_reason` for each payment
+  - Subscription status information included in payment API response
+  - Clear error messages for ineligible refunds
+  - Warning modal before refund confirming this doesn't affect subscription access
 
 ### Admin Panel
 - User management (view, update, role assignment)

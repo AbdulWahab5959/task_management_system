@@ -188,66 +188,86 @@ class SubscriptionController extends Controller
         $endDate = $request->input('end_date');
         $userId = $request->input('user_id');
 
-        $query = DB::table('payments')
-            ->select([
-                'payments.id',
-                'payments.user_id',
-                'payments.subscription_id',
-                'payments.plan_id',
-                'payments.gateway',
-                'payments.reference',
-                'payments.amount',
-                'payments.currency',
-                'payments.status',
-                'payments.paid_at',
-                'payments.created_at',
-                'users.name as user_name',
-                'users.email as user_email',
-                'plans.name as plan_name',
-            ])
-            ->leftJoin('users', 'payments.user_id', '=', 'users.id')
-            ->leftJoin('plans', 'payments.plan_id', '=', 'plans.id')
-            ->orderByDesc('payments.created_at');
+        $query = Payment::query()
+            ->with(['user', 'plan', 'subscription'])
+            ->orderByDesc('created_at');
 
         if ($search !== '') {
-            $query->where(function ($query) use ($search): void {
-                $query
-                    ->where('users.name', 'LIKE', "%{$search}%")
-                    ->orWhere('users.email', 'LIKE', "%{$search}%")
-                    ->orWhere('plans.name', 'LIKE', "%{$search}%")
-                    ->orWhere('payments.reference', 'LIKE', "%{$search}%");
+            $query->where(function ($q) use ($search): void {
+                $q
+                    ->whereHas('user', fn($subQ) => $subQ
+                        ->where('name', 'LIKE', "%{$search}%")
+                        ->orWhere('email', 'LIKE', "%{$search}%")
+                    )
+                    ->orWhereHas('plan', fn($subQ) => $subQ
+                        ->where('name', 'LIKE', "%{$search}%")
+                    )
+                    ->orWhere('reference', 'LIKE', "%{$search}%");
             });
         }
 
         if ($status) {
-            $query->where('payments.status', $status);
+            $query->where('status', $status);
         }
 
         if ($gateway) {
-            $query->where('payments.gateway', $gateway);
+            $query->where('gateway', $gateway);
         }
 
         if ($userId) {
-            $query->where('payments.user_id', $userId);
+            $query->where('user_id', $userId);
         }
 
         if ($startDate) {
-            $query->whereDate('payments.created_at', '>=', $startDate);
+            $query->whereDate('created_at', '>=', $startDate);
         }
 
         if ($endDate) {
-            $query->whereDate('payments.created_at', '<=', $endDate);
+            $query->whereDate('created_at', '<=', $endDate);
         }
 
-        $payments = $query->paginate($limit, ['*'], 'page', $page);
+        $paginated = $query->paginate($limit, ['*'], 'page', $page);
+
+        // Transform payments to include refund eligibility information
+        $payments = $paginated->getCollection()->map(function (Payment $payment) {
+            return [
+                'id' => $payment->id,
+                'user_id' => $payment->user_id,
+                'subscription_id' => $payment->subscription_id,
+                'plan_id' => $payment->plan_id,
+                'gateway' => $payment->gateway,
+                'reference' => $payment->reference,
+                'amount' => (string) $payment->amount,
+                'currency' => $payment->currency,
+                'status' => $payment->status,
+                'paid_at' => $payment->paid_at?->toIso8601String(),
+                'created_at' => $payment->created_at?->toIso8601String(),
+                'user_name' => $payment->user?->name,
+                'user_email' => $payment->user?->email,
+                'plan_name' => $payment->plan?->name,
+                // Refund eligibility information
+                'refunded_amount' => (string) $payment->refunded_amount,
+                'refund_status' => $payment->refund_status,
+                'refundable_amount' => (string) $payment->getRefundableAmount(),
+                'can_refund' => $payment->canBeRefunded(),
+                'refund_disabled_reason' => $payment->getRefundDisabledReason(),
+                'provider_payment_intent_id' => $payment->provider_payment_intent_id,
+                'provider_charge_id' => $payment->provider_charge_id,
+                // Subscription status information
+                'subscription_status' => $payment->subscription?->status,
+                'subscription_cancel_at_period_end' => $payment->subscription?->cancel_at_period_end ?? false,
+                'subscription_cancelled_at' => $payment->subscription?->cancelled_at?->toIso8601String(),
+                'subscription_ends_at' => $payment->subscription?->ends_at?->toIso8601String(),
+            ];
+        });
 
         return response()->json([
-            'data' => $payments->items(),
+            'data' => $payments,
             'pagination' => [
-                'current_page' => $payments->currentPage(),
-                'per_page' => $payments->perPage(),
-                'total' => $payments->total(),
-                'last_page' => $payments->lastPage(),
+                'current_page' => $paginated->currentPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+                'last_page' => $paginated->lastPage(),
             ],
             'summary_stats' => [
                 'total_payments' => Payment::query()->count(),
