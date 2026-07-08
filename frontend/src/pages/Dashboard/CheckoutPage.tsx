@@ -1,5 +1,5 @@
-import { AlertCircle, ArrowLeft, CreditCard, Crown, Loader2, ShieldCheck } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertCircle, CreditCard, Crown, Loader2, ShieldCheck } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
 import { createCheckoutSession, createStripeCheckoutSession, getBillingPlans, type BillingPlan } from '../../services/billing.service';
@@ -25,7 +25,6 @@ export default function CheckoutPage() {
   const [subscribing, setSubscribing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const autoCheckoutPlanIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,17 +88,6 @@ export default function CheckoutPage() {
     }
   }, [plan, navigate]);
 
-  useEffect(() => {
-    if (!plan || autoCheckoutPlanIdRef.current === planId) return;
-
-    const amount = Number.parseFloat(plan.amount || plan.price || '0');
-
-    if (amount > 0) {
-      autoCheckoutPlanIdRef.current = planId ?? String(plan.id);
-      void handleSubscribe();
-    }
-  }, [handleSubscribe, plan, planId]);
-
   if (loading) {
     return (
       <div className="flex min-h-96 items-center justify-center">
@@ -121,9 +109,8 @@ export default function CheckoutPage() {
             <button
               type="button"
               onClick={() => navigate('/dashboard/billing')}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="mt-4 inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold leading-none text-slate-700 transition hover:bg-slate-50 active:scale-[0.96]"
             >
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               Back to billing
             </button>
           </CardContent>
@@ -139,9 +126,8 @@ export default function CheckoutPage() {
       <button
         type="button"
         onClick={() => navigate('/dashboard/billing')}
-        className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-700"
+        className="mb-6 inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-sm font-medium leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 active:scale-[0.96]"
       >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Back to billing
       </button>
 
@@ -213,43 +199,45 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {isFree ? (
-            <button
-              type="button"
-              onClick={() => void handleSubscribe()}
-              disabled={subscribing}
-              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {subscribing ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-              )}
-              {subscribing ? 'Activating...' : 'Activate Free Plan'}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void handleSubscribe()}
-              disabled={subscribing}
-              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {subscribing ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <CreditCard className="h-4 w-4" aria-hidden="true" />
-              )}
-              {subscribing ? 'Redirecting to checkout...' : 'Subscribe with Stripe'}
-            </button>
-          )}
+          <div className="mt-6 flex flex-wrap gap-3">
+            {isFree ? (
+              <button
+                type="button"
+                onClick={() => void handleSubscribe()}
+                disabled={subscribing}
+                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 text-sm font-semibold leading-none text-white transition hover:bg-indigo-700 active:scale-[0.96] disabled:opacity-50"
+              >
+                {subscribing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {subscribing ? 'Activating...' : 'Activate Free Plan'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void handleSubscribe()}
+                disabled={subscribing}
+                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 text-sm font-semibold leading-none text-white transition hover:bg-indigo-700 active:scale-[0.96] disabled:opacity-50"
+              >
+                {subscribing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {subscribing ? 'Redirecting...' : 'Subscribe with Stripe'}
+              </button>
+            )}
 
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard/billing')}
-            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            Return to billing
-          </button>
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard/billing')}
+              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold leading-none text-slate-700 transition hover:bg-slate-50 active:scale-[0.96]"
+            >
+              Return to billing
+            </button>
+          </div>
         </CardContent>
       </Card>
     </div>

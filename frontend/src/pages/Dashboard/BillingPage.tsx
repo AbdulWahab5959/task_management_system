@@ -1,7 +1,6 @@
 import {
   AlertCircle,
   AlertTriangle,
-  ArrowRight,
   CheckCircle2,
   Circle,
   Clock,
@@ -290,6 +289,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [billingActionsOpen, setBillingActionsOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelNowModalOpen, setCancelNowModalOpen] = useState(false);
   const [cancelError, setCancelError] = useState('');
@@ -388,11 +388,14 @@ export default function BillingPage() {
   const subscription = billing?.subscription;
   const currentPlan = billing?.current_plan;
   const paymentHistory = billing?.payment_history ?? [];
-  const hasActiveSubscription = Boolean(subscription && ['active', 'trialing'].includes(subscription.status));
-  const periodEnd = periodEndFor(subscription);
-  const identity = getSubscriptionIdentity(subscription, currentPlan);
-  const isCancelScheduled = isCancellingAtPeriodEnd(subscription);
-  const isImmediateCancel = wasCancelledImmediately(subscription);
+  const activeSubscription = subscription && ['active', 'trialing'].includes(subscription.status) ? subscription : null;
+  const activeCurrentPlan = activeSubscription ? currentPlan : null;
+  const hasActiveSubscription = Boolean(activeSubscription);
+  const hasBillingActions = paymentHistory.length > 0 || hasActiveSubscription;
+  const periodEnd = periodEndFor(activeSubscription);
+  const identity = getSubscriptionIdentity(activeSubscription, activeCurrentPlan);
+  const isCancelScheduled = isCancellingAtPeriodEnd(activeSubscription);
+  const isImmediateCancel = wasCancelledImmediately(activeSubscription);
 
   return (
     <>
@@ -412,64 +415,21 @@ export default function BillingPage() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <CardTitle>Current plan</CardTitle>
-                  <SubscriptionBadge subscription={subscription} currentPlan={currentPlan} />
+                  <SubscriptionBadge subscription={activeSubscription} currentPlan={activeCurrentPlan} />
                 </div>
                 <CardDescription>{identity.description}</CardDescription>
               </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {paymentHistory.length > 0 ? (
-                <a
-                  href="#payment-history"
-                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
-                >
-                  <ReceiptText className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
-                  View payment history
-                </a>
-              ) : null}
-
-              {hasActiveSubscription && !isCancelScheduled ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCancelError('');
-                      setCancelModalOpen(true);
-                    }}
-                    disabled={cancelling}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Clock className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
-                    Cancel at Period End
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCancelError('');
-                      setCancelNowModalOpen(true);
-                    }}
-                    disabled={cancelling}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-rose-200 bg-white px-3.5 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <XCircle className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
-                    Cancel Immediately
-                  </button>
-                </>
-              ) : null}
-
-              {hasActiveSubscription && isCancelScheduled ? (
+              {hasBillingActions ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    setCancelError('');
-                    setCancelNowModalOpen(true);
-                  }}
-                  disabled={cancelling}
-                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-rose-200 bg-white px-3.5 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => setBillingActionsOpen(true)}
+                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.96] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
                 >
-                  <XCircle className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
-                  Cancel Immediately
+                  <CreditCard className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
+                  Manage billing
                 </button>
               ) : null}
             </div>
@@ -477,24 +437,24 @@ export default function BillingPage() {
         </CardHeader>
 
         <CardContent>
-          {subscription && currentPlan ? (
+          {activeSubscription && activeCurrentPlan ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Plan</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{currentPlan.name}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{activeCurrentPlan.name}</p>
               </div>
               <div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Amount</p>
                 <p className="mt-1 text-sm font-semibold text-slate-900">
-                  {formatAmount(currentPlan.amount || currentPlan.price, currentPlan.currency)}
+                  {formatAmount(activeCurrentPlan.amount || activeCurrentPlan.price, activeCurrentPlan.currency)}
                   <span className="ml-1 text-xs font-normal text-slate-500">
-                    / {currentPlan.interval === 'year' ? 'year' : 'month'}
+                    / {activeCurrentPlan.interval === 'year' ? 'year' : 'month'}
                   </span>
                 </p>
               </div>
               <div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Period start</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(subscription.starts_at || subscription.current_period_start)}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(activeSubscription.starts_at || activeSubscription.current_period_start)}</p>
               </div>
               <div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -514,7 +474,7 @@ export default function BillingPage() {
                   <p className="text-sm text-slate-500">Choose a plan when you are ready to unlock paid features.</p>
                 </div>
               </div>
-              <SubscriptionBadge subscription={subscription} currentPlan={currentPlan} />
+              <SubscriptionBadge subscription={activeSubscription} currentPlan={activeCurrentPlan} />
             </div>
           )}
 
@@ -570,8 +530,8 @@ export default function BillingPage() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {plans.map((plan) => {
-                  const isCurrentPlan = currentPlan?.id === plan.id;
-                  const actionLabel = getPlanActionLabel(plan, currentPlan);
+                  const isCurrentPlan = activeCurrentPlan?.id === plan.id;
+                  const actionLabel = getPlanActionLabel(plan, activeCurrentPlan);
 
                   return (
                     <button
@@ -628,13 +588,12 @@ export default function BillingPage() {
 
                       <span
                         className={cn(
-                          'mt-auto inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3.5 text-sm font-semibold transition',
+                          'mt-auto inline-flex min-h-10 w-fit items-center justify-center rounded-lg px-3.5 text-sm font-semibold transition',
                           isCurrentPlan
                             ? 'border border-emerald-200 bg-white text-emerald-700'
                             : 'bg-slate-950 text-white group-hover:bg-slate-800',
                         )}
                       >
-                        {isCurrentPlan ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : <ArrowRight className="h-4 w-4" aria-hidden="true" />}
                         {actionLabel}
                       </span>
                     </button>
@@ -720,6 +679,106 @@ export default function BillingPage() {
           </CardContent>
         </Card>
       </div>
+
+      {billingActionsOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="billing-actions-title" className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-950/20">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100">
+                  <CreditCard className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
+                </div>
+                <div>
+                  <h2 id="billing-actions-title" className="text-base font-semibold text-slate-950">Billing details</h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    Review subscription details and available billing actions.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Close billing details"
+                onClick={() => setBillingActionsOpen(false)}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-6 py-5">
+              {activeSubscription && activeCurrentPlan ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex items-center justify-between gap-4 text-sm">
+                    <span className="text-slate-500">Plan</span>
+                    <span className="font-semibold text-slate-900">{activeCurrentPlan.name}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-4 text-sm">
+                    <span className="text-slate-500">Amount</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatAmount(activeCurrentPlan.amount || activeCurrentPlan.price, activeCurrentPlan.currency)}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-4 text-sm">
+                    <span className="text-slate-500">Billing period</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatDate(activeSubscription.current_period_start)} to {formatDate(activeSubscription.current_period_end)}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  No active paid plan is currently attached to this account.
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-3">
+                {paymentHistory.length > 0 ? (
+                  <a
+                    href="#payment-history"
+                    onClick={() => setBillingActionsOpen(false)}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-[0.96] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
+                  >
+                    <ReceiptText className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
+                    View payment history
+                  </a>
+                ) : null}
+
+                {hasActiveSubscription && !isCancelScheduled ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBillingActionsOpen(false);
+                      setCancelError('');
+                      setCancelModalOpen(true);
+                    }}
+                    disabled={cancelling}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-[0.96] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Clock className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
+                    Cancel at period end
+                  </button>
+                ) : null}
+
+                {hasActiveSubscription ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBillingActionsOpen(false);
+                      setCancelError('');
+                      setCancelNowModalOpen(true);
+                    }}
+                    disabled={cancelling}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-white px-3.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 active:scale-[0.96] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <XCircle className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
+                    Cancel immediately
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Cancel at Period End Modal */}
       {cancelModalOpen ? (
@@ -809,17 +868,17 @@ export default function BillingPage() {
             </div>
 
             <div className="space-y-3 px-6 py-4">
-              {currentPlan ? (
+              {activeCurrentPlan ? (
                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-500">Plan</span>
-                    <span className="font-semibold text-slate-900">{currentPlan.name}</span>
+                    <span className="font-semibold text-slate-900">{activeCurrentPlan.name}</span>
                   </div>
-                  {subscription?.current_period_start && subscription?.current_period_end ? (
+                  {activeSubscription?.current_period_start && activeSubscription?.current_period_end ? (
                     <div className="mt-2 flex items-center justify-between text-sm">
                       <span className="text-slate-500">Current billing period</span>
                       <span className="font-semibold text-slate-900">
-                        {formatDate(subscription.current_period_start)} – {formatDate(subscription.current_period_end)}
+                        {formatDate(activeSubscription.current_period_start)} to {formatDate(activeSubscription.current_period_end)}
                       </span>
                     </div>
                   ) : null}

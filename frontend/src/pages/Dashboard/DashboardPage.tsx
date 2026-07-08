@@ -1,4 +1,4 @@
-import { Activity, ArrowRight, BadgeCheck, LayoutDashboard, Settings, Shield, UserCircle, Zap } from 'lucide-react';
+import { Activity, BadgeCheck, LayoutDashboard, Settings, Shield, UserCircle, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
 import EmptyState from '../../components/dashboard/EmptyState';
@@ -123,14 +123,12 @@ export default function DashboardPage() {
               className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-all duration-150 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
             >
               Update profile
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
             <Link
               to="/dashboard/profile"
               className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-all duration-150 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
             >
               Change password
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
             <Link
               to="/dashboard/settings"

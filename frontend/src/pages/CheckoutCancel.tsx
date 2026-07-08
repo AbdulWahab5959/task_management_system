@@ -1,4 +1,4 @@
-import { ArrowLeft, XCircle } from 'lucide-react';
+import { XCircle } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
@@ -26,9 +26,8 @@ export default function CheckoutCancel() {
 
         <Link
           to="/pricing"
-          className="mt-8 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-white px-4 text-sm font-bold text-slate-950 transition hover:bg-slate-100"
+          className="mt-8 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md bg-white px-3.5 text-sm font-bold leading-none text-slate-950 transition hover:bg-slate-100 active:scale-[0.96]"
         >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Back to pricing
         </Link>
       </div>

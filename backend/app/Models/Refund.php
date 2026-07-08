@@ -13,6 +13,7 @@ class Refund extends Model
     protected $fillable = [
         'payment_id',
         'user_id',
+        'admin_user_id',
         'gateway',
         'provider_refund_id',
         'provider_payment_id',
@@ -38,5 +39,10 @@ class Refund extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function admin(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'admin_user_id');
     }
 }

@@ -6,6 +6,7 @@ import {
   Clock,
   CreditCard,
   DollarSign,
+  Eye,
   Loader2,
   ReceiptText,
   RotateCcw,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
 import EmptyState from '../../components/dashboard/EmptyState';
 import PageHeader from '../../components/dashboard/PageHeader';
@@ -43,8 +45,23 @@ interface AdminPayment {
   can_refund: boolean;
   refund_disabled_reason?: string | null;
   refundable_amount?: string;
+  provider_payment_id?: string;
   provider_payment_intent_id?: string;
   provider_charge_id?: string;
+  provider_invoice_id?: string;
+  gateway_subscription_id?: string;
+  latest_refund?: {
+    id: number;
+    amount: string;
+    currency: string;
+    status: string;
+    reason?: string | null;
+    provider_refund_id?: string | null;
+    provider_payment_id?: string | null;
+    refunded_at?: string | null;
+    admin_name?: string | null;
+    admin_email?: string | null;
+  } | null;
   // Subscription information
   subscription_status?: string;
   subscription_cancel_at_period_end?: boolean;
@@ -116,6 +133,7 @@ function formatAmount(amount: string | number, currency: string): string {
 }
 
 export default function AdminPaymentsPage() {
+  const navigate = useNavigate();
   const [payments, setPayments] = useState<AdminPayment[]>([]);
   const [summaryStats, setSummaryStats] = useState<PaymentSummaryStats>({
     total_payments: 0,
@@ -140,8 +158,8 @@ export default function AdminPaymentsPage() {
   const [refundReason, setRefundReason] = useState('');
   const [refunding, setRefunding] = useState(false);
   const [refundError, setRefundError] = useState('');
-  const [refundSuccess, setRefundSuccess] = useState('');
   const [isPartialRefund, setIsPartialRefund] = useState(false);
+  const [detailsModal, setDetailsModal] = useState<AdminPayment | null>(null);
 
   const loadPayments = useCallback(async (p: number) => {
     setLoading(true);
@@ -205,8 +223,7 @@ export default function AdminPaymentsPage() {
         return;
       }
 
-      const result = await refundPayment(refundModal.id, amount, reason);
-      setRefundSuccess(result.message);
+      await refundPayment(refundModal.id, amount, reason);
       setRefundModal(null);
       void loadPayments(page);
     } catch (error) {
@@ -242,6 +259,79 @@ export default function AdminPaymentsPage() {
     return Math.max(0, total - refunded);
   };
 
+  const getRefundedAmount = (payment: AdminPayment): number => {
+    const latestRefundAmount = payment.latest_refund?.amount
+      ? Number.parseFloat(payment.latest_refund.amount)
+      : 0;
+    const totalRefunded = Number.parseFloat(payment.refunded_amount || '0') || 0;
+
+    return latestRefundAmount > 0 ? latestRefundAmount : totalRefunded;
+  };
+
+  const getRefundedBy = (payment: AdminPayment): string => {
+    return payment.latest_refund?.admin_email || payment.latest_refund?.admin_name || 'admin not recorded';
+  };
+
+  const getRefundCompletionMessage = (payment: AdminPayment): string | null => {
+    const hasRefund = Boolean(
+      payment.status === 'refunded' ||
+      payment.status === 'partially_refunded' ||
+      payment.refund_status === 'refunded' ||
+      payment.refund_status === 'partially_refunded' ||
+      payment.latest_refund ||
+      getRefundedAmount(payment) > 0,
+    );
+
+    if (!hasRefund) return null;
+
+    const refundType = payment.refund_status === 'partially_refunded' || payment.status === 'partially_refunded'
+      ? 'Partial refund completed'
+      : 'Refund completed';
+
+    return `${refundType} by ${getRefundedBy(payment)} for ${formatAmount(getRefundedAmount(payment), payment.currency)}.`;
+  };
+
+  const handlePendingCheckout = (payment: AdminPayment) => {
+    if (payment.status !== 'pending' || !payment.plan_id) return;
+
+    navigate(`/dashboard/billing/checkout/${payment.plan_id}`);
+  };
+
+  const renderPaymentStatus = (payment: AdminPayment) => {
+    if (payment.status !== 'pending' || !payment.plan_id) {
+      return <StatusBadge status={payment.status} />;
+    }
+
+    const tone = getStatusBadgeTone(payment.status);
+
+    return (
+      <button
+        type="button"
+        onClick={() => handlePendingCheckout(payment)}
+        aria-label={`Continue checkout for ${payment.plan_name || 'pending plan'}`}
+        title="Continue checkout"
+        className={`dashboard-badge capitalize transition hover:border-amber-300 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200 ${tone.className}`}
+      >
+        {tone.icon}
+        {payment.status.replace('_', ' ')}
+      </button>
+    );
+  };
+
+  const detailValue = (value?: string | number | boolean | null): string => {
+    if (value === true) return 'Yes';
+    if (value === false) return 'No';
+    if (value === null || value === undefined || value === '') return 'Not set';
+    return String(value);
+  };
+
+  const renderDetailRow = (label: string, value?: string | number | boolean | null) => (
+    <div className="flex items-start justify-between gap-4 border-b border-slate-100 py-2 text-sm last:border-b-0">
+      <span className="text-slate-500">{label}</span>
+      <span className="max-w-[65%] break-words text-right font-semibold text-slate-900">{detailValue(value)}</span>
+    </div>
+  );
+
   return (
     <>
       <PageHeader
@@ -256,12 +346,6 @@ export default function AdminPaymentsPage() {
           <StatsCard title="Paid" value={String(summaryStats.paid_payments)} description="Successful payments" icon={<CheckCircle2 className="h-5 w-5" />} variant="emerald" />
           <StatsCard title="Pending" value={String(summaryStats.pending_payments)} description="Pending payments" icon={<Clock className="h-5 w-5" />} variant="amber" />
           <StatsCard title="Revenue" value={formatAmount(summaryStats.total_paid_amount ?? '0', 'USD')} description="Total paid amount" icon={<DollarSign className="h-5 w-5" />} variant="violet" />
-        </div>
-      ) : null}
-
-      {refundSuccess ? (
-        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-          {refundSuccess}
         </div>
       ) : null}
 
@@ -383,7 +467,7 @@ export default function AdminPaymentsPage() {
                               </span>
                             </td>
                             <td className="whitespace-nowrap text-sm font-bold text-slate-950">{formatAmount(payment.amount, payment.currency)}</td>
-                            <td className="whitespace-nowrap"><StatusBadge status={payment.status} /></td>
+                            <td className="whitespace-nowrap">{renderPaymentStatus(payment)}</td>
                             <td className="whitespace-nowrap">
                               {payment.refund_status ? (
                                 <StatusBadge status={payment.refund_status} />
@@ -397,30 +481,33 @@ export default function AdminPaymentsPage() {
                             <td className="whitespace-nowrap text-sm text-slate-600">{formatDate(payment.paid_at || payment.created_at)}</td>
                             <td className="align-top">
                               {canRefund(payment) ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenRefund(payment)}
-                                  className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white/90 px-3 text-xs font-semibold text-slate-700 shadow-sm shadow-slate-200/50 transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-100"
-                                >
-                                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                                  Refund
-                                </button>
-                              ) : (
-                                <div className="inline-flex max-w-56 flex-col items-start gap-1">
+                                <div className="flex flex-wrap gap-2">
                                   <button
                                     type="button"
-                                    aria-disabled="true"
-                                    aria-describedby={`refund-unavailable-${payment.id}`}
-                                    title={getRefundUnavailableReason(payment)}
-                                    className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-400 cursor-not-allowed opacity-50"
+                                    onClick={() => handleOpenRefund(payment)}
+                                    className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white/90 px-3 text-xs font-semibold text-slate-700 shadow-sm shadow-slate-200/50 transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-100"
                                   >
                                     <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                                    Unavailable
+                                    Refund
                                   </button>
-                                  <span id={`refund-unavailable-${payment.id}`} className="max-w-56 whitespace-normal text-xs leading-5 text-slate-500">
-                                    {getRefundUnavailableReason(payment)}
-                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDetailsModal(payment)}
+                                    className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-100"
+                                  >
+                                    <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                                    View
+                                  </button>
                                 </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailsModal(payment)}
+                                  className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-100"
+                                >
+                                  <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                                  View
+                                </button>
                               )}
                             </td>
                           </tr>
@@ -573,6 +660,111 @@ export default function AdminPaymentsPage() {
                 {refunding ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <RotateCcw className="h-4 w-4" aria-hidden="true" />}
                 {refunding ? 'Processing...' : (isPartialRefund ? `Refund ${formatAmount(refundAmount || '0', refundModal.currency)}` : 'Confirm Refund')}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {detailsModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="payment-details-title" className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-950/20">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100">
+                  <ReceiptText className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
+                </div>
+                <div>
+                  <h2 id="payment-details-title" className="text-base font-semibold text-slate-950">Payment details</h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    Billing, cancellation, and refund information for this payment.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Close payment details"
+                onClick={() => setDetailsModal(null)}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] space-y-5 overflow-y-auto px-6 py-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <h3 className="text-sm font-semibold text-slate-950">Billing</h3>
+                  <div className="mt-2">
+                    {renderDetailRow('User', detailsModal.user_name || 'Not set')}
+                    {renderDetailRow('Email', detailsModal.user_email || 'Not set')}
+                    {renderDetailRow('Plan', detailsModal.plan_name || 'Not set')}
+                    {renderDetailRow('Amount', formatAmount(detailsModal.amount, detailsModal.currency))}
+                    {renderDetailRow('Gateway', detailsModal.gateway)}
+                    {renderDetailRow('Payment status', detailsModal.status.replace('_', ' '))}
+                    {renderDetailRow('Paid at', formatDate(detailsModal.paid_at))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <h3 className="text-sm font-semibold text-slate-950">Cancellation</h3>
+                  <div className="mt-2">
+                    {renderDetailRow('Subscription status', detailsModal.subscription_status || 'Not set')}
+                    {renderDetailRow('Cancel at period end', detailsModal.subscription_cancel_at_period_end)}
+                    {renderDetailRow('Cancelled at', formatDate(detailsModal.subscription_cancelled_at))}
+                    {renderDetailRow('Access ends at', formatDate(detailsModal.subscription_ends_at))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <h3 className="text-sm font-semibold text-slate-950">Stripe references</h3>
+                <div className="mt-2">
+                  {renderDetailRow('Payment reference', detailsModal.reference)}
+                  {renderDetailRow('Provider payment ID', detailsModal.provider_payment_id)}
+                  {renderDetailRow('PaymentIntent', detailsModal.provider_payment_intent_id)}
+                  {renderDetailRow('Charge', detailsModal.provider_charge_id)}
+                  {renderDetailRow('Invoice', detailsModal.provider_invoice_id)}
+                  {renderDetailRow('Subscription', detailsModal.gateway_subscription_id)}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <h3 className="text-sm font-semibold text-slate-950">Refund</h3>
+                <div className="mt-2">
+                  {renderDetailRow('Refund status', detailsModal.refund_status || 'Not refunded')}
+                  {renderDetailRow('Refunded amount', formatAmount(detailsModal.refunded_amount || '0', detailsModal.currency))}
+                  {renderDetailRow('Refundable amount', formatAmount(getRefundableAmount(detailsModal), detailsModal.currency))}
+                  {getRefundCompletionMessage(detailsModal) ? (
+                    renderDetailRow('Refund summary', getRefundCompletionMessage(detailsModal))
+                  ) : null}
+                  {detailsModal.latest_refund ? (
+                    <>
+                      {renderDetailRow('Latest refund ID', detailsModal.latest_refund.provider_refund_id)}
+                      {renderDetailRow('Latest refund amount', formatAmount(detailsModal.latest_refund.amount, detailsModal.latest_refund.currency))}
+                      {renderDetailRow('Latest refund status', detailsModal.latest_refund.status)}
+                      {renderDetailRow('Refunded at', formatDate(detailsModal.latest_refund.refunded_at || undefined))}
+                      {renderDetailRow('Refund reason', detailsModal.latest_refund.reason || 'Not set')}
+                      {renderDetailRow('Refunded by', detailsModal.latest_refund.admin_email || detailsModal.latest_refund.admin_name || 'Not recorded')}
+                    </>
+                  ) : (
+                    renderDetailRow('Latest refund', 'No refund recorded')
+                  )}
+                  {!canRefund(detailsModal) && !getRefundCompletionMessage(detailsModal) ? renderDetailRow('Refund note', getRefundUnavailableReason(detailsModal)) : null}
+                </div>
+              </div>
+
+              {detailsModal.status === 'pending' && detailsModal.plan_id ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDetailsModal(null);
+                    handlePendingCheckout(detailsModal);
+                  }}
+                  className="inline-flex min-h-10 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
+                >
+                  Continue checkout
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

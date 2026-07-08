@@ -1,4 +1,4 @@
-import { ArrowLeft, BadgeCheck, RefreshCw, Save, UserCog } from 'lucide-react';
+import { BadgeCheck, RefreshCw, Save, UserCog } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -201,7 +201,6 @@ export default function UserDetailPage() {
             to="/dashboard/users"
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-all duration-150 hover:bg-slate-50 hover:border-slate-300"
           >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Back to Users
           </Link>
         }

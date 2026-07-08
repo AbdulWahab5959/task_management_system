@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Payment;
 use Illuminate\Support\Facades\Log;
+use Stripe\StripeObject;
 use Stripe\Stripe;
 use Stripe\StripeClient;
 use Throwable;
@@ -77,49 +78,25 @@ class StripeBackfillService
 
             $updates = [];
 
-            // Get payment intent from invoice
-            $paymentIntent = $invoice->payment_intent ?? null;
-            // If invoice doesn't expose payment_intent (newer Stripe API), try invoice_payments endpoint
-            if (empty($paymentIntent) && $this->stripe) {
-                try {
-                    $resp = $this->stripe->request('get', "/v1/invoices/{$payment->provider_invoice_id}/invoice_payments", ['limit' => 3]);
-                    $paymentsList = $resp->data ?? ($resp['data'] ?? null);
-                    if (! empty($paymentsList) && isset($paymentsList[0]->payment)) {
-                        $first = $paymentsList[0];
-                        $paymentNested = $first->payment ?? ($first['payment'] ?? null);
-                        $paymentIntent = $paymentNested->payment_intent ?? ($paymentNested['payment_intent'] ?? null);
-                        // charge may also be nested
-                        $charge = $paymentNested->charge ?? ($paymentNested['charge'] ?? null);
-                    }
-                } catch (Throwable $e) {
-                    // ignore and continue with whatever invoice provided
-                }
+            // Get PaymentIntent from the invoice first, then from invoice_payments.
+            $paymentIntent = $this->stripeId($invoice->payment_intent ?? null, 'pi_');
+            $charge = $this->stripeId($invoice->charge ?? null, 'ch_');
+
+            if (! $paymentIntent && $this->stripe) {
+                [$paymentIntent, $charge] = $this->referencesFromInvoicePayments($payment->provider_invoice_id);
             }
-            if ($paymentIntent && str_starts_with($paymentIntent, 'pi_')) {
+
+            if ($paymentIntent) {
                 $updates['provider_payment_intent_id'] = $paymentIntent;
                 $updates['provider_payment_id'] = $paymentIntent;
             }
 
-            // Get charge from invoice
-            $charge = $invoice->charge ?? ($charge ?? null);
-            if ($charge && str_starts_with($charge, 'ch_')) {
+            if ($charge) {
                 $updates['provider_charge_id'] = $charge;
-            } elseif ($paymentIntent && str_starts_with($paymentIntent, 'pi_')) {
-                // Try to get charge from payment intent
-                try {
-                    $pi = \Stripe\PaymentIntent::retrieve($paymentIntent);
-                    if ($pi->latest_charge ?? null) {
-                        $latestCharge = $pi->latest_charge;
-                        if (is_string($latestCharge) && str_starts_with($latestCharge, 'ch_')) {
-                            $updates['provider_charge_id'] = $latestCharge;
-                        }
-                    }
-                } catch (Throwable $e) {
-                    Log::warning('Could not retrieve PaymentIntent for charge backfill.', [
-                        'payment_id' => $payment->id,
-                        'payment_intent' => $paymentIntent,
-                        'exception' => $e->getMessage(),
-                    ]);
+            } elseif ($paymentIntent) {
+                $latestCharge = $this->latestChargeFromPaymentIntent($paymentIntent, $payment->id);
+                if ($latestCharge) {
+                    $updates['provider_charge_id'] = $latestCharge;
                 }
             }
 
@@ -157,8 +134,8 @@ class StripeBackfillService
                 return ['success' => false, 'reason' => 'PaymentIntent not found in Stripe.'];
             }
 
-            $latestCharge = $pi->latest_charge ?? null;
-            if ($latestCharge && is_string($latestCharge) && str_starts_with($latestCharge, 'ch_')) {
+            $latestCharge = $this->stripeId($pi->latest_charge ?? null, 'ch_');
+            if ($latestCharge) {
                 $payment->update(['provider_charge_id' => $latestCharge]);
 
                 Log::info('Backfilled charge ID from PaymentIntent.', [
@@ -196,29 +173,21 @@ class StripeBackfillService
 
             foreach ($invoices->data as $invoice) {
                 $invoiceId = $invoice->id ?? null;
-                $paymentIntent = $invoice->payment_intent ?? null;
-                $charge = $invoice->charge ?? null;
+                $paymentIntent = $this->stripeId($invoice->payment_intent ?? null, 'pi_');
+                $charge = $this->stripeId($invoice->charge ?? null, 'ch_');
 
-                if ($paymentIntent && str_starts_with($paymentIntent, 'pi_') && $invoiceId) {
+                if ($paymentIntent && $invoiceId) {
                     $updates = [];
                     $updates['provider_invoice_id'] = $invoiceId;
                     $updates['provider_payment_intent_id'] = $paymentIntent;
                     $updates['provider_payment_id'] = $paymentIntent;
 
-                    if ($charge && str_starts_with($charge, 'ch_')) {
+                    if ($charge) {
                         $updates['provider_charge_id'] = $charge;
                     } else {
-                        // Try to get charge from payment intent
-                        try {
-                            $pi = \Stripe\PaymentIntent::retrieve($paymentIntent);
-                            if ($pi->latest_charge ?? null) {
-                                $latestCharge = $pi->latest_charge;
-                                if (is_string($latestCharge) && str_starts_with($latestCharge, 'ch_')) {
-                                    $updates['provider_charge_id'] = $latestCharge;
-                                }
-                            }
-                        } catch (Throwable) {
-                            // Ignore
+                        $latestCharge = $this->latestChargeFromPaymentIntent($paymentIntent, $payment->id);
+                        if ($latestCharge) {
+                            $updates['provider_charge_id'] = $latestCharge;
                         }
                     }
 
@@ -244,5 +213,85 @@ class StripeBackfillService
 
             return ['success' => false, 'reason' => 'Stripe API error: ' . $e->getMessage()];
         }
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function referencesFromInvoicePayments(string $invoiceId): array
+    {
+        try {
+            $invoicePayments = $this->stripe?->invoicePayments->all([
+                'invoice' => $invoiceId,
+                'limit' => 10,
+            ]);
+
+            foreach (($invoicePayments->data ?? []) as $invoicePayment) {
+                $paymentIntent = $this->stripeId($this->nestedValue($invoicePayment, ['payment', 'payment_intent']), 'pi_');
+                $charge = $this->stripeId($this->nestedValue($invoicePayment, ['payment', 'charge']), 'ch_');
+
+                if ($paymentIntent) {
+                    return [$paymentIntent, $charge];
+                }
+            }
+        } catch (Throwable $e) {
+            Log::warning('Could not list Stripe invoice payments for backfill.', [
+                'invoice_id' => $invoiceId,
+                'exception' => $e->getMessage(),
+            ]);
+        }
+
+        return [null, null];
+    }
+
+    private function latestChargeFromPaymentIntent(string $paymentIntentId, ?int $paymentId = null): ?string
+    {
+        try {
+            $pi = \Stripe\PaymentIntent::retrieve($paymentIntentId);
+
+            return $this->stripeId($pi->latest_charge ?? null, 'ch_');
+        } catch (Throwable $e) {
+            Log::warning('Could not retrieve PaymentIntent for charge backfill.', [
+                'payment_id' => $paymentId,
+                'payment_intent' => $paymentIntentId,
+                'exception' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function stripeId(mixed $value, string $prefix): ?string
+    {
+        if ($value instanceof StripeObject) {
+            $value = $value->id ?? null;
+        } elseif (is_array($value)) {
+            $value = $value['id'] ?? null;
+        }
+
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return str_starts_with($value, $prefix) ? $value : null;
+    }
+
+    private function nestedValue(StripeObject|array|null $object, array $path): mixed
+    {
+        $value = $object;
+
+        foreach ($path as $segment) {
+            if ($value instanceof StripeObject) {
+                $value = $value->{$segment} ?? null;
+            } elseif (is_array($value)) {
+                $value = $value[$segment] ?? null;
+            } else {
+                return null;
+            }
+        }
+
+        return $value;
     }
 }

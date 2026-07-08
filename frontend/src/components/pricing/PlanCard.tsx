@@ -1,8 +1,8 @@
-import { ArrowRight, Check, Loader2, ShieldCheck } from 'lucide-react';
+import { Check, Loader2, ShieldCheck } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { createCheckoutSession, createStripeCheckoutSession } from '../../services/billing.service';
+import { createCheckoutSession } from '../../services/billing.service';
 import {
   getPaymentErrorMessage,
   logPaymentError,
@@ -83,19 +83,7 @@ export default function PlanCard({
       return;
     }
 
-    // Paid plan - create Stripe Checkout Session
-    try {
-      const response = await createStripeCheckoutSession(plan.id);
-      if (response.checkout_url) {
-        window.location.assign(response.checkout_url);
-        return;
-      }
-      setError('Could not start checkout. Please try again.');
-    } catch (checkoutError) {
-      logPaymentError(checkoutError);
-      setError(getPaymentErrorMessage(checkoutError));
-    }
-
+    navigate(`/dashboard/billing/checkout/${plan.id}`);
     setLoading(false);
   };
 
@@ -160,18 +148,17 @@ export default function PlanCard({
           disabled={loading}
           aria-busy={loading}
           aria-describedby={error ? errorId : undefined}
-          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-cyan-400 px-4 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-70"
+          className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md bg-cyan-400 px-3.5 text-sm font-bold leading-none text-slate-950 transition hover:bg-cyan-300 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Starting secure checkout...
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              Opening...
             </>
           ) : (
             <>
-              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
               Subscribe
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </>
           )}
         </button>

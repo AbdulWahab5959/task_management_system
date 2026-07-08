@@ -1,4 +1,4 @@
-import { ArrowRight, Check, HelpCircle, Shield, Sparkles, Star, Users, Zap } from 'lucide-react';
+import { Check, HelpCircle, Shield, Sparkles, Star, Users, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -293,22 +293,20 @@ export default function PricingPage() {
                         {isFree ? (
                           <Link
                             to="/register"
-                            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 text-sm font-bold text-slate-300 transition-all duration-200 hover:bg-white/10 hover:text-white"
+                            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3.5 text-sm font-bold leading-none text-slate-300 transition-all duration-200 hover:bg-white/10 hover:text-white active:scale-[0.96]"
                           >
                             Get started free
-                            <ArrowRight className="h-4 w-4" aria-hidden="true" />
                           </Link>
                         ) : (
                           <Link
                             to="/register"
-                            className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold transition-all duration-200 ${
+                            className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3.5 text-sm font-bold leading-none transition-all duration-200 active:scale-[0.96] ${
                               plan.is_popular
                                 ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30 hover:bg-indigo-400'
                                 : 'border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
                             }`}
                           >
                             {isEnterprise ? 'Contact sales' : 'Get started'}
-                            <ArrowRight className="h-4 w-4" aria-hidden="true" />
                           </Link>
                         )}
                         <p className="mt-2 text-center text-xs text-slate-500">
@@ -502,14 +500,13 @@ export default function PricingPage() {
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link
                 to="/register"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-500 px-8 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-200 hover:bg-indigo-400"
+                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-indigo-500 px-3.5 text-sm font-bold leading-none text-white shadow-lg shadow-indigo-500/30 transition-all duration-200 hover:bg-indigo-400 active:scale-[0.96]"
               >
                 Start your free trial
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
               <Link
                 to="/contact"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-8 text-sm font-bold text-slate-300 transition-all duration-200 hover:bg-white/10 hover:text-white"
+                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3.5 text-sm font-bold leading-none text-slate-300 transition-all duration-200 hover:bg-white/10 hover:text-white active:scale-[0.96]"
               >
                 Talk to sales
               </Link>

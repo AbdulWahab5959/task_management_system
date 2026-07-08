@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Subscription;
+use App\Services\StripeBackfillService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -177,7 +178,7 @@ class SubscriptionController extends Controller
         ]);
     }
 
-    public function getPayments(Request $request): JsonResponse
+    public function getPayments(Request $request, StripeBackfillService $stripeBackfillService): JsonResponse
     {
         $page = (int) $request->input('page', 1);
         $limit = min((int) $request->input('limit', 15), 100);
@@ -189,7 +190,7 @@ class SubscriptionController extends Controller
         $userId = $request->input('user_id');
 
         $query = Payment::query()
-            ->with(['user', 'plan', 'subscription'])
+            ->with(['user', 'plan', 'subscription', 'refunds.admin'])
             ->orderByDesc('created_at');
 
         if ($search !== '') {
@@ -229,7 +230,16 @@ class SubscriptionController extends Controller
         $paginated = $query->paginate($limit, ['*'], 'page', $page);
 
         // Transform payments to include refund eligibility information
-        $payments = $paginated->getCollection()->map(function (Payment $payment) {
+        $payments = $paginated->getCollection()->map(function (Payment $payment) use ($stripeBackfillService) {
+            if ($payment->getRefundDisabledReason() === 'Refund unavailable: missing Stripe PaymentIntent or Charge ID.') {
+                $stripeBackfillService->backfillStripePaymentReferences($payment);
+                $payment->refresh();
+            }
+
+            $latestRefund = $payment->refunds
+                ->sortByDesc(fn ($refund) => $refund->refunded_at ?? $refund->created_at)
+                ->first();
+
             return [
                 'id' => $payment->id,
                 'user_id' => $payment->user_id,
@@ -253,6 +263,21 @@ class SubscriptionController extends Controller
                 'refund_disabled_reason' => $payment->getRefundDisabledReason(),
                 'provider_payment_intent_id' => $payment->provider_payment_intent_id,
                 'provider_charge_id' => $payment->provider_charge_id,
+                'provider_payment_id' => $payment->provider_payment_id,
+                'provider_invoice_id' => $payment->provider_invoice_id,
+                'gateway_subscription_id' => $payment->gateway_subscription_id,
+                'latest_refund' => $latestRefund ? [
+                    'id' => $latestRefund->id,
+                    'amount' => (string) $latestRefund->amount,
+                    'currency' => $latestRefund->currency,
+                    'status' => $latestRefund->status,
+                    'reason' => $latestRefund->reason,
+                    'provider_refund_id' => $latestRefund->provider_refund_id,
+                    'provider_payment_id' => $latestRefund->provider_payment_id,
+                    'refunded_at' => $latestRefund->refunded_at?->toIso8601String(),
+                    'admin_name' => $latestRefund->admin?->name,
+                    'admin_email' => $latestRefund->admin?->email,
+                ] : null,
                 // Subscription status information
                 'subscription_status' => $payment->subscription?->status,
                 'subscription_cancel_at_period_end' => $payment->subscription?->cancel_at_period_end ?? false,
