@@ -31,7 +31,7 @@ export default function DashboardPage() {
       <PageHeader
         eyebrow="Dashboard"
         title={`Welcome back, ${getFirstName(user?.name)}`}
-        description="Your LaunchPad workspace overview and quick actions."
+        description="Your LaunchStack workspace overview and quick actions."
         action={
           <Link
             to="/dashboard/profile"

@@ -11,7 +11,7 @@ export default function PublicFooter() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 text-xs font-bold text-white">
                 L
               </div>
-              <span className="text-base font-bold text-white">LaunchPad</span>
+              <span className="text-base font-bold text-white">LaunchStack</span>
             </Link>
             <p className="mt-3 text-sm leading-6 text-slate-400">
               The modern SaaS boilerplate for building and launching your next big idea.
@@ -58,7 +58,7 @@ export default function PublicFooter() {
         </div>
 
         <div className="mt-10 border-t border-white/10 pt-6 text-center text-sm text-slate-500">
-          &copy; {new Date().getFullYear()} LaunchPad. All rights reserved.
+          &copy; {new Date().getFullYear()} LaunchStack. All rights reserved.
         </div>
       </div>
     </footer>

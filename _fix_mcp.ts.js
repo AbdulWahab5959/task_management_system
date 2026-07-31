@@ -1,5 +1,5 @@
 const fs = require('fs');
-const p = 'c:\\xampp\\htdocs\\launchpad\\frontend\\src\\components\\dashboard\\LaunchpadWebMcpTestPanel.tsx';
+const p = 'c:\\xampp\\htdocs\\launchpad\\frontend\\src\\components\\dashboard\\LaunchStackWebMcpTestPanel.tsx';
 let c = fs.readFileSync(p, 'utf8');
 let lines = c.split('\n');
 console.log('Total lines:', lines.length);
@@ -17,7 +17,7 @@ console.log('Has Declarative Tool Form:', c.includes('Declarative Tool Form'));
 console.log('Has export default:', c.includes('export default function'));
 
 const fs = require('fs');
-const p = 'c:\\xampp\\htdocs\\launchpad\\frontend\\src\\components\\dashboard\\LaunchpadWebMcpTestPanel.tsx';
+const p = 'c:\\xampp\\htdocs\\launchpad\\frontend\\src\\components\\dashboard\\LaunchStackWebMcpTestPanel.tsx';
 let c = fs.readFileSync(p, 'utf8');
 console.log('Length:', c.length);
 console.log('Last 200 chars:', JSON.stringify(c.slice(-200)));

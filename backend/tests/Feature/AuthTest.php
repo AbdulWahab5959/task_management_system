@@ -14,7 +14,7 @@ class AuthTest extends TestCase
     public function test_user_can_register_and_receive_token(): void
     {
         $response = $this->postJson('/api/auth/register', [
-            'name' => 'LaunchPad User',
+            'name' => 'LaunchStack User',
             'email' => 'user@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -29,7 +29,7 @@ class AuthTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'email' => 'user@example.com',
-            'name' => 'LaunchPad User',
+            'name' => 'LaunchStack User',
             'role' => User::ROLE_USER,
         ]);
 

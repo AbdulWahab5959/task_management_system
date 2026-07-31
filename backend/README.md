@@ -1,6 +1,6 @@
-# LaunchPad Backend
+# LaunchStack Backend
 
-Laravel API backend for the LaunchPad SaaS Boilerplate.
+Laravel API backend for the LaunchStack SaaS Boilerplate.
 
 ## Stack
 

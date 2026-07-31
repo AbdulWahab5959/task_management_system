@@ -1,6 +1,6 @@
 import { FlaskConical } from 'lucide-react';
 import PageHeader from '../../components/dashboard/PageHeader';
-import LaunchpadWebMcpTestPanel from '../../components/dashboard/LaunchpadWebMcpTestPanel';
+import LaunchStackWebMcpTestPanel from '../../components/dashboard/LaunchStackWebMcpTestPanel';
 
 export default function WebMcpTestPage() {
   return (
@@ -16,7 +16,7 @@ export default function WebMcpTestPage() {
           </span>
         }
       />
-      <LaunchpadWebMcpTestPanel />
+      <LaunchStackWebMcpTestPanel />
     </>
   );
 }

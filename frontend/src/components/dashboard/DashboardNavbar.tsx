@@ -134,7 +134,7 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
           <div className="min-w-0">
-            <p className="truncate text-[11px] font-bold uppercase tracking-wider text-indigo-600/90">LaunchPad</p>
+            <p className="truncate text-[11px] font-bold uppercase tracking-wider text-indigo-600/90">LaunchStack</p>
             <h2 className="truncate text-lg font-semibold leading-6 text-slate-950">{pageTitle}</h2>
           </div>
         </div>

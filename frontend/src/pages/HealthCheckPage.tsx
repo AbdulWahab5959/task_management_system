@@ -52,7 +52,7 @@ export default function HealthCheckPage() {
           <div className="grid gap-8 bg-[radial-gradient(circle_at_top_right,_rgba(34,211,238,0.18),_transparent_35%),radial-gradient(circle_at_bottom_left,_rgba(59,130,246,0.16),_transparent_30%)] p-8 md:grid-cols-[1.3fr_0.7fr] md:p-12">
             <div className="space-y-6">
               <p className="inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-sm font-medium text-cyan-200">
-                LaunchPad local setup
+                LaunchStack local setup
               </p>
               <div className="space-y-3">
                 <h1 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">

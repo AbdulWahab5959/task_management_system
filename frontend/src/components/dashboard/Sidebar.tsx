@@ -137,7 +137,7 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
               <Rocket className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
             </span>
             <span>
-              <span className="block text-base font-semibold text-white">LaunchPad</span>
+              <span className="block text-base font-semibold text-white">LaunchStack</span>
               <span className="block text-xs font-medium text-slate-400">Workspace</span>
             </span>
           </Link>

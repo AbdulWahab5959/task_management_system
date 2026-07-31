@@ -24,10 +24,10 @@ export default function About() {
       <section className="px-6 pb-20 pt-24 sm:pb-28 sm:pt-32">
         <div className="mx-auto max-w-3xl text-center">
           <h1 className="text-4xl font-bold text-white sm:text-5xl">
-            About <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">LaunchPad</span>
+            About <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">LaunchStack</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-            LaunchPad is a modern SaaS boilerplate designed to accelerate your product development. 
+            LaunchStack is a modern SaaS boilerplate designed to accelerate your product development.
             We provide the essential infrastructure so you can focus on building your unique value proposition.
           </p>
         </div>
@@ -44,7 +44,7 @@ export default function About() {
                 subscription billing, and dashboard UI before you can even start on your actual product.
               </p>
               <p className="mt-4 text-lg leading-8 text-slate-300">
-                We built LaunchPad to eliminate that initial grind. Our mission is to give developers a 
+                We built LaunchStack to eliminate that initial grind. Our mission is to give developers a
                 production-ready foundation that handles the boring but critical parts of every SaaS application, 
                 so you can ship faster and iterate smarter.
               </p>
@@ -65,9 +65,9 @@ export default function About() {
       <section className="border-t border-white/10 px-6 py-20">
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold text-white sm:text-4xl">Why choose LaunchPad?</h2>
+            <h2 className="text-3xl font-bold text-white sm:text-4xl">Why choose LaunchStack?</h2>
             <p className="mt-4 text-lg leading-7 text-slate-300">
-              A modern tech stack and thoughtful architecture make LaunchPad the ideal starting point.
+              A modern tech stack and thoughtful architecture make LaunchStack the ideal starting point.
             </p>
           </div>
 
@@ -91,7 +91,7 @@ export default function About() {
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold text-white sm:text-4xl">Built with modern technology</h2>
             <p className="mt-4 text-lg leading-7 text-slate-300">
-              LaunchPad leverages the best tools in the industry for performance, scalability, and developer experience.
+              LaunchStack leverages the best tools in the industry for performance, scalability, and developer experience.
             </p>
           </div>
 

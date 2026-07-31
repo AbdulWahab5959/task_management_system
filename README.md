@@ -1,4 +1,4 @@
-# LaunchPad SaaS Boilerplate
+# LaunchStack SaaS Boilerplate
 
 ![Laravel](https://img.shields.io/badge/Laravel-12-FF2D20?logo=laravel&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827)
@@ -8,7 +8,7 @@
 ![Status](https://img.shields.io/badge/status-active_development-0f766e)
 ![License](https://img.shields.io/badge/license-not_specified-lightgrey)
 
-LaunchPad is a full-stack SaaS starter project with a Laravel API backend and a React TypeScript dashboard frontend. It currently implements the core authentication and account-management flows needed before building paid SaaS modules: registration, login, email verification, forgot/reset password, protected routes, dashboard layout, profile updates, and password changes.
+LaunchStack is a full-stack SaaS starter project with a Laravel API backend and a React TypeScript dashboard frontend. It currently implements the core authentication and account-management flows needed before building paid SaaS modules: registration, login, email verification, forgot/reset password, protected routes, dashboard layout, profile updates, and password changes.
 
 The project is intentionally scoped. Stripe, subscriptions, multi-tenancy, teams, and admin features are not presented as complete product features in this README.
 
@@ -91,7 +91,7 @@ Screenshots can be added here after capturing the local UI.
 ## Folder Structure
 
 ```text
-launchpad/
+launchstack/
   backend/
     app/
       Http/

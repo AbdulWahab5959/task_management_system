@@ -3,7 +3,7 @@ import { Monitor, ShieldCheck, ShieldOff, FileText, Code, CheckCircle2, XCircle,
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../common/Card';
 
 /* ──────────────────────────────────────────────
-   LaunchpadWebMcpTestPanel
+   LaunchStackWebMcpTestPanel
    Client-side WebMCP test panel — Tools only.
    No backend MCP server, no SSE, no stdio,
    no Resources, no Prompts.
@@ -22,16 +22,16 @@ interface PreviewSettings {
   dashboard_note: string;
 }
 
-const DECLARATIVE_TOOL_NAME = 'update-launchpad-preview-settings';
+const DECLARATIVE_TOOL_NAME = 'update-launchstack-preview-settings';
 const DECLARATIVE_TOOL_DESCRIPTION =
-  'Updates harmless preview-only Launchpad UI settings for testing browser-native AI tool interaction.';
+  'Updates harmless preview-only LaunchStack UI settings for testing browser-native AI tool interaction.';
 const declarativeToolAttributes = {
   toolname: DECLARATIVE_TOOL_NAME,
   tooldescription: DECLARATIVE_TOOL_DESCRIPTION,
 } as Record<string, string>;
 
-const JS_TOOL_NAME = 'update-launchpad-preview-settings-js';
-const JS_TOOL_DESCRIPTION = 'JS-registered tool for updating harmless preview-only Launchpad UI settings.';
+const JS_TOOL_NAME = 'update-launchstack-preview-settings-js';
+const JS_TOOL_DESCRIPTION = 'JS-registered tool for updating harmless preview-only LaunchStack UI settings.';
 
 /** JSON Schema for the JS‑registered tool */
 const jsToolSchema = {
@@ -49,7 +49,7 @@ function getModelContext() {
 }
 
 
-export default function LaunchpadWebMcpTestPanel() {
+export default function LaunchStackWebMcpTestPanel() {
   const [preview, setPreview] = useState<PreviewSettings>({
     project_name: '',
     debug_enabled: false,
@@ -378,4 +378,3 @@ window.isSecureContext        → ${String(debugInfo.isSecureContext)}`}
     </div>
   );
 }
-

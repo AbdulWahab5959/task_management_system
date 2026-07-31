@@ -24,7 +24,7 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 text-lg font-bold text-white shadow-lg shadow-cyan-500/25">
                 L
               </div>
-              <span className="text-xl font-bold text-white">LaunchPad</span>
+              <span className="text-xl font-bold text-white">LaunchStack</span>
             </Link>
           </div>
 

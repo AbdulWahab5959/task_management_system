@@ -495,7 +495,7 @@ export default function PricingPage() {
               Ready to get started?
             </h2>
             <p className="mt-4 text-lg text-slate-400">
-              Join thousands of teams already building with LaunchPad. Start your free trial today — no credit card required.
+              Join thousands of teams already building with LaunchStack. Start your free trial today — no credit card required.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link

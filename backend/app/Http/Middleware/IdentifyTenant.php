@@ -29,7 +29,7 @@ class IdentifyTenant
 
     protected function identifyTenant(Request $request): ?Tenant
     {
-        // Method 1: From subdomain (e.g., acme.launchpad.com)
+        // Method 1: From subdomain (e.g., acme.launchstack.com)
         if ($tenant = $this->identifyFromDomain($request)) {
             return $tenant;
         }
@@ -55,7 +55,7 @@ class IdentifyTenant
     protected function identifyFromDomain(Request $request): ?Tenant
     {
         $host = $request->getHost();
-        $baseDomain = config('app.domain', 'launchpad.com'); // e.g., launchpad.com
+        $baseDomain = config('app.domain', 'launchstack.com'); // e.g., launchstack.com
 
         if (str_ends_with($host, '.' . $baseDomain)) {
             $subdomain = str_replace('.' . $baseDomain, '', $host);
@@ -68,7 +68,7 @@ class IdentifyTenant
     protected function identifyFromCustomDomain(Request $request): ?Tenant
     {
         $host = $request->getHost();
-        $baseDomain = config('app.domain', 'launchpad.com');
+        $baseDomain = config('app.domain', 'launchstack.com');
         if ($host === $baseDomain || str_ends_with($host, '.' . $baseDomain) || $host === 'localhost' || $host === '127.0.0.1') {
             return null;
         }

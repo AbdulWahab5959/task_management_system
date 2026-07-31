@@ -98,7 +98,7 @@ export default function Home() {
             in record time
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-            LaunchPad gives you a production-ready authentication system, team management, subscription billing, and a
+            LaunchStack gives you a production-ready authentication system, team management, subscription billing, and a
             beautiful dashboard — so you can focus on building what matters.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -183,7 +183,7 @@ export default function Home() {
             Ready to launch your SaaS?
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-lg leading-7 text-slate-300">
-            Join thousands of developers who have already built and launched their products with LaunchPad.
+            Join thousands of developers who have already built and launched their products with LaunchStack.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link

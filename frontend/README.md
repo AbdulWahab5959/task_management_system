@@ -1,6 +1,6 @@
-# LaunchPad Frontend
+# LaunchStack Frontend
 
-React TypeScript frontend for the LaunchPad SaaS Boilerplate.
+React TypeScript frontend for the LaunchStack SaaS Boilerplate.
 
 ## Stack
 
