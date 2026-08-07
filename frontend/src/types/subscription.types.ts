@@ -2,15 +2,12 @@ export interface Plan {
   id: number;
   name: string;
   slug: string;
-  stripe_plan_id: string;
+  stripe_plan_id: string | null;
+  stripe_price_id?: string | null;
   price: number;
   interval: 'month' | 'year';
   features: string[];
-  limits: {
-    users: number;
-    projects: number;
-    [key: string]: number;
-  };
+  limits: Record<string, number | string>;
   is_active: boolean;
   sort_order: number;
   created_at: string;

@@ -8,6 +8,7 @@ use App\Models\Plan;
 use App\Models\Subscription;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Stripe\Checkout\Session;
@@ -58,6 +59,43 @@ class StripeCheckoutController extends Controller
             ], 422);
         }
 
+        if (! in_array($plan->billing_interval, ['month', 'year'], true)) {
+            return response()->json([
+                'message' => 'This plan has an invalid recurring billing interval.',
+            ], 422);
+        }
+
+        $activeSubscription = Subscription::query()
+            ->where('user_id', $user->id)
+            ->whereIn('status', ['active', 'trialing'])
+            ->latest()
+            ->first();
+
+        if ($activeSubscription) {
+            return response()->json([
+                'message' => 'You already have an active subscription. Cancel it before starting another checkout.',
+            ], 409);
+        }
+
+        $pendingPayment = Payment::query()
+            ->where('user_id', $user->id)
+            ->where('plan_id', $plan->id)
+            ->where('gateway', 'stripe')
+            ->where('status', Payment::STATUS_PENDING)
+            ->whereNotNull('provider_session_id')
+            ->whereNotNull('checkout_url')
+            ->where('created_at', '>=', now()->subHours(23))
+            ->latest()
+            ->first();
+
+        if ($pendingPayment) {
+            return response()->json([
+                'checkout_url' => $pendingPayment->checkout_url,
+                'session_id' => $pendingPayment->provider_session_id,
+                'payment_reference' => $pendingPayment->reference,
+            ]);
+        }
+
         $stripeSecret = config('services.stripe.secret');
 
         if (! is_string($stripeSecret) || trim($stripeSecret) === '') {
@@ -68,11 +106,35 @@ class StripeCheckoutController extends Controller
             ], 500);
         }
 
-        try {
-            Stripe::setApiKey($stripeSecret);
+        $frontendUrl = rtrim((string) config('services.frontend.url', 'http://localhost:5173'), '/');
+        $reference = 'pay_'.Str::uuid()->toString();
+        $payment = null;
+        $subscription = null;
 
-            $frontendUrl = rtrim((string) config('services.frontend.url', 'http://localhost:5173'), '/');
-            $reference = 'pay_'.Str::uuid()->toString();
+        try {
+            [$subscription, $payment] = DB::transaction(function () use ($user, $plan, $reference): array {
+                $subscription = Subscription::create([
+                    'user_id' => $user->id,
+                    'plan_id' => $plan->id,
+                    'gateway' => 'stripe',
+                    'status' => 'pending',
+                ]);
+
+                $payment = Payment::create([
+                    'user_id' => $user->id,
+                    'subscription_id' => $subscription->id,
+                    'plan_id' => $plan->id,
+                    'gateway' => 'stripe',
+                    'reference' => $reference,
+                    'amount' => $plan->amount,
+                    'currency' => strtoupper((string) ($plan->currency ?: 'USD')),
+                    'status' => Payment::STATUS_PENDING,
+                ]);
+
+                return [$subscription, $payment];
+            });
+
+            Stripe::setApiKey($stripeSecret);
 
             $session = Session::create([
                 'mode' => 'subscription',
@@ -80,42 +142,30 @@ class StripeCheckoutController extends Controller
                     'price' => $plan->stripe_price_id,
                     'quantity' => 1,
                 ]],
-                'success_url' => $frontendUrl.'/dashboard/billing/success?session_id={CHECKOUT_SESSION_ID}',
+                'success_url' => $frontendUrl.'/dashboard/billing/success?session_id={CHECKOUT_SESSION_ID}&reference='.$reference,
                 'cancel_url' => $frontendUrl.'/dashboard/billing/cancel',
                 'client_reference_id' => $reference,
                 'customer_email' => $user->email,
                 'metadata' => [
+                    'payment_id' => (string) $payment->id,
                     'user_id' => (string) $user->id,
                     'plan_id' => (string) $plan->id,
                     'reference' => $reference,
                 ],
                 'subscription_data' => [
                     'metadata' => [
+                        'payment_id' => (string) $payment->id,
                         'user_id' => (string) $user->id,
                         'plan_id' => (string) $plan->id,
+                        'reference' => $reference,
                     ],
                 ],
+            ], [
+                'idempotency_key' => $reference,
             ]);
 
-            // Create a pending subscription
-            $subscription = Subscription::create([
-                'user_id' => $user->id,
-                'plan_id' => $plan->id,
-                'gateway' => 'stripe',
-                'status' => 'pending',
-            ]);
-
-            // Create a pending payment record
-            $payment = Payment::create([
-                'user_id' => $user->id,
-                'subscription_id' => $subscription->id,
-                'plan_id' => $plan->id,
-                'gateway' => 'stripe',
-                'reference' => $reference,
+            $payment->update([
                 'provider_session_id' => $session->id,
-                'amount' => $plan->amount,
-                'currency' => strtoupper((string) ($plan->currency ?: 'USD')),
-                'status' => Payment::STATUS_PENDING,
                 'checkout_url' => $session->url,
             ]);
 
@@ -124,25 +174,30 @@ class StripeCheckoutController extends Controller
                 'session_id' => $session->id,
                 'payment_reference' => $payment->reference,
             ]);
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe Checkout Session creation failed.', [
-                'user_id' => $user->id,
-                'plan_id' => $plan->id,
-                'exception' => $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'message' => 'Payment gateway error. Please try again later.',
-            ], 500);
         } catch (Throwable $e) {
-            Log::error('Checkout session creation failed.', [
+            if ($payment?->status === Payment::STATUS_PENDING) {
+                $payment->update([
+                    'status' => Payment::STATUS_FAILED,
+                    'failure_reason' => 'Stripe checkout session creation failed.',
+                ]);
+            }
+
+            if ($subscription?->status === 'pending') {
+                $subscription->update(['status' => 'failed']);
+            }
+
+            $gatewayError = $e instanceof ApiErrorException;
+
+            Log::error($gatewayError ? 'Stripe Checkout Session creation failed.' : 'Checkout session creation failed.', [
                 'user_id' => $user->id,
                 'plan_id' => $plan->id,
                 'exception' => $e,
             ]);
 
             return response()->json([
-                'message' => 'Could not start checkout. Please try again.',
+                'message' => $gatewayError
+                    ? 'Payment gateway error. Please try again later.'
+                    : 'Could not start checkout. Please try again.',
             ], 500);
         }
     }

@@ -4,9 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Models\Plan;
+use App\Models\Refund;
 use App\Models\Subscription;
+use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Services\NotificationService;
+use App\Services\StripeBackfillService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -14,11 +18,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Stripe\Exception\SignatureVerificationException;
+use Stripe\Invoice;
 use Stripe\Stripe;
 use Stripe\StripeObject;
 use Stripe\Subscription as StripeSubscriptionResource;
 use Stripe\Webhook;
-use App\Services\StripeBackfillService;
 use Throwable;
 use UnexpectedValueException;
 
@@ -119,6 +123,13 @@ class StripeWebhookController extends Controller
                 return $alreadyProcessed ? 'reprocessed' : 'processed';
             });
         } catch (Throwable $exception) {
+            $this->recordWebhookFailure(
+                $event->id,
+                $event->type,
+                $payloadArray,
+                $exception,
+            );
+
             Log::error('Stripe webhook processing failed.', array_merge([
                 'event_id' => $event->id,
                 'event_type' => $event->type,
@@ -527,14 +538,12 @@ class StripeWebhookController extends Controller
 
     private function handleChargeRefunded(StripeObject $refund): void
     {
-        $refundId = $this->stringValue($refund, 'id');
+        $chargeId = $this->stringValue($refund, 'id');
         $paymentIntentId = $this->stringValue($refund, 'payment_intent');
-        $chargeId = $this->stringValue($refund, 'charge');
         $amountRefunded = ($this->floatValue($refund, 'amount_refunded') ?? 0.0) / 100;
         $status = $this->stringValue($refund, 'status');
 
         Log::info('Stripe charge.refunded received.', [
-            'refund_id' => $refundId,
             'payment_intent' => $paymentIntentId,
             'charge_id' => $chargeId,
             'amount_refunded' => $amountRefunded,
@@ -560,7 +569,6 @@ class StripeWebhookController extends Controller
 
         if (! $payment) {
             Log::warning('Stripe charge.refunded could not find a local payment.', [
-                'refund_id' => $refundId,
                 'payment_intent' => $paymentIntentId,
                 'charge_id' => $chargeId,
             ]);
@@ -568,8 +576,10 @@ class StripeWebhookController extends Controller
             return;
         }
 
-        // Update payment refund status based on amount
-        $totalRefunded = (float) $payment->refunded_amount + $amountRefunded;
+        // Stripe's charge amount_refunded is cumulative, so store it idempotently.
+        $previousRefunded = (float) $payment->refunded_amount;
+        $totalRefunded = min((float) $payment->amount, max($previousRefunded, $amountRefunded));
+        $refundIncrease = $totalRefunded - $previousRefunded;
         $isFullRefund = $totalRefunded >= (float) $payment->amount;
 
         $this->updatePaymentSafely($payment, [
@@ -578,41 +588,6 @@ class StripeWebhookController extends Controller
             'status' => $isFullRefund ? Payment::STATUS_REFUNDED : Payment::STATUS_PARTIALLY_REFUNDED,
         ], 'charge.refunded');
 
-        // Track if this is a new refund or status change for notification
-        $isNewRefund = false;
-        $previousStatus = null;
-
-        // Update or create refund record
-        if ($refundId) {
-            $existingRefund = \App\Models\Refund::query()
-                ->where('provider_refund_id', $refundId)
-                ->lockForUpdate()
-                ->first();
-
-            if ($existingRefund) {
-                $previousStatus = $existingRefund->status;
-                $existingRefund->update([
-                    'status' => $status === 'succeeded' ? 'succeeded' : $status,
-                    'raw_response' => json_decode(json_encode($refund), true),
-                    'refunded_at' => $status === 'succeeded' ? now() : $existingRefund->refunded_at,
-                ]);
-            } else {
-                $isNewRefund = true;
-                \App\Models\Refund::create([
-                    'payment_id' => $payment->id,
-                    'user_id' => $payment->user_id,
-                    'gateway' => 'stripe',
-                    'provider_refund_id' => $refundId,
-                    'provider_payment_id' => $paymentIntentId,
-                    'amount' => $amountRefunded,
-                    'currency' => $payment->currency,
-                    'status' => $status === 'succeeded' ? 'succeeded' : ($status ?? 'pending'),
-                    'raw_response' => json_decode(json_encode($refund), true),
-                    'refunded_at' => $status === 'succeeded' ? now() : null,
-                ]);
-            }
-        }
-
         Log::info('Payment refund status updated from charge.refunded webhook.', [
             'payment_id' => $payment->id,
             'refunded_amount' => $payment->fresh()->refunded_amount,
@@ -620,15 +595,15 @@ class StripeWebhookController extends Controller
         ]);
 
         // Send notification for completed refunds
-        if ($status === 'succeeded' && $payment->user_id) {
+        if ($status === 'succeeded' && $refundIncrease > 0 && $payment->user_id) {
             try {
                 $notificationService = app(NotificationService::class);
                 $notificationService->refundCompleted(
                     $payment->user_id,
-                    $amountRefunded,
+                    $refundIncrease,
                     $payment->currency,
                     $payment->id,
-                    $refundId ? 0 : 0, // We don't have local refund ID here
+                    0,
                 );
             } catch (Throwable $e) {
                 Log::warning('Failed to send refund completed notification from webhook.', [
@@ -673,13 +648,13 @@ class StripeWebhookController extends Controller
         }
 
         // Check if refund record already exists
-        $existingRefund = \App\Models\Refund::query()
+        $existingRefund = Refund::query()
             ->where('provider_refund_id', $refundId)
             ->lockForUpdate()
             ->first();
 
         if (! $existingRefund) {
-            \App\Models\Refund::create([
+            Refund::create([
                 'payment_id' => $payment->id,
                 'user_id' => $payment->user_id,
                 'gateway' => 'stripe',
@@ -703,7 +678,7 @@ class StripeWebhookController extends Controller
             return;
         }
 
-        $existingRefund = \App\Models\Refund::query()
+        $existingRefund = Refund::query()
             ->where('provider_refund_id', $refundId)
             ->lockForUpdate()
             ->first();
@@ -1123,6 +1098,7 @@ class StripeWebhookController extends Controller
         $endsAt = $this->subscriptionEndsAt($stripeSubscription, $currentPeriodEnd);
         $metadataUserId = $this->metadataValue($stripeSubscription, 'user_id');
         $metadataPlanId = $this->metadataValue($stripeSubscription, 'plan_id');
+        $stripePricePlanId = $this->planIdFromStripeSubscription($stripeSubscription);
 
         $cancelAtPeriodEnd = $stripeSubscription->cancel_at_period_end ?? null;
         if ($cancelAtPeriodEnd !== null) {
@@ -1149,11 +1125,19 @@ class StripeWebhookController extends Controller
             'cancel_at_period_end' => $cancelAtPeriodEnd,
         ];
 
-        if (! $localSubscription->user_id && $metadataUserId && ctype_digit($metadataUserId)) {
+        if (! $localSubscription->user_id
+            && $metadataUserId
+            && ctype_digit($metadataUserId)
+            && User::query()->whereKey((int) $metadataUserId)->exists()) {
             $updateData['user_id'] = (int) $metadataUserId;
         }
 
-        if (! $localSubscription->plan_id && $metadataPlanId && ctype_digit($metadataPlanId)) {
+        if ($stripePricePlanId) {
+            $updateData['plan_id'] = $stripePricePlanId;
+        } elseif (! $localSubscription->plan_id
+            && $metadataPlanId
+            && ctype_digit($metadataPlanId)
+            && Plan::query()->whereKey((int) $metadataPlanId)->exists()) {
             $updateData['plan_id'] = (int) $metadataPlanId;
         }
 
@@ -1188,11 +1172,23 @@ class StripeWebhookController extends Controller
 
         $metadataUserId = $this->metadataValue($stripeSubscription, 'user_id');
         $metadataPlanId = $this->metadataValue($stripeSubscription, 'plan_id');
+        $stripePricePlanId = $this->planIdFromStripeSubscription($stripeSubscription);
+        $resolvedPlanId = $stripePricePlanId;
 
-        if ($metadataUserId && $metadataPlanId && ctype_digit($metadataUserId) && ctype_digit($metadataPlanId)) {
+        if (! $resolvedPlanId
+            && $metadataPlanId
+            && ctype_digit($metadataPlanId)
+            && Plan::query()->whereKey((int) $metadataPlanId)->exists()) {
+            $resolvedPlanId = (int) $metadataPlanId;
+        }
+
+        if ($metadataUserId
+            && ctype_digit($metadataUserId)
+            && User::query()->whereKey((int) $metadataUserId)->exists()
+            && $resolvedPlanId) {
             $subscription = Subscription::query()
                 ->where('user_id', (int) $metadataUserId)
-                ->where('plan_id', (int) $metadataPlanId)
+                ->where('plan_id', $resolvedPlanId)
                 ->where('gateway', 'stripe')
                 ->where('status', 'pending')
                 ->whereNull('stripe_subscription_id')
@@ -1210,7 +1206,7 @@ class StripeWebhookController extends Controller
                     ['stripe_subscription_id' => $stripeSubscriptionId],
                     [
                         'user_id' => (int) $metadataUserId,
-                        'plan_id' => (int) $metadataPlanId,
+                        'plan_id' => $resolvedPlanId,
                         'gateway' => 'stripe',
                     ],
                 );
@@ -1218,6 +1214,22 @@ class StripeWebhookController extends Controller
         }
 
         return null;
+    }
+
+    private function planIdFromStripeSubscription(StripeObject $stripeSubscription): ?int
+    {
+        $stripePriceId = $this->nestedStringValue($stripeSubscription, ['items', 'data', 0, 'price', 'id'])
+            ?? $this->nestedStringValue($stripeSubscription, ['items', 'data', 0, 'price']);
+
+        if (! $stripePriceId || ! str_starts_with($stripePriceId, 'price_')) {
+            return null;
+        }
+
+        $planId = Plan::query()
+            ->where('stripe_price_id', $stripePriceId)
+            ->value('id');
+
+        return $planId ? (int) $planId : null;
     }
 
     private function findLocalSubscriptionByStripeSubscriptionId(?string $stripeSubscriptionId): ?Subscription
@@ -1240,7 +1252,7 @@ class StripeWebhookController extends Controller
         try {
             Stripe::setApiKey(config('services.stripe.secret'));
 
-            $invoices = \Stripe\Invoice::all([
+            $invoices = Invoice::all([
                 'subscription' => $subscriptionId,
                 'limit' => 1,
                 'status' => 'paid',
@@ -1288,8 +1300,7 @@ class StripeWebhookController extends Controller
         ?Subscription $subscription,
         string $eventType,
         ?Payment $matchedPayment = null,
-    ): void
-    {
+    ): void {
         $amount = (($this->floatValue($invoice, 'amount_paid') ?? 0.0) / 100);
 
         if ($amount <= 0) {
@@ -1572,6 +1583,34 @@ class StripeWebhookController extends Controller
             'customer' => $this->stringValue($object, 'customer'),
             'mode' => $this->stringValue($object, 'mode'),
         ], JSON_UNESCAPED_SLASHES) ?: '{}';
+    }
+
+    private function recordWebhookFailure(
+        string $eventId,
+        string $eventType,
+        ?array $payload,
+        Throwable $exception,
+    ): void {
+        try {
+            WebhookEvent::updateOrCreate(
+                [
+                    'gateway' => 'stripe',
+                    'provider_event_id' => $eventId,
+                ],
+                [
+                    'event_type' => $eventType,
+                    'payload' => $payload,
+                    'failed_at' => now(),
+                    'failure_reason' => $this->safeFailureReason($exception),
+                ],
+            );
+        } catch (Throwable $recordingException) {
+            Log::critical('Unable to persist failed Stripe webhook event.', [
+                'event_id' => $eventId,
+                'event_type' => $eventType,
+                'exception' => $recordingException,
+            ]);
+        }
     }
 
     private function safeFailureReason(Throwable $exception): string

@@ -9,15 +9,6 @@ class PlanSeeder extends Seeder
 {
     public function run(): void
     {
-        Plan::query()
-            ->whereIn('slug', [
-                'free',
-                'pro-yearly',
-                'enterprise-monthly',
-                'enterprise-yearly',
-            ])
-            ->update(['is_active' => false]);
-
         $plans = [
             [
                 'name' => 'Starter Monthly',
@@ -27,14 +18,18 @@ class PlanSeeder extends Seeder
                 'amount_minor' => 999,
                 'currency' => 'USD',
                 'billing_interval' => 'month',
+                'stripe_price_id' => 'price_1TmI2U1Oz8XVPHYWFE6vveyB',
+                'stripe_product_id' => 'prod_UlphTeaK92H5er',
                 'features' => [
-                    'Core dashboard access',
-                    'Basic support',
-                    'Starter usage limits',
+                    'Basic Access',
+                    'Email Support',
+                    'Starter Features',
                 ],
-                'metadata' => [
-                    'tier' => 'starter',
+                'limits' => [
+                    'projects' => 3,
+                    'storage' => '5GB',
                 ],
+                'is_popular' => false,
                 'sort_order' => 1,
             ],
             [
@@ -45,15 +40,41 @@ class PlanSeeder extends Seeder
                 'amount_minor' => 2999,
                 'currency' => 'USD',
                 'billing_interval' => 'month',
+                'stripe_price_id' => 'price_1TmIPc1Oz8XVPHYW2vf5KFem',
+                'stripe_product_id' => 'prod_Ulq5Rxe3Hpsn1k',
                 'features' => [
-                    'Advanced dashboard access',
-                    'Priority support',
-                    'Higher usage limits',
+                    'Standard Access',
+                    'Priority Support',
+                    'Additional Features',
                 ],
-                'metadata' => [
-                    'tier' => 'pro',
+                'limits' => [
+                    'projects' => 10,
+                    'storage' => '25GB',
                 ],
+                'is_popular' => true,
                 'sort_order' => 2,
+            ],
+            [
+                'name' => 'Pro Yearly',
+                'slug' => 'pro-yearly',
+                'description' => 'An annual plan for growing teams that need more capacity.',
+                'amount' => '279.00',
+                'amount_minor' => 27900,
+                'currency' => 'USD',
+                'billing_interval' => 'year',
+                'stripe_price_id' => 'price_1TmIPd1Oz8XVPHYWV4w77fJg',
+                'stripe_product_id' => 'prod_Ulq5Rxe3Hpsn1k',
+                'features' => [
+                    'Standard Access',
+                    'Priority Support',
+                    'Additional Features',
+                ],
+                'limits' => [
+                    'projects' => 10,
+                    'storage' => '25GB',
+                ],
+                'is_popular' => true,
+                'sort_order' => 3,
             ],
             [
                 'name' => 'Business Yearly',
@@ -63,23 +84,67 @@ class PlanSeeder extends Seeder
                 'amount_minor' => 29999,
                 'currency' => 'USD',
                 'billing_interval' => 'year',
+                'stripe_price_id' => 'price_1TmIUi1Oz8XVPHYWrVJ52Bbh',
+                'stripe_product_id' => 'prod_UlqB8s4DgeE0tf',
                 'features' => [
-                    'Business dashboard access',
-                    'Priority support',
-                    'Annual billing savings',
+                    'Full Access',
+                    'Priority Support',
+                    'Premium Features',
                 ],
-                'metadata' => [
-                    'tier' => 'business',
+                'limits' => [
+                    'projects' => 50,
+                    'storage' => '100GB',
                 ],
-                'sort_order' => 3,
+                'is_popular' => false,
+                'sort_order' => 4,
+            ],
+            [
+                'name' => 'Enterprise Monthly',
+                'slug' => 'enterprise-monthly',
+                'description' => 'A flexible enterprise plan for organizations with larger workloads.',
+                'amount' => '99.00',
+                'amount_minor' => 9900,
+                'currency' => 'USD',
+                'billing_interval' => 'month',
+                'stripe_price_id' => 'price_1TmIda1Oz8XVPHYW7Teh4Uct',
+                'stripe_product_id' => 'prod_UlqIShYZ8kR2mg',
+                'features' => [
+                    'Full Access',
+                    'Dedicated Support',
+                    'Enterprise Features',
+                ],
+                'limits' => [
+                    'projects' => 100,
+                    'storage' => '250GB',
+                ],
+                'is_popular' => false,
+                'sort_order' => 5,
+            ],
+            [
+                'name' => 'Enterprise Yearly',
+                'slug' => 'enterprise-yearly',
+                'description' => 'An annual enterprise plan for organizations with larger workloads.',
+                'amount' => '949.00',
+                'amount_minor' => 94900,
+                'currency' => 'USD',
+                'billing_interval' => 'year',
+                'stripe_price_id' => 'price_1TmIcD1Oz8XVPHYWNIUAJlsK',
+                'stripe_product_id' => 'prod_UlqIShYZ8kR2mg',
+                'features' => [
+                    'Full Access',
+                    'Dedicated Support',
+                    'Enterprise Features',
+                ],
+                'limits' => [
+                    'projects' => 100,
+                    'storage' => '250GB',
+                ],
+                'is_popular' => false,
+                'sort_order' => 6,
             ],
         ];
 
         foreach ($plans as $plan) {
-            $existingPlan = Plan::query()
-                ->where('slug', $plan['slug'])
-                ->first();
-
             Plan::updateOrCreate(
                 ['slug' => $plan['slug']],
                 [
@@ -89,16 +154,17 @@ class PlanSeeder extends Seeder
                     'amount_minor' => $plan['amount_minor'],
                     'currency' => $plan['currency'],
                     'billing_interval' => $plan['billing_interval'],
-                    'stripe_price_id' => $existingPlan?->stripe_price_id,
+                    'stripe_price_id' => $plan['stripe_price_id'],
                     'is_active' => true,
                     'features' => $plan['features'],
-                    'metadata' => $plan['metadata'],
-                    // Legacy fields are populated until the admin dashboard is migrated.
-                    'stripe_plan_id' => 'manual_'.$plan['slug'],
+                    'metadata' => [
+                        'stripe_product_id' => $plan['stripe_product_id'],
+                    ],
+                    'stripe_plan_id' => null,
                     'price' => $plan['amount'],
                     'interval' => $plan['billing_interval'],
-                    'limits' => [],
-                    'is_popular' => $plan['slug'] === 'pro-monthly',
+                    'limits' => $plan['limits'],
+                    'is_popular' => $plan['is_popular'],
                     'sort_order' => $plan['sort_order'],
                 ],
             );

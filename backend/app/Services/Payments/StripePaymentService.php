@@ -4,6 +4,7 @@ namespace App\Services\Payments;
 
 use App\Models\Payment;
 use App\Models\Plan;
+use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -40,6 +41,48 @@ class StripePaymentService
             ]);
         }
 
+        if (! is_string($plan->stripe_price_id) || ! str_starts_with($plan->stripe_price_id, 'price_')) {
+            throw ValidationException::withMessages([
+                'plan_id' => 'This plan is not connected to a valid Stripe price.',
+            ]);
+        }
+
+        if (! in_array($plan->billing_interval, ['month', 'year'], true)) {
+            throw ValidationException::withMessages([
+                'plan_id' => 'This plan does not have a valid recurring billing interval.',
+            ]);
+        }
+
+        $activeSubscription = Subscription::query()
+            ->where('user_id', $user->id)
+            ->whereIn('status', ['active', 'trialing'])
+            ->latest()
+            ->first();
+
+        if ($activeSubscription) {
+            throw ValidationException::withMessages([
+                'plan_id' => 'You already have an active subscription. Cancel it before starting another checkout.',
+            ]);
+        }
+
+        $pendingPayment = Payment::query()
+            ->where('user_id', $user->id)
+            ->where('plan_id', $plan->id)
+            ->where('gateway', 'stripe')
+            ->where('status', Payment::STATUS_PENDING)
+            ->whereNotNull('provider_session_id')
+            ->whereNotNull('checkout_url')
+            ->where('created_at', '>=', now()->subHours(23))
+            ->latest()
+            ->first();
+
+        if ($pendingPayment) {
+            return [
+                'payment_reference' => $pendingPayment->reference,
+                'checkout_url' => $pendingPayment->checkout_url,
+            ];
+        }
+
         $currency = strtoupper((string) ($plan->currency ?: 'USD'));
         $reference = 'pay_'.Str::uuid()->toString();
 
@@ -55,7 +98,7 @@ class StripePaymentService
 
         try {
             $session = $this->stripe()->checkout->sessions->create(
-                $this->buildCheckoutSessionPayload($user, $plan, $payment, $currency),
+                $this->buildCheckoutSessionPayload($user, $plan, $payment),
                 ['idempotency_key' => $payment->reference],
             );
 
@@ -97,7 +140,6 @@ class StripePaymentService
         User $user,
         Plan $plan,
         Payment $payment,
-        string $currency,
     ): array {
         $billingInterval = $this->billingInterval($plan);
         $mode = $billingInterval ? 'subscription' : 'payment';
@@ -108,7 +150,7 @@ class StripePaymentService
             'reference' => $payment->reference,
         ];
 
-        $lineItem = $this->lineItem($plan, $currency, $billingInterval);
+        $lineItem = $this->lineItem($plan);
 
         $payload = [
             'mode' => $mode,
@@ -140,47 +182,12 @@ class StripePaymentService
         return in_array($interval, ['month', 'year'], true) ? $interval : null;
     }
 
-    private function lineItem(Plan $plan, string $currency, ?string $billingInterval): array
+    private function lineItem(Plan $plan): array
     {
-        if ($plan->stripe_price_id) {
-            return [
-                'price' => $plan->stripe_price_id,
-                'quantity' => 1,
-            ];
-        }
-
-        $lineItem = [
-            'price_data' => [
-                'currency' => strtolower($currency),
-                'product_data' => [
-                    'name' => $plan->name,
-                    'description' => $plan->description,
-                    'metadata' => [
-                        'plan_id' => (string) $plan->id,
-                        'plan_slug' => (string) $plan->slug,
-                    ],
-                ],
-                'unit_amount' => $this->unitAmount($plan),
-            ],
+        return [
+            'price' => $plan->stripe_price_id,
             'quantity' => 1,
         ];
-
-        if ($billingInterval) {
-            $lineItem['price_data']['recurring'] = [
-                'interval' => $billingInterval,
-            ];
-        }
-
-        return $lineItem;
-    }
-
-    private function unitAmount(Plan $plan): int
-    {
-        if ((int) $plan->amount_minor > 0) {
-            return (int) $plan->amount_minor;
-        }
-
-        return (int) round(((float) $plan->amount) * 100);
     }
 
     private function frontendUrl(string $path, string $reference): string

@@ -7,7 +7,6 @@ use App\Models\Plan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 
 class PlanController extends Controller
 {
@@ -28,7 +27,7 @@ class PlanController extends Controller
             'description' => ['nullable', 'string', 'max:1000'],
             'price' => ['required', 'numeric', 'min:0', 'max:999999.99'],
             'interval' => ['required', 'string', Rule::in(['month', 'year'])],
-            'stripe_price_id' => ['nullable', 'string', 'max:255', 'regex:/^price_[A-Za-z0-9_]+$/'],
+            'stripe_price_id' => ['nullable', 'string', 'max:255', 'regex:/^price_[A-Za-z0-9_]+$/', Rule::unique('plans', 'stripe_price_id')],
             'features' => ['required', 'array', 'min:1'],
             'features.*' => ['required', 'string', 'max:255'],
             'limits' => ['nullable', 'array'],
@@ -46,7 +45,7 @@ class PlanController extends Controller
             'currency' => 'USD',
             'billing_interval' => $validated['interval'],
             'stripe_price_id' => $validated['stripe_price_id'] ?? null,
-            'stripe_plan_id' => 'manual_' . $validated['slug'],
+            'stripe_plan_id' => null,
             'price' => $validated['price'],
             'interval' => $validated['interval'],
             'features' => $validated['features'],
@@ -73,7 +72,7 @@ class PlanController extends Controller
             'description' => ['nullable', 'string', 'max:1000'],
             'price' => ['sometimes', 'required', 'numeric', 'min:0', 'max:999999.99'],
             'interval' => ['sometimes', 'required', 'string', Rule::in(['month', 'year'])],
-            'stripe_price_id' => ['nullable', 'string', 'max:255', 'regex:/^price_[A-Za-z0-9_]+$/'],
+            'stripe_price_id' => ['nullable', 'string', 'max:255', 'regex:/^price_[A-Za-z0-9_]+$/', Rule::unique('plans', 'stripe_price_id')->ignore($plan->id)],
             'features' => ['sometimes', 'required', 'array', 'min:1'],
             'features.*' => ['required', 'string', 'max:255'],
             'limits' => ['nullable', 'array'],

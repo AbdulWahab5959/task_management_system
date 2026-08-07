@@ -2,17 +2,18 @@
 
 namespace App\Services;
 
-use App\Models\Tenant;
+use App\Models\Invoice;
 use App\Models\Plan;
 use App\Models\Subscription;
-use App\Models\Invoice;
-use Stripe\StripeClient;
-use Stripe\Exception\ApiErrorException;
+use App\Models\Tenant;
 use Illuminate\Support\Facades\Log;
+use Stripe\Exception\ApiErrorException;
+use Stripe\StripeClient;
 
 class PaymentService
 {
     protected ?StripeClient $stripe = null;
+
     protected bool $mockMode = false;
 
     public function __construct()
@@ -20,13 +21,13 @@ class PaymentService
         $secret = config('services.stripe.secret');
         if (empty($secret) || $secret === 'mock_secret') {
             $this->mockMode = true;
-            Log::warning("Stripe Secret Key is not set or set to mock. Running PaymentService in Mock Mode.");
+            Log::warning('Stripe Secret Key is not set or set to mock. Running PaymentService in Mock Mode.');
         } else {
             try {
                 $this->stripe = new StripeClient($secret);
             } catch (\Exception $e) {
                 $this->mockMode = true;
-                Log::error("Failed to initialize Stripe Client: " . $e->getMessage() . ". Running in Mock Mode.");
+                Log::error('Failed to initialize Stripe Client: '.$e->getMessage().'. Running in Mock Mode.');
             }
         }
     }
@@ -34,7 +35,7 @@ class PaymentService
     public function createCustomer(Tenant $tenant): string
     {
         if ($this->mockMode) {
-            return 'cus_mock_' . uniqid();
+            return 'cus_mock_'.uniqid();
         }
 
         try {
@@ -45,10 +46,12 @@ class PaymentService
                     'tenant_id' => $tenant->id,
                 ],
             ]);
+
             return $customer->id;
         } catch (ApiErrorException $e) {
-            Log::error("Failed to create Stripe customer: " . $e->getMessage());
-            return 'cus_mock_' . uniqid();
+            Log::error('Failed to create Stripe customer: '.$e->getMessage());
+
+            return 'cus_mock_'.uniqid();
         }
     }
 
@@ -56,13 +59,13 @@ class PaymentService
     {
         $customerId = $tenant->subscription?->stripe_customer_id ?? $this->createCustomer($tenant);
 
-        $stripeSubId = 'sub_mock_' . uniqid();
+        $stripeSubId = 'sub_mock_'.uniqid();
         $status = 'active';
         $trialEnd = null;
         $periodStart = now();
         $periodEnd = now()->addMonth();
 
-        if (!$this->mockMode) {
+        if (! $this->mockMode) {
             try {
                 // Attach payment method
                 $this->stripe->paymentMethods->attach($paymentMethodId, [
@@ -80,7 +83,7 @@ class PaymentService
                 $stripeSubscription = $this->stripe->subscriptions->create([
                     'customer' => $customerId,
                     'items' => [
-                        ['price' => $plan->stripe_plan_id],
+                        ['price' => $plan->stripe_price_id],
                     ],
                     'trial_period_days' => $tenant->isOnTrial() ? 14 : null,
                     'metadata' => [
@@ -95,7 +98,7 @@ class PaymentService
                 $periodStart = now()->timestamp($stripeSubscription->current_period_start);
                 $periodEnd = now()->timestamp($stripeSubscription->current_period_end);
             } catch (ApiErrorException $e) {
-                Log::error("Failed to create Stripe subscription, falling back to mock: " . $e->getMessage());
+                Log::error('Failed to create Stripe subscription, falling back to mock: '.$e->getMessage());
             }
         }
 
@@ -123,7 +126,7 @@ class PaymentService
         $periodStart = now();
         $periodEnd = now()->addMonth();
 
-        if (!$this->mockMode && !str_starts_with($subscription->stripe_subscription_id, 'sub_mock_')) {
+        if (! $this->mockMode && ! str_starts_with($subscription->stripe_subscription_id, 'sub_mock_')) {
             try {
                 // Retrieve stripe subscription
                 $stripeSub = $this->stripe->subscriptions->retrieve($subscription->stripe_subscription_id);
@@ -136,7 +139,7 @@ class PaymentService
                         'items' => [
                             [
                                 'id' => $itemId,
-                                'price' => $newPlan->stripe_plan_id,
+                                'price' => $newPlan->stripe_price_id,
                             ],
                         ],
                         'proration_behavior' => 'always_invoice',
@@ -147,7 +150,7 @@ class PaymentService
                 $periodStart = now()->timestamp($stripeSubscription->current_period_start);
                 $periodEnd = now()->timestamp($stripeSubscription->current_period_end);
             } catch (ApiErrorException $e) {
-                Log::error("Failed to update Stripe subscription: " . $e->getMessage());
+                Log::error('Failed to update Stripe subscription: '.$e->getMessage());
             }
         }
 
@@ -167,7 +170,7 @@ class PaymentService
 
     public function cancelSubscription(Subscription $subscription, bool $immediately = false): void
     {
-        if (!$this->mockMode && !str_starts_with($subscription->stripe_subscription_id, 'sub_mock_')) {
+        if (! $this->mockMode && ! str_starts_with($subscription->stripe_subscription_id, 'sub_mock_')) {
             try {
                 if ($immediately) {
                     $this->stripe->subscriptions->cancel($subscription->stripe_subscription_id);
@@ -185,7 +188,7 @@ class PaymentService
                     ]);
                 }
             } catch (ApiErrorException $e) {
-                Log::error("Failed to cancel Stripe subscription: " . $e->getMessage());
+                Log::error('Failed to cancel Stripe subscription: '.$e->getMessage());
                 $subscription->update([
                     'status' => 'cancelled',
                     'cancelled_at' => now(),
@@ -201,7 +204,7 @@ class PaymentService
 
     public function resumeSubscription(Subscription $subscription): void
     {
-        if (!$this->mockMode && !str_starts_with($subscription->stripe_subscription_id, 'sub_mock_')) {
+        if (! $this->mockMode && ! str_starts_with($subscription->stripe_subscription_id, 'sub_mock_')) {
             try {
                 $this->stripe->subscriptions->update(
                     $subscription->stripe_subscription_id,
@@ -212,7 +215,7 @@ class PaymentService
                     'cancelled_at' => null,
                 ]);
             } catch (ApiErrorException $e) {
-                Log::error("Failed to resume Stripe subscription: " . $e->getMessage());
+                Log::error('Failed to resume Stripe subscription: '.$e->getMessage());
                 $subscription->update([
                     'status' => 'active',
                     'cancelled_at' => null,
@@ -231,7 +234,7 @@ class PaymentService
         $type = $payload['type'] ?? '';
         $data = $payload['data']['object'] ?? null;
 
-        if (!$data) {
+        if (! $data) {
             return;
         }
 
@@ -259,7 +262,7 @@ class PaymentService
         if ($subscription) {
             Invoice::create([
                 'subscription_id' => $subscription->id,
-                'stripe_invoice_id' => $data['id'] ?? 'inv_' . uniqid(),
+                'stripe_invoice_id' => $data['id'] ?? 'inv_'.uniqid(),
                 'amount' => ($data['amount_paid'] ?? 0) / 100,
                 'currency' => strtoupper($data['currency'] ?? 'usd'),
                 'status' => 'paid',
@@ -280,7 +283,7 @@ class PaymentService
 
             Invoice::create([
                 'subscription_id' => $subscription->id,
-                'stripe_invoice_id' => $data['id'] ?? 'inv_' . uniqid(),
+                'stripe_invoice_id' => $data['id'] ?? 'inv_'.uniqid(),
                 'amount' => ($data['amount_due'] ?? 0) / 100,
                 'currency' => strtoupper($data['currency'] ?? 'usd'),
                 'status' => 'failed',

@@ -26,7 +26,7 @@ class StripeWebhookControllerTest extends TestCase
             'name' => 'Pro',
             'slug' => 'pro',
             'description' => 'Pro plan',
-            'stripe_plan_id' => 'price_legacy_test',
+            'stripe_plan_id' => null,
             'price' => 29.00,
             'interval' => 'month',
             'amount' => 29.00,
@@ -125,6 +125,13 @@ class StripeWebhookControllerTest extends TestCase
             'failed_at' => null,
             'failure_reason' => null,
         ]);
+
+        $this->postSignedStripeWebhook($payload)
+            ->assertOk()
+            ->assertJson(['status' => 'reprocessed']);
+
+        $this->assertSame(1, Subscription::where('stripe_subscription_id', 'sub_test_123')->count());
+        $this->assertSame(1, Payment::where('reference', 'pay_test_reference')->count());
     }
 
     public function test_invoice_payment_paid_backfills_payment_intent_and_invoice_on_existing_payment(): void
@@ -139,7 +146,7 @@ class StripeWebhookControllerTest extends TestCase
             'name' => 'Pro',
             'slug' => 'pro-invoice-payment',
             'description' => 'Pro plan',
-            'stripe_plan_id' => 'price_legacy_invoice_payment',
+            'stripe_plan_id' => null,
             'price' => 29.99,
             'interval' => 'month',
             'amount' => 29.99,
@@ -231,7 +238,7 @@ class StripeWebhookControllerTest extends TestCase
             'name' => 'Team',
             'slug' => 'team',
             'description' => 'Team plan',
-            'stripe_plan_id' => 'price_legacy_team',
+            'stripe_plan_id' => null,
             'price' => 49.00,
             'interval' => 'month',
             'amount' => 49.00,
@@ -307,6 +314,153 @@ class StripeWebhookControllerTest extends TestCase
             ->assertJson(['status' => 'reprocessed']);
 
         $this->assertSame(1, Subscription::where('stripe_subscription_id', 'sub_period_test')->count());
+    }
+
+    public function test_subscription_created_resolves_the_local_plan_from_stripe_price(): void
+    {
+        config([
+            'services.stripe.secret' => null,
+            'services.stripe.webhook_secret' => 'whsec_test_secret',
+        ]);
+
+        $user = User::factory()->create();
+        $plan = Plan::create([
+            'name' => 'Price Mapped Plan',
+            'slug' => 'price-mapped-plan',
+            'description' => 'Plan resolved from a Stripe Price ID.',
+            'stripe_plan_id' => null,
+            'price' => 99.00,
+            'interval' => 'month',
+            'amount' => 99.00,
+            'amount_minor' => 9900,
+            'currency' => 'USD',
+            'billing_interval' => 'month',
+            'stripe_price_id' => 'price_mapped_subscription_test',
+            'features' => [],
+            'metadata' => [],
+            'limits' => [],
+            'is_active' => true,
+        ]);
+
+        $periodStart = Carbon::parse('2026-08-01 00:00:00 UTC')->timestamp;
+        $periodEnd = Carbon::parse('2026-09-01 00:00:00 UTC')->timestamp;
+        $payload = json_encode([
+            'id' => 'evt_subscription_created_price_mapping',
+            'object' => 'event',
+            'type' => 'customer.subscription.created',
+            'data' => [
+                'object' => [
+                    'id' => 'sub_price_mapping_test',
+                    'object' => 'subscription',
+                    'customer' => 'cus_price_mapping_test',
+                    'status' => 'active',
+                    'items' => [
+                        'object' => 'list',
+                        'data' => [[
+                            'id' => 'si_price_mapping_test',
+                            'object' => 'subscription_item',
+                            'current_period_start' => $periodStart,
+                            'current_period_end' => $periodEnd,
+                            'price' => [
+                                'id' => 'price_mapped_subscription_test',
+                                'object' => 'price',
+                            ],
+                        ]],
+                    ],
+                    'metadata' => [
+                        'user_id' => (string) $user->id,
+                    ],
+                ],
+            ],
+        ], JSON_UNESCAPED_SLASHES);
+
+        $this->postSignedStripeWebhook($payload)
+            ->assertOk()
+            ->assertJson(['status' => 'processed']);
+
+        $this->postSignedStripeWebhook($payload)
+            ->assertOk()
+            ->assertJson(['status' => 'reprocessed']);
+
+        $subscription = Subscription::query()
+            ->where('stripe_subscription_id', 'sub_price_mapping_test')
+            ->firstOrFail();
+
+        $this->assertSame($user->id, $subscription->user_id);
+        $this->assertSame($plan->id, $subscription->plan_id);
+        $this->assertSame('active', $subscription->status);
+        $this->assertSame(1, Subscription::where('stripe_subscription_id', 'sub_price_mapping_test')->count());
+    }
+
+    public function test_charge_refunded_reprocessing_does_not_double_the_refunded_amount(): void
+    {
+        config([
+            'services.stripe.secret' => null,
+            'services.stripe.webhook_secret' => 'whsec_test_secret',
+        ]);
+
+        $user = User::factory()->create();
+        $plan = Plan::create([
+            'name' => 'Refund Test Plan',
+            'slug' => 'refund-test-plan',
+            'description' => 'Refund idempotency test plan.',
+            'stripe_plan_id' => null,
+            'price' => 29.99,
+            'interval' => 'month',
+            'amount' => 29.99,
+            'amount_minor' => 2999,
+            'currency' => 'USD',
+            'billing_interval' => 'month',
+            'stripe_price_id' => 'price_refund_test',
+            'features' => [],
+            'metadata' => [],
+            'limits' => [],
+            'is_active' => true,
+        ]);
+
+        $payment = Payment::create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'gateway' => 'stripe',
+            'reference' => 'pay_refund_idempotency_test',
+            'provider_payment_id' => 'pi_refund_idempotency_test',
+            'provider_payment_intent_id' => 'pi_refund_idempotency_test',
+            'provider_charge_id' => 'ch_refund_idempotency_test',
+            'amount' => 29.99,
+            'currency' => 'USD',
+            'status' => Payment::STATUS_PAID,
+            'paid_at' => now(),
+        ]);
+
+        $payload = json_encode([
+            'id' => 'evt_charge_refunded_idempotency_test',
+            'object' => 'event',
+            'type' => 'charge.refunded',
+            'data' => [
+                'object' => [
+                    'id' => 'ch_refund_idempotency_test',
+                    'object' => 'charge',
+                    'payment_intent' => 'pi_refund_idempotency_test',
+                    'amount_refunded' => 1000,
+                    'currency' => 'usd',
+                    'status' => 'succeeded',
+                ],
+            ],
+        ], JSON_UNESCAPED_SLASHES);
+
+        $this->postSignedStripeWebhook($payload)
+            ->assertOk()
+            ->assertJson(['status' => 'processed']);
+
+        $this->postSignedStripeWebhook($payload)
+            ->assertOk()
+            ->assertJson(['status' => 'reprocessed']);
+
+        $payment->refresh();
+
+        $this->assertSame('10.00', (string) $payment->refunded_amount);
+        $this->assertSame(Payment::STATUS_PARTIALLY_REFUNDED, $payment->status);
+        $this->assertSame('partially_refunded', $payment->refund_status);
     }
 
     private function postSignedStripeWebhook(string $payload)
