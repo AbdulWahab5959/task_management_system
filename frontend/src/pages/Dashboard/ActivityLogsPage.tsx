@@ -281,18 +281,23 @@ export default function ActivityLogsPage() {
                         <td className="px-6 py-4">
                           <ActionBadge action={log.action} />
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="max-w-[14rem] px-6 py-4">
                           {log.user ? (
                             <div>
-                              <p className="text-sm font-semibold text-slate-900">{log.user.name}</p>
-                              <p className="text-sm text-slate-500">{log.user.email}</p>
+                              <p className="truncate text-sm font-semibold text-slate-900" title={log.user.name}>{log.user.name}</p>
+                              <p className="truncate text-sm text-slate-500" title={log.user.email}>{log.user.email}</p>
+                            </div>
+                          ) : log.contact_email ? (
+                            <div>
+                              <p className="truncate text-sm font-semibold text-slate-900" title={log.contact_email}>{log.contact_email}</p>
+                              <p className="text-xs text-slate-400">Contact sender</p>
                             </div>
                           ) : (
                             <span className="text-sm text-slate-400">—</span>
                           )}
                         </td>
                         <td className="max-w-xs px-6 py-4">
-                          <p className="truncate text-sm text-slate-700">{log.description ?? '—'}</p>
+                          <p className="truncate text-sm text-slate-700" title={log.description ?? undefined}>{log.description ?? '—'}</p>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500">
                           {formatDate(log.created_at)}

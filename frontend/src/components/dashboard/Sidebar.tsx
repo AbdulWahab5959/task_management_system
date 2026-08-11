@@ -51,7 +51,6 @@ const mainNavItems: NavigationItem[] = [
   { label: 'Plans', to: '/dashboard/plans', icon: Package, roles: ['admin', 'super_admin'] },
   { label: 'Users', to: '/dashboard/users', icon: Users, nested: true, roles: ['admin', 'super_admin'] },
   { label: 'Activity Logs', to: '/dashboard/activity-logs', icon: Activity },
-  { label: 'All Activity Logs', to: '/dashboard/admin/activity-logs', icon: Activity, roles: ['admin', 'super_admin'] },
   { label: 'Contact Messages', to: '/dashboard/contact-messages', icon: Mail, roles: ['admin', 'super_admin'] },
 ];
 

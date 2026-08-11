@@ -38,6 +38,7 @@ class ContactController extends Controller
                 'email' => $validated['email'],
                 'subject' => $validated['subject'],
             ],
+            userId: $request->user()?->id,
             ipAddress: $request->ip(),
             userAgent: $request->userAgent(),
         );

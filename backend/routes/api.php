@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Admin\SubscriptionController as AdminSubscriptionController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\BillingController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PlanController;
 use App\Http\Controllers\Api\StripeWebhookController;
@@ -48,6 +49,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/read', [App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
         Route::post('/read-all', [App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
         Route::get('/unread-count', [App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+    });
+
+    // Dashboard routes
+    Route::prefix('dashboard')->group(function () {
+        Route::get('/activity', [DashboardController::class, 'activity']);
     });
 });
 

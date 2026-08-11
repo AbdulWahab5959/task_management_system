@@ -40,6 +40,18 @@ class ActivityLogController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
+        // Enrich each log with a contact_email field so the UI can display
+        // the sender email clearly for contact form submissions.
+        $logs->getCollection()->transform(function (ActivityLog $log) {
+            $properties = $log->properties ?? [];
+
+            $log->setAttribute('contact_email', is_array($properties)
+                ? ($properties['email'] ?? null)
+                : null);
+
+            return $log;
+        });
+
         return response()->json($logs);
     }
 

@@ -15,6 +15,8 @@ export interface ActivityLog {
   created_at: string;
   updated_at: string;
   user: ActivityLogUser | null;
+  /** Sender email for contact form submissions (from properties.email) */
+  contact_email?: string | null;
 }
 
 export interface PaginatedActivityLogs {

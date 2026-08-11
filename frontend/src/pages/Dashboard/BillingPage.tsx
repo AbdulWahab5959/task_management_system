@@ -528,10 +528,12 @@ export default function BillingPage() {
                 description="Check back later for available subscription plans."
               />
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {plans.map((plan) => {
                   const isCurrentPlan = activeCurrentPlan?.id === plan.id;
                   const actionLabel = getPlanActionLabel(plan, activeCurrentPlan);
+                  const isDowngrade = actionLabel === 'Downgrade';
+                  const isUpgrade = actionLabel === 'Upgrade';
 
                   return (
                     <button
@@ -539,63 +541,93 @@ export default function BillingPage() {
                       type="button"
                       onClick={() => !isCurrentPlan && handleSelectPlan(plan)}
                       disabled={!plan.is_active || isCurrentPlan}
+                      aria-pressed={isCurrentPlan}
                       className={cn(
-                        'group relative flex min-h-64 flex-col rounded-xl border p-5 text-left transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200',
+                        'group relative flex h-full min-h-[24rem] flex-col overflow-hidden rounded-2xl border p-6 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2',
                         isCurrentPlan
-                          ? 'cursor-default border-emerald-200 bg-emerald-50/60 ring-1 ring-emerald-100'
-                          : 'border-slate-200 bg-white hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md hover:shadow-slate-200/70',
+                          ? 'cursor-default border-emerald-300 bg-gradient-to-b from-emerald-50/80 to-white shadow-lg shadow-emerald-100/60 ring-2 ring-emerald-200/70'
+                          : 'border-slate-200 bg-white hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-200/60',
                         !plan.is_active && 'cursor-not-allowed opacity-60',
                       )}
                     >
+                      {isCurrentPlan ? (
+                        <span
+                          aria-hidden="true"
+                          className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400"
+                        />
+                      ) : null}
+
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-base font-semibold text-slate-900">{plan.name}</h3>
+                        <div className="min-w-0">
+                          <h3 className="truncate text-lg font-bold tracking-tight text-slate-900">{plan.name}</h3>
                           {plan.description ? (
                             <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">{plan.description}</p>
                           ) : null}
                         </div>
                         {isCurrentPlan ? (
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-200 bg-white px-2 py-1 text-xs font-semibold text-emerald-700">
+                          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-500 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white shadow-sm shadow-emerald-200">
                             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                             Active
                           </span>
                         ) : plan.is_popular ? (
-                          <span className="inline-flex shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                          <span className="inline-flex shrink-0 items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
                             Popular
                           </span>
                         ) : null}
                       </div>
 
-                      <div className="mt-5">
-                        <span className="text-2xl font-semibold text-slate-950">
+                      <div className="mt-5 flex items-baseline gap-1">
+                        <span
+                          className={cn(
+                            'text-3xl font-bold tracking-tight',
+                            isCurrentPlan ? 'text-emerald-700' : 'text-slate-950',
+                          )}
+                        >
                           {formatAmount(plan.amount || plan.price, plan.currency)}
                         </span>
-                        <span className="ml-1 text-sm text-slate-500">
+                        <span className="text-sm font-medium text-slate-500">
                           / {plan.interval === 'year' ? 'year' : 'month'}
                         </span>
                       </div>
 
-                      {plan.features && plan.features.length > 0 ? (
-                        <ul className="mt-5 space-y-2">
-                          {plan.features.slice(0, 4).map((feature) => (
-                            <li key={feature} className="flex items-center gap-2 text-sm text-slate-600">
-                              <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500" strokeWidth={1.9} aria-hidden="true" />
-                              {feature}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-
-                      <span
-                        className={cn(
-                          'mt-auto inline-flex min-h-10 w-fit items-center justify-center rounded-lg px-3.5 text-sm font-semibold transition',
-                          isCurrentPlan
-                            ? 'border border-emerald-200 bg-white text-emerald-700'
-                            : 'bg-slate-950 text-white group-hover:bg-slate-800',
+                      <div className="mt-6 flex-1">
+                        {plan.features && plan.features.length > 0 ? (
+                          <ul className="space-y-2.5">
+                            {plan.features.slice(0, 4).map((feature) => (
+                              <li key={feature} className="flex items-start gap-2.5 text-sm text-slate-600">
+                                <span
+                                  className={cn(
+                                    'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full',
+                                    isCurrentPlan ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-50 text-emerald-500',
+                                  )}
+                                >
+                                  <ShieldCheck className="h-3 w-3" strokeWidth={2.5} aria-hidden="true" />
+                                </span>
+                                <span className="leading-5">{feature}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-slate-400">No features listed.</p>
                         )}
-                      >
-                        {actionLabel}
-                      </span>
+                      </div>
+
+                      <div className="mt-6 pt-2">
+                        <span
+                          className={cn(
+                            'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition',
+                            isCurrentPlan
+                              ? 'border border-emerald-300 bg-emerald-50 text-emerald-700'
+                              : isDowngrade
+                                ? 'border border-slate-200 bg-white text-slate-700 group-hover:border-slate-300 group-hover:bg-slate-50'
+                                : isUpgrade
+                                  ? 'bg-slate-950 text-white shadow-sm shadow-slate-300 group-hover:bg-slate-800'
+                                  : 'bg-slate-950 text-white shadow-sm shadow-slate-300 group-hover:bg-slate-800',
+                          )}
+                        >
+                          {actionLabel}
+                        </span>
+                      </div>
                     </button>
                   );
                 })}
