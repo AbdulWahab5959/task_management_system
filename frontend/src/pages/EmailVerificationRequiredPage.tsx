@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { authService } from '../services/auth.service';
 import AuthLayout from '../components/auth/AuthLayout';
 
 export default function EmailVerificationRequiredPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectParam = searchParams.get('redirect');
+  const redirectTo = redirectParam?.startsWith('/') && !redirectParam.startsWith('//') ? redirectParam : '/dashboard';
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -43,7 +46,7 @@ export default function EmailVerificationRequiredPage() {
         </button>
 
         <Link
-          to="/login"
+          to={`/login?redirect=${encodeURIComponent(redirectTo)}`}
           className="block w-full rounded-xl border border-white/10 px-4 py-3 text-center text-sm font-medium text-white transition hover:border-cyan-400 hover:text-cyan-200"
         >
           Back to login
@@ -51,7 +54,7 @@ export default function EmailVerificationRequiredPage() {
 
         <button
           type="button"
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate(redirectTo)}
           className="w-full rounded-xl border border-white/10 px-4 py-3 text-sm font-medium text-slate-300 transition hover:border-white/20 hover:text-white"
         >
           Continue after verifying

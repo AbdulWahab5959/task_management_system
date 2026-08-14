@@ -1,5 +1,11 @@
 import axios from 'axios';
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    tenantScoped?: boolean;
+  }
+}
+
 const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL ??
   import.meta.env.VITE_API_URL ??
@@ -19,6 +25,14 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (config.tenantScoped) {
+    const activeTenantId = localStorage.getItem('active_tenant_id');
+    if (activeTenantId) {
+      config.headers = config.headers ?? {};
+      config.headers['X-Tenant-ID'] = activeTenantId;
+    }
   }
 
   return config;

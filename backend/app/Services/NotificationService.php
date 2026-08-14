@@ -18,6 +18,16 @@ class NotificationService
         string $message,
         ?array $data = null,
     ): Notification {
+        if (! $this->shouldNotify($userId, $type)) {
+            return new Notification([
+                'user_id' => $userId,
+                'type' => $type,
+                'title' => $title,
+                'message' => $message,
+                'data' => $data,
+            ]);
+        }
+
         $notification = Notification::create([
             'user_id' => $userId,
             'type' => $type,
@@ -34,6 +44,28 @@ class NotificationService
         ]);
 
         return $notification;
+    }
+
+    private function shouldNotify(int $userId, string $type): bool
+    {
+        $settings = User::query()->find($userId)?->settings;
+        if (! $settings) {
+            return true;
+        }
+
+        if (str_starts_with($type, 'refund_') || str_contains($type, 'billing') || str_contains($type, 'payment')) {
+            return true;
+        }
+
+        if (str_contains($type, 'team') || str_contains($type, 'invitation')) {
+            return (bool) $settings->team_enabled;
+        }
+
+        if (str_contains($type, 'marketing') || str_contains($type, 'product')) {
+            return (bool) $settings->marketing_enabled;
+        }
+
+        return (bool) $settings->email_enabled;
     }
 
     /**

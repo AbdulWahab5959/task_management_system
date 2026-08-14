@@ -1,9 +1,11 @@
-import { ChevronDown, LogOut, Menu, Settings, UserCircle } from 'lucide-react';
+import { Building2, ChevronDown, LogOut, Menu, Settings, UserCircle, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { cn } from '../../utils/cn';
 import NotificationDropdown from './NotificationDropdown';
+import { useTenant } from '../../hooks/useTenant';
+import TenantCreationForm from './TenantCreationForm';
 
 interface DashboardNavbarProps {
   onMenuClick: () => void;
@@ -23,6 +25,7 @@ const pageTitles: Record<string, string> = {
   '/dashboard/users': 'Users',
   '/dashboard/profile': 'Profile',
   '/dashboard/settings': 'Settings',
+  '/dashboard/team': 'Team',
   '/dashboard/activity-logs': 'Activity Logs',
 };
 
@@ -77,7 +80,10 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+  const { tenants, activeTenant, selectTenant } = useTenant();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpenPath, setCreateOpenPath] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pageTitle = getPageTitle(location.pathname);
 
@@ -97,6 +103,17 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [profileOpen]);
+
+  useEffect(() => {
+    if (!createOpen) return;
+
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setCreateOpen(false);
+    };
+
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [createOpen]);
 
   // Close dropdown on Escape key
   useEffect(() => {
@@ -140,6 +157,29 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <div className="hidden items-center gap-2 sm:flex">
+            <Building2 className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+            <select
+              aria-label="Active organization"
+              value={activeTenant?.id ?? ''}
+              onChange={(event) => {
+                if (event.target.value === 'create') {
+                  setCreateOpenPath(location.pathname);
+                  setCreateOpen(true);
+                  return;
+                }
+                selectTenant(Number(event.target.value));
+              }}
+              className="max-w-44 rounded-lg border border-slate-200 bg-white/90 py-2 pl-2.5 pr-8 text-sm font-semibold text-slate-700 shadow-sm outline-none transition hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            >
+              {tenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.name}
+                </option>
+              ))}
+              <option value="create">＋ Create organization</option>
+            </select>
+          </div>
           <NotificationDropdown unreadCount={0} onUnreadCountChange={() => {}} />
 
           <div ref={dropdownRef} className="relative">
@@ -260,6 +300,38 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
           </div>
         </div>
       </div>
+      {createOpen && createOpenPath === location.pathname ? (
+        <div
+          className="fixed inset-0 z-[100] flex min-h-screen items-center justify-center bg-slate-950/40 px-5 py-8 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setCreateOpen(false);
+          }}
+        >
+          <div
+            className="relative max-h-[calc(100vh-4rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-950/20"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-organization-title"
+          >
+            <div className="mb-5 flex items-start justify-between gap-4 pr-10">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">New workspace</p>
+                <h2 id="create-organization-title" className="mt-1 text-xl font-semibold text-slate-950">Create an organization</h2>
+              </div>
+              <button
+                type="button"
+                aria-label="Close organization form"
+                onClick={() => setCreateOpen(false)}
+                className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+            <TenantCreationForm onCreated={() => setCreateOpen(false)} />
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 }

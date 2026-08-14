@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import AuthLayout from '../../components/auth/AuthLayout';
 import type { RegisterData } from '../../types/auth.types';
@@ -17,10 +17,11 @@ type ApiError = {
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { register } = useAuth();
   const [formData, setFormData] = useState<RegisterData>({
     name: '',
-    email: '',
+    email: searchParams.get('email') ?? '',
     password: '',
     password_confirmation: '',
   });
@@ -36,13 +37,15 @@ export default function RegisterPage() {
 
     try {
       const response = await register(formData);
+      const redirectParam = searchParams.get('redirect');
+      const redirectTo = redirectParam?.startsWith('/') && !redirectParam.startsWith('//') ? redirectParam : '/dashboard';
 
       if (response.requires_email_verification) {
-        navigate('/email-verification-required');
+        navigate(`/email-verification-required?redirect=${encodeURIComponent(redirectTo)}`);
         return;
       }
 
-      navigate('/dashboard');
+      navigate(redirectTo);
     } catch (exception: unknown) {
       const apiError = exception as ApiError;
       setFieldErrors(apiError.response?.data?.errors ?? {});
@@ -90,6 +93,7 @@ export default function RegisterPage() {
             type="email"
             value={formData.email}
             onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
+            readOnly={Boolean(searchParams.get('email'))}
             className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none ring-0 placeholder:text-slate-500 focus:border-cyan-400"
           />
           {fieldErrors.email?.[0] ? <p className="mt-1 text-sm text-rose-300">{fieldErrors.email[0]}</p> : null}

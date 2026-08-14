@@ -13,6 +13,8 @@ class TenantService
     public function create(array $data, User $owner): Tenant
     {
         DB::beginTransaction();
+        $databaseName = null;
+        $databaseCreated = false;
 
         try {
             // Generate unique slug and database name
@@ -37,6 +39,7 @@ class TenantService
 
             // Create tenant database
             $this->createTenantDatabase($databaseName);
+            $databaseCreated = true;
 
             // Run migrations on tenant database
             $this->migrateTenantDatabase($tenant);
@@ -54,7 +57,34 @@ class TenantService
             return $tenant;
         } catch (\Exception $e) {
             DB::rollBack();
+
+            // Remove only the database created by this failed operation. Existing
+            // tenant databases are never touched by this recovery path.
+            if ($databaseCreated && $databaseName) {
+                $this->cleanupCreatedTenantDatabase($databaseName);
+            }
+
             throw $e;
+        }
+    }
+
+    protected function cleanupCreatedTenantDatabase(string $databaseName): void
+    {
+        $driver = config('database.default');
+
+        if ($driver === 'sqlite') {
+            $path = database_path($databaseName . '.sqlite');
+            if (file_exists($path)) {
+                @unlink($path);
+            }
+
+            return;
+        }
+
+        try {
+            DB::statement("DROP DATABASE IF EXISTS `{$databaseName}`");
+        } catch (\Throwable) {
+            // Preserve the original creation error; cleanup failure is not safe to expose.
         }
     }
 
