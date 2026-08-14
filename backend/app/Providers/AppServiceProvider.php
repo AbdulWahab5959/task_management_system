@@ -57,6 +57,16 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(6)->by($request->ip().'|'.(string) $request->route('id'));
         });
 
+        RateLimiter::for('team-invitation-send', function (Request $request) {
+            return Limit::perMinute(5)->by(
+                $request->user()?->id.'|'.(string) $request->header('X-Tenant-ID').'|'.strtolower((string) $request->input('email'))
+            );
+        });
+
+        RateLimiter::for('team-invitation-resend', function (Request $request) {
+            return Limit::perMinute(10)->by($request->user()?->id.'|'.(string) $request->route('invitation'));
+        });
+
         $frontendUrl = rtrim((string) env('FRONTEND_URL', config('app.url')), '/');
 
         VerifyEmail::createUrlUsing(function ($notifiable) use ($frontendUrl) {

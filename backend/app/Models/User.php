@@ -72,6 +72,11 @@ class User extends Authenticatable implements MustVerifyEmailContract
         return $this->hasMany(Tenant::class, 'owner_id');
     }
 
+    public function settings()
+    {
+        return $this->hasOne(UserSetting::class);
+    }
+
     // Helper Methods
     public function hasAccessToTenant(Tenant $tenant): bool
     {

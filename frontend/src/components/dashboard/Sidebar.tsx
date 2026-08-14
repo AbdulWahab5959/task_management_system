@@ -11,6 +11,7 @@ import {
   Rocket,
   Settings,
   UserCircle,
+  UserCog,
   Users,
   X,
   FlaskConical,
@@ -55,7 +56,10 @@ const mainNavItems: NavigationItem[] = [
 ];
 
 const accountNavItems: NavigationItem[] = [
+  { label: 'Team', to: '/dashboard/team', icon: Users },
   { label: 'Settings', to: '/dashboard/settings', icon: Settings },
+  { label: 'Account settings', to: '/dashboard/settings/account', icon: UserCog },
+
   { label: 'Profile', to: '/dashboard/profile', icon: UserCircle },
   { label: 'WebMCP Test', to: '/dashboard/webmcp-test', icon: FlaskConical },
 

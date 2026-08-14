@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleProtectedRoute from './components/RoleProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import { TenantProvider } from './context/TenantContext';
 import DashboardLayout from './layouts/DashboardLayout';
 import PublicLayout from './components/public/PublicLayout';
 import HealthCheckPage from './pages/HealthCheckPage';
@@ -10,6 +11,7 @@ import RegisterPage from './pages/Auth/RegisterPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import ProfilePage from './pages/Dashboard/ProfilePage';
 import SettingsPage from './pages/Dashboard/SettingsPage';
+import UserSettingsPage from './pages/Dashboard/UserSettingsPage';
 import AdminPage from './pages/Dashboard/AdminPage';
 import ActivityLogsPage from './pages/Dashboard/ActivityLogsPage';
 import ContactMessagesPage from './pages/Dashboard/ContactMessagesPage';
@@ -34,11 +36,14 @@ import ContactPage from './pages/Public/Contact';
 import Pricing from './pages/Pricing';
 import CheckoutSuccess from './pages/CheckoutSuccess';
 import CheckoutCancel from './pages/CheckoutCancel';
+import TeamPage from './pages/Dashboard/TeamPage';
+import InvitationAcceptPage from './pages/InvitationAcceptPage';
 
 function App() {
   return (
     <AuthProvider>
-      <Routes>
+      <TenantProvider>
+        <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
@@ -54,6 +59,7 @@ function App() {
         <Route path="/email-verification-required" element={<EmailVerificationRequiredPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/invite/accept" element={<InvitationAcceptPage />} />
         <Route
           path="/dashboard"
           element={
@@ -135,9 +141,12 @@ function App() {
           <Route path="webmcp-test" element={<WebMcpTestPage />} />
 
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="settings/account" element={<UserSettingsPage />} />
+          <Route path="team" element={<TeamPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+        </Routes>
+      </TenantProvider>
     </AuthProvider>
   );
 }

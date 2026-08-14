@@ -20,7 +20,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
-  const [formData, setFormData] = useState<LoginCredentials>({ email: '', password: '' });
+  const [formData, setFormData] = useState<LoginCredentials>({ email: searchParams.get('email') ?? '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -33,16 +33,16 @@ export default function LoginPage() {
 
     try {
       const response = await login(formData);
-
-      if (response.requires_email_verification) {
-        navigate('/email-verification-required');
-        return;
-      }
-
       const redirectParam = searchParams.get('redirect');
       const redirectTo = redirectParam?.startsWith('/') && !redirectParam.startsWith('//')
         ? redirectParam
         : '/dashboard';
+
+      if (response.requires_email_verification) {
+        navigate(`/email-verification-required?redirect=${encodeURIComponent(redirectTo)}`);
+        return;
+      }
+
       const planId = searchParams.get('plan_id');
 
       if (redirectTo === '/pricing' && planId && /^\d+$/.test(planId)) {
@@ -55,7 +55,9 @@ export default function LoginPage() {
       const apiError = exception as ApiError;
       setFieldErrors(apiError.response?.data?.errors ?? {});
       if (apiError.response?.data?.verified === false) {
-        navigate('/email-verification-required');
+        const redirectParam = searchParams.get('redirect');
+        const redirectTo = redirectParam?.startsWith('/') && !redirectParam.startsWith('//') ? redirectParam : '/dashboard';
+        navigate(`/email-verification-required?redirect=${encodeURIComponent(redirectTo)}`);
         return;
       }
 
@@ -71,7 +73,7 @@ export default function LoginPage() {
       subtitle={
         <>
           Or{' '}
-          <Link to="/register" className="text-cyan-300 hover:text-cyan-200">
+          <Link to={`/register?redirect=${encodeURIComponent(searchParams.get('redirect') ?? '/dashboard')}&email=${encodeURIComponent(searchParams.get('email') ?? '')}`} className="text-cyan-300 hover:text-cyan-200">
             create an account
           </Link>
           {/* {' '}or{' '} */}
