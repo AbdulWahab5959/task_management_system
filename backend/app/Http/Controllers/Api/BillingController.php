@@ -7,8 +7,8 @@ use App\Models\ActivityLog;
 use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\Subscription;
+use App\Models\Tenant;
 use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -29,6 +29,8 @@ class BillingController extends Controller
             ->latest()
             ->first();
 
+        // Billing and payment history are owned by the authenticated user;
+        // organizations consume the user's plan allowance.
         $paymentHistory = Payment::query()
             ->where('user_id', $user->id)
             ->with('plan')
@@ -36,7 +38,22 @@ class BillingController extends Controller
             ->limit(10)
             ->get();
 
+        $organizationsUsed = Tenant::query()
+            ->where('owner_id', $user->id)
+            ->where('status', Tenant::STATUS_ACTIVE)
+            ->count();
+        $organizationLimit = $subscription?->plan?->getLimit('organizations', 0);
+
         return response()->json([
+            'subscription_scope' => 'user',
+            'payment_scope' => 'user',
+            'tenant_id' => null,
+            'can_manage_billing' => true,
+            'organizations_used' => $organizationsUsed,
+            'organization_limit' => $organizationLimit,
+            'organizations_remaining' => $organizationLimit === 'unlimited'
+                ? 'unlimited'
+                : max(0, (int) $organizationLimit - $organizationsUsed),
             'subscription' => $subscription ? $this->serializeSubscription($subscription) : null,
             'current_plan' => $this->serializePlan($subscription?->plan),
             'payment_history' => $paymentHistory->map(fn (Payment $payment) => $this->serializePayment($payment)),
@@ -60,6 +77,7 @@ class BillingController extends Controller
         $validated = $request->validate([
             'plan_id' => ['required', 'integer', 'exists:plans,id'],
             'gateway' => ['nullable', 'string', 'in:manual,stripe,payfast,bsecure,bSecure,sandbox'],
+            'tenant_id' => ['nullable', 'integer', 'exists:tenants,id'],
         ]);
 
         $user = $request->user();
@@ -93,8 +111,7 @@ class BillingController extends Controller
     {
         $user = $request->user();
 
-        $subscription = Subscription::query()
-            ->where('user_id', $user->id)
+        $subscription = Subscription::query()->where('user_id', $user->id)
             ->whereIn('status', ['active', 'trialing'])
             ->latest()
             ->first();
@@ -176,8 +193,7 @@ class BillingController extends Controller
     {
         $user = $request->user();
 
-        $subscription = Subscription::query()
-            ->where('user_id', $user->id)
+        $subscription = Subscription::query()->where('user_id', $user->id)
             ->whereIn('status', ['active', 'trialing'])
             ->latest()
             ->first();
@@ -301,10 +317,14 @@ class BillingController extends Controller
     private function activateFreePlan(User $user, Plan $plan): JsonResponse
     {
         try {
+            if (Subscription::query()->where('user_id', $user->id)->whereIn('status', ['active', 'trialing'])->exists()) {
+                return response()->json(['message' => 'Your account already has an active subscription.'], 409);
+            }
             $subscription = Subscription::updateOrCreate(
                 [
                     'user_id' => $user->id,
                     'plan_id' => $plan->id,
+                    'tenant_id' => null,
                 ],
                 [
                     'gateway' => null,
@@ -340,6 +360,7 @@ class BillingController extends Controller
         try {
             $subscription = Subscription::create([
                 'user_id' => $user->id,
+                'tenant_id' => null,
                 'plan_id' => $plan->id,
                 'gateway' => $gateway,
                 'status' => 'pending',
@@ -379,6 +400,8 @@ class BillingController extends Controller
     {
         return [
             'id' => $subscription->id,
+            'tenant_id' => $subscription->tenant_id,
+            'user_id' => $subscription->user_id,
             'plan_id' => $subscription->plan_id,
             'status' => $subscription->status,
             'gateway' => $subscription->gateway,

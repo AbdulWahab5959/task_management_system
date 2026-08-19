@@ -4,40 +4,43 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use App\Services\TenantService;
+use App\Services\TenantSubscriptionResolver;
 
 class CheckSubscription
 {
-    protected TenantService $tenantService;
+    protected TenantSubscriptionResolver $subscriptions;
 
-    public function __construct(TenantService $tenantService)
+    public function __construct(TenantSubscriptionResolver $subscriptions)
     {
-        $this->tenantService = $tenantService;
+        $this->subscriptions = $subscriptions;
     }
 
     public function handle(Request $request, Closure $next)
     {
-        $tenant = $this->tenantService->getCurrentTenant();
+        $tenant = $this->subscriptions->currentTenant();
 
         if (!$tenant) {
             return response()->json([
-                'message' => 'Tenant not identified',
+                'message' => 'A workspace is required for this action.',
+                'code' => 'tenant_required',
             ], 403);
         }
 
-        // Allow access if on trial
-        if ($tenant->isOnTrial()) {
+        if ($this->subscriptions->isActive($tenant)) {
             return $next($request);
         }
 
-        // Check if subscription is active
-        if (!$tenant->hasActiveSubscription()) {
-            return response()->json([
-                'message' => 'Your subscription is not active. Please update your payment details.',
-                'requires_payment' => true,
-            ], 402); // 402 Payment Required
-        }
+        $status = $this->subscriptions->status($tenant);
+        $isPastDue = $status === 'past_due';
 
-        return $next($request);
+        return response()->json([
+            'message' => $isPastDue
+                ? 'Your subscription requires payment attention.'
+                : 'Your account does not have an active subscription.',
+            'code' => $isPastDue ? 'tenant_subscription_past_due' : 'tenant_subscription_required',
+            'subscription_scope' => 'user',
+            'status' => $status,
+            'requires_payment' => true,
+        ], 402); // Payment Required
     }
 }

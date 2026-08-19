@@ -65,13 +65,15 @@ class Plan extends Model
         return (float) $this->amount === 0.0;
     }
 
-    public function getLimit(string $key, $default = null)
+    public function getLimit(string $key, mixed $default = null): mixed
     {
-        return $this->limits[$key] ?? $default;
+        $limits = is_array($this->limits) ? $this->limits : [];
+
+        return array_key_exists($key, $limits) ? $limits[$key] : $default;
     }
 
     public function hasFeature(string $feature): bool
     {
-        return is_array($this->features) && in_array($feature, $this->features);
+        return is_array($this->features) && in_array($feature, $this->features, true);
     }
 }

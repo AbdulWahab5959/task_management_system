@@ -100,6 +100,7 @@ class TenantApiTest extends TestCase
     public function test_tenant_service_creates_and_seeds_the_tenant_database(): void
     {
         $user = User::factory()->create();
+        $this->createActiveSubscription($user);
         $tenant = null;
 
         try {

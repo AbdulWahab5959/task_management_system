@@ -1,7 +1,10 @@
 export interface OrganizationProfileSummary {
   industry: string | null;
   website: string | null;
+  description: string | null;
   contact_email: string | null;
+  phone: string | null;
+  country: string | null;
   timezone: string;
   currency: string;
   completion_percent: number;
@@ -29,7 +32,11 @@ export interface UserSubscriptionSummary {
 }
 
 export interface BillingSummary {
-  subscription_scope: 'user';
+  subscription_scope: 'tenant' | 'user';
+  organizations_used: number;
+  organization_limit: number | string;
+  organizations_remaining: number | string;
+  plan_features: string[];
   current_subscription: UserSubscriptionSummary | null;
 }
 

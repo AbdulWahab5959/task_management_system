@@ -1,6 +1,7 @@
 import {
   Activity,
   BadgeCheck,
+  Building2,
   BarChart3,
   CreditCard,
   LayoutDashboard,
@@ -39,6 +40,7 @@ interface NavigationItem {
 
 const mainNavItems: NavigationItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, end: true },
+  { label: 'Organizations', to: '/dashboard/organizations', icon: Building2 },
   { label: 'Billing', to: '/dashboard/billing', icon: CreditCard, nested: true },
   {
     label: 'Analytics',

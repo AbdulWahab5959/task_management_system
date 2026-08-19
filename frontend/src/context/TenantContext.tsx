@@ -48,8 +48,6 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return nextTenants;
     } catch {
       setError('Unable to load your organizations.');
-      setTenants([]);
-      setActiveTenant(null);
       throw new Error('Unable to load tenants');
     } finally {
       setLoading(false);
@@ -112,8 +110,19 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     async (name: string) => {
       const response = await tenantService.create(name);
       const createdTenant = response.data.data;
-      const nextTenants = await refreshTenants();
-      const currentCreatedTenant = nextTenants.find((tenant) => tenant.id === createdTenant.id) ?? createdTenant;
+      let currentCreatedTenant = createdTenant;
+
+      try {
+        const nextTenants = await refreshTenants();
+        currentCreatedTenant = nextTenants.find((tenant) => tenant.id === createdTenant.id) ?? createdTenant;
+      } catch {
+        // The create request already succeeded. Keep the returned tenant
+        // usable if a follow-up list refresh briefly fails.
+        setTenants((current) => current.some((tenant) => tenant.id === createdTenant.id)
+          ? current
+          : [...current, createdTenant]);
+      }
+
       setActiveTenant(currentCreatedTenant);
       localStorage.setItem(ACTIVE_TENANT_KEY, String(currentCreatedTenant.id));
       return currentCreatedTenant;

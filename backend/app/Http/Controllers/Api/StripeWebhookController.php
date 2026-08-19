@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\Refund;
 use App\Models\Subscription;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Services\NotificationService;
@@ -728,10 +729,13 @@ class StripeWebhookController extends Controller
 
         // Get user_id from metadata
         $userId = null;
+        $localSubscriptionId = null;
         if ($metadata instanceof StripeObject) {
             $userId = $this->stringValue($metadata, 'user_id');
+            $localSubscriptionId = $this->stringValue($metadata, 'local_subscription_id');
         } elseif (is_array($metadata)) {
             $userId = $metadata['user_id'] ?? null;
+            $localSubscriptionId = $metadata['local_subscription_id'] ?? null;
         }
 
         if (! $userId) {
@@ -753,6 +757,10 @@ class StripeWebhookController extends Controller
                 ->whereKey($payment->subscription_id)
                 ->lockForUpdate()
                 ->first();
+        }
+
+        if (! $subscription && $localSubscriptionId && ctype_digit((string) $localSubscriptionId)) {
+            $subscription = Subscription::query()->whereKey((int) $localSubscriptionId)->lockForUpdate()->first();
         }
 
         if (! $subscription) {
@@ -802,6 +810,20 @@ class StripeWebhookController extends Controller
         if (! $payment->subscription_id) {
             $payment->update(['subscription_id' => $subscription->id]);
         }
+
+        // A successful plan change replaces the user's previous active plan.
+        // Historical subscriptions remain in the database, but only the
+        // latest paid subscription is active for entitlement checks.
+        Subscription::query()
+            ->where('user_id', $userId)
+            ->where('id', '!=', $subscription->id)
+            ->whereIn('status', ['active', 'trialing'])
+            ->update([
+                'status' => 'cancelled',
+                'cancelled_at' => now(),
+                'ends_at' => now(),
+                'cancel_at_period_end' => false,
+            ]);
     }
 
     /**

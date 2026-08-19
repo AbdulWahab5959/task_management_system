@@ -7,7 +7,10 @@ use App\Services\TenantService;
 use App\Models\Subscription;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Exceptions\OrganizationCreationException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class TenantController extends Controller
 {
@@ -21,6 +24,7 @@ class TenantController extends Controller
     public function index(Request $request): JsonResponse
     {
         $tenants = $request->user()->tenants()
+            ->where('tenants.status', Tenant::STATUS_ACTIVE)
             ->get(['tenants.id', 'tenants.name', 'tenants.slug', 'tenants.status', 'tenants.owner_id', 'tenants.trial_ends_at', 'tenants.created_at'])
             ->map(fn (Tenant $tenant) => $this->serializeTenant($tenant, $request->user()));
 
@@ -35,26 +39,38 @@ class TenantController extends Controller
 
         $user = $request->user();
 
-        // Authorization: only admins may create an organization without a
-        // personal active subscription. Normal users must first purchase an
-        // active plan so the workspace is backed by billing.
-        if (! in_array($user->role, User::ADMIN_ROLES, true)) {
-            $hasActiveSubscription = Subscription::query()
-                ->where('user_id', $user->id)
-                ->whereIn('status', ['active', 'trialing'])
-                ->exists();
-
-            if (! $hasActiveSubscription) {
-                return response()->json([
-                    'message' => 'Please choose a plan before creating an organization.',
-                ], 403);
-            }
+        // Fast authorization response for normal users. TenantService repeats
+        // the check inside its locked transaction to protect against races.
+        if (! in_array($user->role, User::ADMIN_ROLES, true)
+            && ! Subscription::query()->where('user_id', $user->id)->whereIn('status', ['active', 'trialing'])->exists()) {
+            return response()->json([
+                'message' => 'Please choose a plan before creating an organization.',
+                'code' => 'subscription_required',
+            ], 403);
         }
 
-        $tenant = $this->tenantService->create($validated, $user);
+        try {
+            $tenant = $this->tenantService->create($validated, $user);
+        } catch (OrganizationCreationException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'code' => $exception->errorCode,
+                ...$exception->details,
+            ], $exception->status);
+        } catch (Throwable $exception) {
+            Log::error('Organization creation failed.', [
+                'user_id' => $user->id,
+                'exception' => $exception,
+            ]);
+
+            return response()->json([
+                'message' => 'We could not create the organization. Please try again.',
+                'code' => 'organization_creation_failed',
+            ], 500);
+        }
 
         return response()->json([
-            'data' => $this->serializeTenant($tenant, $request->user()),
+            'data' => $this->serializeTenant($tenant->fresh(), $request->user()),
         ], 201);
     }
 
@@ -68,17 +84,18 @@ class TenantController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $tenant = Tenant::findOrFail($id);
+        /** @var Tenant $tenant */
+        $tenant = $request->attributes->get('tenant') ?? Tenant::findOrFail($id);
 
         if (!$request->user()->isOwnerOfTenant($tenant)) {
-            return response()->json(['message' => 'Only the owner can delete the tenant'], 403);
+            return response()->json(['message' => 'Only the organization owner can delete this organization.'], 403);
         }
 
         $this->tenantService->delete($tenant);
 
-        return response()->json(['message' => 'Tenant successfully deleted']);
+        return response()->json(['message' => 'Organization successfully deleted.']);
     }
 
     private function serializeTenant(Tenant $tenant, $user): array
