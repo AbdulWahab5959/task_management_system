@@ -392,6 +392,7 @@ export default function BillingPage() {
   const activeCurrentPlan = activeSubscription ? currentPlan : null;
   const hasActiveSubscription = Boolean(activeSubscription);
   const hasBillingActions = paymentHistory.length > 0 || hasActiveSubscription;
+  const canManageBilling = billing?.can_manage_billing !== false;
   const periodEnd = periodEndFor(activeSubscription);
   const identity = getSubscriptionIdentity(activeSubscription, activeCurrentPlan);
   const isCancelScheduled = isCancellingAtPeriodEnd(activeSubscription);
@@ -404,6 +405,12 @@ export default function BillingPage() {
         title="Subscription and billing"
         description="Manage your plan, payments, and cancellation settings."
       />
+
+      <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+        {currentPlan
+          ? `Your account plan: ${currentPlan.name}. Organizations: ${billing?.organizations_used ?? 0} of ${billing?.organization_limit ?? 0}.`
+          : 'Choose a plan to create your organizations.'}
+      </div>
 
       <Card className="overflow-hidden">
         <CardHeader className="bg-slate-50/70">
@@ -422,7 +429,7 @@ export default function BillingPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {hasBillingActions ? (
+              {hasBillingActions && canManageBilling ? (
                 <button
                   type="button"
                   onClick={() => setBillingActionsOpen(true)}
@@ -540,14 +547,14 @@ export default function BillingPage() {
                       key={plan.id}
                       type="button"
                       onClick={() => !isCurrentPlan && handleSelectPlan(plan)}
-                      disabled={!plan.is_active || isCurrentPlan}
+                      disabled={!plan.is_active || isCurrentPlan || !canManageBilling}
                       aria-pressed={isCurrentPlan}
                       className={cn(
                         'group relative flex h-full min-h-[24rem] flex-col overflow-hidden rounded-2xl border p-6 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2',
                         isCurrentPlan
                           ? 'cursor-default border-emerald-300 bg-gradient-to-b from-emerald-50/80 to-white shadow-lg shadow-emerald-100/60 ring-2 ring-emerald-200/70'
                           : 'border-slate-200 bg-white hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-200/60',
-                        !plan.is_active && 'cursor-not-allowed opacity-60',
+                        (!plan.is_active || !canManageBilling) && 'cursor-not-allowed opacity-60',
                       )}
                     >
                       {isCurrentPlan ? (
@@ -646,7 +653,7 @@ export default function BillingPage() {
               </div>
               <div>
                 <CardTitle>Payment history</CardTitle>
-                <CardDescription>Recent payments and subscription transactions.</CardDescription>
+                <CardDescription>Payments made by your signed-in account, across your organizations.</CardDescription>
               </div>
             </div>
           </CardHeader>

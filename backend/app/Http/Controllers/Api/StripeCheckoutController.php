@@ -22,6 +22,7 @@ class StripeCheckoutController extends Controller
     {
         $validated = $request->validate([
             'plan_id' => ['required', 'integer', 'exists:plans,id'],
+            'tenant_id' => ['nullable', 'integer', 'exists:tenants,id'],
         ]);
 
         $user = $request->user();
@@ -31,6 +32,10 @@ class StripeCheckoutController extends Controller
                 'message' => 'Unauthenticated.',
             ], 401);
         }
+
+        // The subscription belongs to the authenticated user. The active
+        // organization is only workspace context and is not charged separately.
+        $tenant = null;
 
         $plan = Plan::query()
             ->whereKey($validated['plan_id'])
@@ -71,7 +76,7 @@ class StripeCheckoutController extends Controller
             ->latest()
             ->first();
 
-        if ($activeSubscription) {
+        if ($activeSubscription?->plan_id === $plan->id) {
             return response()->json([
                 'message' => 'You already have an active subscription. Cancel it before starting another checkout.',
             ], 409);
@@ -112,9 +117,10 @@ class StripeCheckoutController extends Controller
         $subscription = null;
 
         try {
-            [$subscription, $payment] = DB::transaction(function () use ($user, $plan, $reference): array {
+            [$subscription, $payment] = DB::transaction(function () use ($user, $plan, $reference, $tenant): array {
                 $subscription = Subscription::create([
                     'user_id' => $user->id,
+                    'tenant_id' => $tenant?->id,
                     'plan_id' => $plan->id,
                     'gateway' => 'stripe',
                     'status' => 'pending',
@@ -150,6 +156,8 @@ class StripeCheckoutController extends Controller
                     'payment_id' => (string) $payment->id,
                     'user_id' => (string) $user->id,
                     'plan_id' => (string) $plan->id,
+                    'tenant_id' => $tenant?->id ? (string) $tenant->id : null,
+                    'local_subscription_id' => (string) $subscription->id,
                     'reference' => $reference,
                 ],
                 'subscription_data' => [
@@ -157,6 +165,8 @@ class StripeCheckoutController extends Controller
                         'payment_id' => (string) $payment->id,
                         'user_id' => (string) $user->id,
                         'plan_id' => (string) $plan->id,
+                        'tenant_id' => $tenant?->id ? (string) $tenant->id : null,
+                        'local_subscription_id' => (string) $subscription->id,
                         'reference' => $reference,
                     ],
                 ],
@@ -205,10 +215,14 @@ class StripeCheckoutController extends Controller
     private function activateFreePlan($user, Plan $plan): JsonResponse
     {
         try {
+            if (Subscription::query()->where('user_id', $user->id)->whereIn('status', ['active', 'trialing'])->exists()) {
+                return response()->json(['message' => 'Your account already has an active subscription.'], 409);
+            }
             $subscription = Subscription::updateOrCreate(
                 [
                     'user_id' => $user->id,
                     'plan_id' => $plan->id,
+                    'tenant_id' => null,
                 ],
                 [
                     'gateway' => null,
@@ -242,5 +256,24 @@ class StripeCheckoutController extends Controller
                 'message' => 'Could not subscribe to free plan. Please try again.',
             ], 500);
         }
+    }
+
+    private function resolveTenant(Request $request, mixed $bodyTenantId): ?Tenant
+    {
+        $tenantId = $bodyTenantId ?: $request->header('X-Tenant-ID');
+        if (! $tenantId) {
+            return null;
+        }
+
+        $tenant = Tenant::find($tenantId);
+        if (! $tenant || ! $request->user()->hasAccessToTenant($tenant)) {
+            abort(403, 'You do not have access to this tenant.');
+        }
+
+        if (! $request->user()->isAdminInTenant($tenant)) {
+            abort(403, 'Only an organization owner or admin can start checkout.');
+        }
+
+        return $tenant;
     }
 }

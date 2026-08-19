@@ -2,61 +2,66 @@
 
 namespace App\Services;
 
+use App\Exceptions\OrganizationCreationException;
 use App\Models\Tenant;
+use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Artisan;
+use Throwable;
 
 class TenantService
 {
     public function create(array $data, User $owner): Tenant
     {
-        DB::beginTransaction();
+        $tenant = null;
         $databaseName = null;
         $databaseCreated = false;
 
         try {
-            // Generate unique slug and database name
-            $slug = $this->generateUniqueSlug($data['name']);
-            $databaseName = $this->generateDatabaseName($slug);
+            // Keep the central transaction limited to central records. MySQL
+            // DDL such as CREATE DATABASE may implicitly commit, so tenant
+            // provisioning happens only after this transaction completes.
+            $tenant = DB::transaction(function () use ($data, $owner): Tenant {
+                User::query()->whereKey($owner->id)->lockForUpdate()->firstOrFail();
+                $this->assertCanCreate($data['name'], $owner);
 
-            // Create tenant record
-            $tenant = Tenant::create([
-                'name' => $data['name'],
-                'slug' => $slug,
-                'database_name' => $databaseName,
-                'owner_id' => $owner->id,
-                'status' => 'active',
-                'trial_ends_at' => now()->addDays(14), // 14-day trial
-            ]);
+                $slug = $this->generateUniqueSlug($data['name']);
+                $tenant = Tenant::create([
+                    'name' => trim($data['name']),
+                    'slug' => $slug,
+                    'database_name' => $this->generateDatabaseName($slug),
+                    'owner_id' => $owner->id,
+                    'status' => 'active',
+                    'trial_ends_at' => now()->addDays(14),
+                ]);
 
-            // Attach owner to tenant
-            $tenant->users()->attach($owner->id, [
-                'role' => 'owner',
-                'joined_at' => now(),
-            ]);
+                $tenant->users()->attach($owner->id, [
+                    'role' => 'owner',
+                    'joined_at' => now(),
+                ]);
 
-            // Create tenant database
+                return $tenant;
+            });
+
+            $databaseName = $tenant->database_name;
             $this->createTenantDatabase($databaseName);
             $databaseCreated = true;
-
-            // Run migrations on tenant database
             $this->migrateTenantDatabase($tenant);
-
-            // Seed initial data
             $this->seedTenantData($tenant);
 
-            DB::commit();
-
-            // Fire event optionally (checking if class exists)
-            if (class_exists(\App\Events\TenantCreated::class)) {
-                event(new \App\Events\TenantCreated($tenant));
-            }
-
             return $tenant;
-        } catch (\Exception $e) {
-            DB::rollBack();
+        } catch (Throwable $e) {
+            // Compensate only this newly created organization if provisioning
+            // fails after the central transaction has committed.
+            if ($tenant?->exists) {
+                try {
+                    $tenant->delete();
+                } catch (Throwable) {
+                    // Preserve the original provisioning exception.
+                }
+            }
 
             // Remove only the database created by this failed operation. Existing
             // tenant databases are never touched by this recovery path.
@@ -66,6 +71,73 @@ class TenantService
 
             throw $e;
         }
+    }
+
+    private function assertCanCreate(string $name, User $owner): void
+    {
+        $normalizedName = $this->normalizeName($name);
+        $duplicate = Tenant::query()
+            ->where('owner_id', $owner->id)
+            ->where('status', 'active')
+            ->get(['name'])
+            ->contains(fn (Tenant $tenant) => $this->normalizeName($tenant->name) === $normalizedName);
+
+        if ($duplicate) {
+            throw new OrganizationCreationException(
+                'organization_duplicate_name',
+                'You already have an organization with this name.',
+            );
+        }
+
+        if (in_array($owner->role, User::ADMIN_ROLES, true)) {
+            return;
+        }
+
+        $subscription = $this->creationSubscription($owner);
+        if (! $subscription || ! $subscription->plan) {
+            throw new OrganizationCreationException(
+                'subscription_required',
+                'Please choose a plan before creating an organization.',
+            );
+        }
+
+        $limit = $subscription->plan->getLimit('organizations', 1);
+        $organizationCount = Tenant::query()
+            ->where('owner_id', $owner->id)
+            ->where('status', 'active')
+            ->count();
+
+        if ($limit === 'unlimited') {
+            return;
+        }
+
+        $numericLimit = is_int($limit) || is_float($limit) || (is_string($limit) && is_numeric($limit))
+            ? (int) $limit
+            : 1;
+
+        if ($organizationCount >= $numericLimit) {
+            throw new OrganizationCreationException(
+                'organization_limit_reached',
+                "Your current plan allows only {$numericLimit} organization".($numericLimit === 1 ? '' : 's').'.',
+                403,
+                ['limit' => $numericLimit],
+            );
+        }
+    }
+
+    private function creationSubscription(User $owner): ?Subscription
+    {
+        return Subscription::query()
+            ->where('user_id', $owner->id)
+            ->whereIn('status', ['active', 'trialing'])
+            ->with('plan')
+            ->latest()
+            ->first();
+    }
+
+    private function normalizeName(string $name): string
+    {
+        return mb_strtolower((string) preg_replace('/\s+/', ' ', trim($name)));
     }
 
     protected function cleanupCreatedTenantDatabase(string $databaseName): void
@@ -112,8 +184,12 @@ class TenantService
         $driver = config('database.default');
         if ($driver === 'sqlite') {
             $path = database_path($databaseName . '.sqlite');
-            if (!file_exists($path)) {
-                touch($path);
+            if (file_exists($path)) {
+                throw new \RuntimeException('Tenant database already exists.');
+            }
+
+            if (! touch($path)) {
+                throw new \RuntimeException('Tenant database could not be created.');
             }
         } else {
             DB::statement("CREATE DATABASE `{$databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
@@ -124,11 +200,15 @@ class TenantService
     {
         $tenant->configure();
 
-        Artisan::call('migrate', [
+        $exitCode = Artisan::call('migrate', [
             '--database' => 'tenant',
             '--path' => 'database/migrations/tenant',
             '--force' => true,
         ]);
+
+        if ($exitCode !== 0) {
+            throw new \RuntimeException('Tenant database migrations failed.');
+        }
     }
 
     protected function seedTenantData(Tenant $tenant): void
@@ -145,30 +225,10 @@ class TenantService
 
     public function delete(Tenant $tenant): bool
     {
-        DB::beginTransaction();
-
-        try {
-            // Drop tenant database
-            $driver = config('database.default');
-            if ($driver === 'sqlite') {
-                $path = database_path($tenant->database_name . '.sqlite');
-                if (file_exists($path)) {
-                    @unlink($path);
-                }
-            } else {
-                DB::statement("DROP DATABASE IF EXISTS `{$tenant->database_name}`");
-            }
-
-            // Delete tenant record (cascades to relationships)
-            $tenant->delete();
-
-            DB::commit();
-
-            return true;
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
+        // DDL can implicitly commit on MySQL. Archive the central record
+        // instead of mixing DROP DATABASE with a central transaction. This
+        // removes it from active organization lists while retaining audit data.
+        return (bool) $tenant->update(['status' => Tenant::STATUS_CANCELLED]);
     }
 
     public function switchTenant(?Tenant $tenant): void

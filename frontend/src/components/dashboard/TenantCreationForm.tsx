@@ -16,6 +16,7 @@ export default function TenantCreationForm({ onCreated, compact = false }: Tenan
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSaving) return;
     if (!name.trim()) {
       setError('Enter an organization name.');
       return;

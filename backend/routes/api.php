@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\TenantDashboardController;
+use App\Http\Controllers\Api\TenantSubscriptionAccessController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PlanController;
 use App\Http\Controllers\Api\StripeWebhookController;
@@ -39,9 +40,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tenants', [TenantController::class, 'store']);
     Route::get('/tenants/{tenant}', [TenantController::class, 'show'])
         ->middleware('tenant.identify');
+    Route::delete('/tenants/{tenant}', [TenantController::class, 'destroy'])
+        ->middleware('tenant.identify');
 
     Route::prefix('tenant')->middleware('tenant.identify')->group(function () {
         Route::get('/dashboard/summary', [TenantDashboardController::class, 'summary']);
+        Route::get('/subscription/access', TenantSubscriptionAccessController::class);
         Route::get('/settings', [TenantSettingsController::class, 'show']);
         Route::put('/settings', [TenantSettingsController::class, 'update']);
         Route::get('/members', [TenantMemberController::class, 'index']);

@@ -177,14 +177,14 @@ export default function DashboardPage() {
   if (error && !summary) {
     return (
       <Card>
-        <CardContent className="flex min-h-64 flex-col items-center justify-center text-center">
-          <CircleAlert className="h-8 w-8 text-amber-500" aria-hidden="true" />
-          <p className="mt-3 text-sm font-semibold text-slate-900">Could not load the organization overview</p>
-          <p className="mt-1 text-sm text-slate-500">{error}</p>
-          <button type="button" onClick={reload} className="mt-5 inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <RefreshCw className="h-4 w-4" aria-hidden="true" /> Retry
-          </button>
-        </CardContent>
+          <CardContent className="flex min-h-64 flex-col items-center justify-center text-center">
+            <CircleAlert className="h-8 w-8 text-amber-500" aria-hidden="true" />
+            <p className="mt-3 text-sm font-semibold text-slate-900">Could not load the organization overview</p>
+            <p className="mt-1 text-sm text-slate-500">{error}</p>
+            <button type="button" onClick={reload} className="mt-5 inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              <RefreshCw className="h-4 w-4" aria-hidden="true" /> Retry
+            </button>
+          </CardContent>
       </Card>
     );
   }
@@ -222,14 +222,17 @@ export default function DashboardPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Detail label="Industry" value={formatIndustry(profile.industry)} />
               <Detail label="Website" value={profile.website ?? 'Not configured'} href={profile.website ?? undefined} />
+              <Detail label="Description" value={profile.description ?? 'Not configured'} />
               <Detail label="Contact email" value={profile.contact_email ?? 'Not configured'} />
+              <Detail label="Phone" value={profile.phone ?? 'Not configured'} />
+              <Detail label="Country" value={profile.country ?? 'Not configured'} />
               <Detail label="Timezone" value={profile.timezone} />
               <Detail label="Currency" value={profile.currency} />
               <Detail label="Created" value={formatDate(summary.tenant.created_at)} />
             </div>
             <div className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3">
               <div><p className="text-sm font-semibold text-indigo-950">{profile.completion_percent}% complete</p><p className="mt-0.5 text-xs text-indigo-700">{profile.missing_fields.length ? `Add ${profile.missing_fields.join(', ')} to finish your profile.` : 'Your organization profile is complete.'}</p></div>
-              <Link to="/dashboard/settings" className="shrink-0 text-sm font-semibold text-indigo-700 hover:text-indigo-900">Edit organization</Link>
+              <Link to="/dashboard/organizations" className="shrink-0 text-sm font-semibold text-indigo-700 hover:text-indigo-900">Manage organization</Link>
             </div>
           </CardContent>
         </Card>
@@ -248,8 +251,8 @@ export default function DashboardPage() {
           <CardContent><div className="grid grid-cols-3 gap-3"><Metric label="Owners" value={summary.team.owners} /><Metric label="Admins" value={summary.team.admins} /><Metric label="Members" value={summary.team.members} /></div><p className="mt-4 text-sm text-slate-600">{summary.team.members_total <= 1 ? 'Invite your first team member.' : `${summary.team.members_total} active members in this organization.`}</p><Link to="/dashboard/team" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-indigo-700 hover:text-indigo-900">Manage team <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Your current subscription</CardTitle><CardDescription>Billing is currently reported for your account, not the organization.</CardDescription></CardHeader>
-          <CardContent>{subscription ? <div className="space-y-3"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Plan</span><span className="text-sm font-semibold text-slate-900">{subscription.plan_name ?? 'Unnamed plan'}</span></div><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Status</span><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold capitalize text-emerald-700">{subscription.status}</span></div>{subscription.current_period_end ? <div className="flex items-center justify-between"><span className="text-sm text-slate-500">Current period ends</span><span className="text-sm font-semibold text-slate-900">{formatDate(subscription.current_period_end)}</span></div> : null}</div> : <p className="text-sm text-slate-500">Billing information is not available yet.</p>}<Link to="/dashboard/billing" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-indigo-700 hover:text-indigo-900">Manage billing <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></CardContent>
+          <CardHeader><CardTitle>Your current subscription</CardTitle><CardDescription>Your plan and payment belong to your account and cover your organizations.</CardDescription></CardHeader>
+          <CardContent>{subscription ? <div className="space-y-3"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Plan</span><span className="text-sm font-semibold text-slate-900">{subscription.plan_name ?? 'Unnamed plan'}</span></div><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Organizations</span><span className="text-sm font-semibold text-slate-900">{summary.billing.organizations_used} of {summary.billing.organization_limit}</span></div><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Status</span><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold capitalize text-emerald-700">{subscription.status}</span></div>{subscription.current_period_end ? <div className="flex items-center justify-between"><span className="text-sm text-slate-500">Current period ends</span><span className="text-sm font-semibold text-slate-900">{formatDate(subscription.current_period_end)}</span></div> : null}<div className="border-t border-slate-100 pt-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chatbot features</p><ul className="mt-2 space-y-1 text-sm text-slate-600">{summary.billing.plan_features.map((feature) => <li key={feature}>• {feature}</li>)}</ul></div></div> : <p className="text-sm text-slate-500">Billing information is not available yet.</p>}<Link to="/dashboard/billing" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-indigo-700 hover:text-indigo-900">Manage billing <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></CardContent>
         </Card>
       </div>
 

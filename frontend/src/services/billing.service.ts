@@ -18,6 +18,8 @@ export interface BillingPlan {
 
 export interface CurrentSubscription {
   id: number;
+  tenant_id?: number | null;
+  user_id?: number | null;
   plan_id: number;
   status: string;
   gateway?: string;
@@ -63,6 +65,13 @@ export interface PaymentRecord {
 }
 
 export interface CurrentBillingResponse {
+  subscription_scope: 'tenant' | 'user';
+  payment_scope?: 'user';
+  tenant_id?: number | null;
+  can_manage_billing?: boolean;
+  organizations_used: number;
+  organization_limit: number | string;
+  organizations_remaining: number | string;
   subscription: CurrentSubscription | null;
   current_plan: BillingPlan | null;
   payment_history: PaymentRecord[];
@@ -80,7 +89,8 @@ export interface StripeCheckoutResponse {
   payment_reference: string;
 }
 
-export async function getCurrentBilling(): Promise<CurrentBillingResponse> {
+export async function getCurrentBilling(tenantId?: number | null): Promise<CurrentBillingResponse> {
+  void tenantId;
   const response = await api.get<CurrentBillingResponse>('/billing/current');
   return response.data;
 }

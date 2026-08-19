@@ -9,6 +9,7 @@ import HealthCheckPage from './pages/HealthCheckPage';
 import LoginPage from './pages/Auth/LoginPage';
 import RegisterPage from './pages/Auth/RegisterPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
+import OrganizationsPage from './pages/Dashboard/OrganizationsPage';
 import ProfilePage from './pages/Dashboard/ProfilePage';
 import SettingsPage from './pages/Dashboard/SettingsPage';
 import UserSettingsPage from './pages/Dashboard/UserSettingsPage';
@@ -69,6 +70,7 @@ function App() {
           }
         >
           <Route index element={<DashboardPage />} />
+          <Route path="organizations/*" element={<OrganizationsPage />} />
           <Route path="billing" element={<BillingPage />} />
           <Route path="billing/checkout/:planId" element={<CheckoutPage />} />
           <Route path="billing/success" element={<BillingSuccessPage />} />

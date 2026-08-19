@@ -25,6 +25,7 @@ const pageTitles: Record<string, string> = {
   '/dashboard/users': 'Users',
   '/dashboard/profile': 'Profile',
   '/dashboard/settings': 'Settings',
+  '/dashboard/organizations': 'Organizations',
   '/dashboard/team': 'Team',
   '/dashboard/activity-logs': 'Activity Logs',
 };
@@ -174,7 +175,7 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
             >
               {tenants.map((tenant) => (
                 <option key={tenant.id} value={tenant.id}>
-                  {tenant.name}
+                  {tenant.name} · {tenant.slug}
                 </option>
               ))}
               <option value="create">＋ Create organization</option>

@@ -14,4 +14,8 @@ export const tenantService = {
     // The URL identifies this tenant; tenant-scoped data endpoints use tenantScoped.
     return api.get<TenantResponse>(`/tenants/${id}`);
   },
+
+  destroy(id: number) {
+    return api.delete<{ message: string }>(`/tenants/${id}`, { tenantScoped: true });
+  },
 };

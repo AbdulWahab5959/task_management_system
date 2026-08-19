@@ -1,0 +1,19 @@
+# Local environment and dependency files
+.env
+.env.*
+!.env.example
+backend/vendor/
+frontend/node_modules/
+frontend/dist/
+
+# Runtime and generated application files
+backend/storage/logs/*.log
+backend/storage/framework/cache/data/
+backend/storage/framework/sessions/
+backend/storage/framework/views/
+
+# Documentation source/output requested to remain local
+*.md
+*.pdf
+output/
+tmp/pdfs/

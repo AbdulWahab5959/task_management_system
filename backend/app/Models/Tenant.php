@@ -9,6 +9,9 @@ class Tenant extends Model
 {
     use HasFactory;
 
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_CANCELLED = 'cancelled';
+
     protected $fillable = [
         'name',
         'slug',
@@ -70,7 +73,16 @@ class Tenant extends Model
 
     public function hasActiveSubscription(): bool
     {
-        return $this->subscription && $this->subscription->isActive();
+        return $this->currentSubscription() !== null;
+    }
+
+    public function currentSubscription(): ?Subscription
+    {
+        $subscription = $this->subscriptions()->with('plan')->latest()->first();
+
+        return $subscription && in_array($subscription->status, ['active', 'trialing'], true)
+            ? $subscription
+            : null;
     }
 
     public function configure()
