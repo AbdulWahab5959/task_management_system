@@ -192,6 +192,9 @@ export default function DashboardPage() {
   if (!summary) return null;
   const profile = summary.organization_profile;
   const subscription = summary.billing.current_subscription;
+  const organizationLimit = summary.billing.organization_limit === 'unlimited' ? null : Number(summary.billing.organization_limit);
+  const isOverOrganizationLimit = organizationLimit !== null && summary.billing.organizations_used > organizationLimit;
+  const organizationsOverLimit = isOverOrganizationLimit ? summary.billing.organizations_used - (organizationLimit ?? 0) : 0;
 
   return (
     <>
@@ -214,6 +217,8 @@ export default function DashboardPage() {
         <StatsCard title="Pending invitations" value={String(summary.team.pending_invitations)} description={summary.team.pending_invitations ? 'Ready for review' : 'No invitations waiting'} icon={<MailPlus />} variant="amber" />
         <StatsCard title="Your subscription" value={subscription?.plan_name ?? 'Not available'} description={subscription ? `${subscription.status} · ${summary.billing.subscription_scope}-scoped` : 'Billing information is not available yet.'} icon={<CreditCard />} variant={subscription ? 'emerald' : 'rose'} />
       </div>
+
+      {isOverOrganizationLimit ? <div role="alert" className="mt-5 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">Your account is over the current organization limit.</p><p className="mt-0.5">You have {summary.billing.organizations_used} active organizations, but your {subscription?.plan_name ?? 'current'} plan allows {organizationLimit}. New organizations are blocked until you upgrade or archive {organizationsOverLimit} organization{organizationsOverLimit === 1 ? '' : 's'}.</p></div><Link to="/dashboard/billing" className="shrink-0 font-semibold text-amber-800 underline underline-offset-2">Review plan</Link></div> : null}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
         <Card>

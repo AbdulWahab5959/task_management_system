@@ -8,15 +8,20 @@ use App\Models\Subscription;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Exceptions\OrganizationCreationException;
+use App\Services\ActivityLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 class TenantController extends Controller
 {
     protected TenantService $tenantService;
 
-    public function __construct(TenantService $tenantService)
+    public function __construct(
+        TenantService $tenantService,
+        private readonly ActivityLogService $activityLogService,
+    )
     {
         $this->tenantService = $tenantService;
     }
@@ -35,14 +40,20 @@ class TenantController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'industry' => ['required', 'string', Rule::in([
+                'healthcare', 'logistics', 'ecommerce', 'real-estate', 'education',
+                'hospitality', 'professional-services', 'other',
+            ])],
+            'website' => ['required', 'url', 'max:2048'],
+            'contact_email' => ['required', 'email', 'max:255'],
+            'description' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $user = $request->user();
 
         // Fast authorization response for normal users. TenantService repeats
         // the check inside its locked transaction to protect against races.
-        if (! in_array($user->role, User::ADMIN_ROLES, true)
-            && ! Subscription::query()->where('user_id', $user->id)->whereIn('status', ['active', 'trialing'])->exists()) {
+        if (! Subscription::query()->where('user_id', $user->id)->whereIn('status', ['active', 'trialing'])->exists()) {
             return response()->json([
                 'message' => 'Please choose a plan before creating an organization.',
                 'code' => 'subscription_required',
@@ -68,6 +79,22 @@ class TenantController extends Controller
                 'code' => 'organization_creation_failed',
             ], 500);
         }
+
+        $this->activityLogService->log(
+            action: 'tenant.organization.created',
+            description: "Organization created: {$tenant->name}",
+            properties: [
+                'tenant_id' => $tenant->id,
+                'organization_name' => $tenant->name,
+                'industry' => $validated['industry'],
+                'website' => $validated['website'],
+                'contact_email' => $validated['contact_email'],
+            ],
+            userId: $user->id,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+            tenantId: $tenant->id,
+        );
 
         return response()->json([
             'data' => $this->serializeTenant($tenant->fresh(), $request->user()),

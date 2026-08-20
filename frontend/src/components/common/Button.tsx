@@ -10,7 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses = {
-  primary: 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20 hover:bg-indigo-500 focus-visible:ring-indigo-500',
+  primary: 'bg-[#8200fa] text-white shadow-sm shadow-[#8200fa]/20 hover:bg-[#7000d9] focus-visible:ring-[#8200fa]',
   secondary: 'border border-slate-200 bg-white/90 text-slate-700 shadow-sm shadow-slate-200/50 hover:border-slate-300 hover:bg-white focus-visible:ring-indigo-500',
   ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-indigo-500',
   danger: 'bg-rose-600 text-white shadow-sm shadow-rose-600/20 hover:bg-rose-500 focus-visible:ring-rose-500',

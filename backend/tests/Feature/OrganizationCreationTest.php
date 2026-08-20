@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Plan;
+use App\Models\ActivityLog;
 use App\Models\Subscription;
 use App\Models\Tenant;
 use App\Models\User;
@@ -35,12 +36,12 @@ class OrganizationCreationTest extends TestCase
         $this->createSubscription($user, ['organizations' => 3]);
 
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/tenants', ['name' => ' Acme   Logistics '])
+            ->postJson('/api/tenants', $this->organizationPayload(' Acme   Logistics '))
             ->assertCreated();
         $this->trackLatestTenantDatabase($user);
 
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/tenants', ['name' => 'acme logistics'])
+            ->postJson('/api/tenants', $this->organizationPayload('acme logistics'))
             ->assertForbidden()
             ->assertJsonPath('code', 'organization_duplicate_name');
     }
@@ -51,15 +52,45 @@ class OrganizationCreationTest extends TestCase
         $this->createSubscription($user, ['organizations' => 1]);
 
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/tenants', ['name' => 'First Organization'])
+            ->postJson('/api/tenants', $this->organizationPayload('First Organization'))
             ->assertCreated();
         $this->trackLatestTenantDatabase($user);
 
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/tenants', ['name' => 'Second Organization'])
+            ->postJson('/api/tenants', $this->organizationPayload('Second Organization'))
             ->assertForbidden()
             ->assertJsonPath('code', 'organization_limit_reached')
             ->assertJsonPath('limit', 1);
+    }
+
+    public function test_creation_requires_industry_website_and_contact_email(): void
+    {
+        $user = User::factory()->create();
+        $this->createSubscription($user, ['organizations' => 3]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tenants', ['name' => 'Incomplete Organization'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['industry', 'website', 'contact_email']);
+    }
+
+    public function test_organization_creation_is_recorded_in_activity_logs(): void
+    {
+        $user = User::factory()->create();
+        $this->createSubscription($user, ['organizations' => 3]);
+
+        $response = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tenants', $this->organizationPayload('Activity Organization'))
+            ->assertCreated();
+
+        $this->trackLatestTenantDatabase($user);
+        $tenantId = $response->json('data.id');
+
+        $this->assertDatabaseHas('activity_logs', [
+            'tenant_id' => $tenantId,
+            'user_id' => $user->id,
+            'action' => 'tenant.organization.created',
+        ]);
     }
 
     public function test_unlimited_plan_allows_multiple_organizations(): void
@@ -69,7 +100,7 @@ class OrganizationCreationTest extends TestCase
 
         foreach (['First Organization '.uniqid(), 'Second Organization '.uniqid()] as $name) {
             $this->actingAs($user, 'sanctum')
-                ->postJson('/api/tenants', ['name' => $name])
+                ->postJson('/api/tenants', $this->organizationPayload($name))
                 ->assertCreated();
             $this->trackLatestTenantDatabase($user);
         }
@@ -86,7 +117,7 @@ class OrganizationCreationTest extends TestCase
         $this->app->instance(TenantService::class, $service);
 
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/tenants', ['name' => 'Acme Logistics'])
+            ->postJson('/api/tenants', $this->organizationPayload('Acme Logistics'))
             ->assertStatus(500)
             ->assertJsonPath('code', 'organization_creation_failed')
             ->assertJsonMissing(['message' => 'There is no active transaction']);
@@ -119,5 +150,15 @@ class OrganizationCreationTest extends TestCase
     {
         $tenant = Tenant::query()->where('owner_id', $owner->id)->latest()->firstOrFail();
         $this->tenantDatabasePaths[] = database_path($tenant->database_name.'.sqlite');
+    }
+
+    private function organizationPayload(string $name): array
+    {
+        return [
+            'name' => $name,
+            'industry' => 'logistics',
+            'website' => 'https://example.com',
+            'contact_email' => 'hello@example.com',
+        ];
     }
 }

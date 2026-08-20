@@ -1,13 +1,16 @@
-import { Building2, CheckCircle2, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, Building2, CheckCircle2, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../common/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../common/Card';
 import Input from '../common/Input';
+import TenantCreationForm from './TenantCreationForm';
 import { useTenant } from '../../hooks/useTenant';
 import { tenantSettingsService } from '../../services/tenant-settings.service';
 import { tenantService } from '../../services/tenant.service';
 import type { TenantSettings } from '../../types/tenant-settings.types';
+import { getBillingPlans, getCurrentBilling, type BillingPlan, type CurrentBillingResponse } from '../../services/billing.service';
 
 type OrganizationForm = Omit<TenantSettings, 'tenant_id'>;
 
@@ -23,18 +26,44 @@ function blankOrganization(name = ''): OrganizationForm {
 }
 
 export default function OrganizationManagementPanel() {
-  const { activeTenant, tenants, selectTenant, createTenant, refreshTenants } = useTenant();
+  const navigate = useNavigate();
+  const { activeTenant, tenants, selectTenant, refreshTenants } = useTenant();
   const [form, setForm] = useState<OrganizationForm>(blankOrganization(activeTenant?.name));
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [limitOpen, setLimitOpen] = useState(false);
+  const [billing, setBilling] = useState<CurrentBillingResponse | null>(null);
+  const [upgradePlans, setUpgradePlans] = useState<BillingPlan[]>([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const activeTenantId = activeTenant?.id;
   const activeTenantName = activeTenant?.name ?? '';
+
+  useEffect(() => {
+    let mounted = true;
+    void Promise.all([getCurrentBilling(), getBillingPlans()]).then(([currentBilling, plansResponse]) => {
+      if (!mounted) return;
+      setBilling(currentBilling);
+      setUpgradePlans(plansResponse.data ?? []);
+    }).catch(() => {
+      // The server remains the final authority if billing is temporarily unavailable.
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const canCreateOrganization = billing?.organization_limit === 'unlimited'
+    || (billing !== null && Number(billing.organizations_used) < Number(billing.organization_limit));
+
+  const openCreateOrganization = () => {
+    if (billing && !canCreateOrganization) {
+      setLimitOpen(true);
+      return;
+    }
+    setCreateOpen(true);
+  };
 
   useEffect(() => {
     if (!activeTenantId) return;
@@ -82,18 +111,6 @@ export default function OrganizationManagementPanel() {
     } finally { setSaving(false); }
   };
 
-  const create = async () => {
-    if (!newName.trim() || creating) return;
-    setCreating(true); setError(''); setMessage('');
-    try {
-      await createTenant(newName.trim());
-      setNewName(''); setMessage('Organization created and selected.');
-    } catch (exception) {
-      const response = (exception as { response?: { data?: { message?: string } } }).response;
-      setError(response?.data?.message ?? 'Unable to create organization.');
-    } finally { setCreating(false); }
-  };
-
   const remove = async () => {
     if (!activeTenant || deleting) return;
     setDeleting(true); setError('');
@@ -119,8 +136,7 @@ export default function OrganizationManagementPanel() {
             <div><CardTitle>Organization management</CardTitle><CardDescription>Create, view, select, and edit all organization profile details from the dashboard.</CardDescription></div>
           </div>
           <div className="flex w-full gap-2 sm:w-auto">
-            <Input label="" aria-label="New organization name" value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="New organization name" />
-            <Button type="button" className="mt-0.5 shrink-0" isLoading={creating} onClick={() => void create()} icon={<Plus className="h-4 w-4" aria-hidden="true" />}>Create</Button>
+            <Button type="button" className="shrink-0" onClick={openCreateOrganization} icon={<Plus className="h-4 w-4" aria-hidden="true" />}>Create organization</Button>
           </div>
         </div>
       </CardHeader>
@@ -148,6 +164,8 @@ export default function OrganizationManagementPanel() {
           <div className="flex flex-wrap items-center justify-between gap-3 md:col-span-2"><div aria-live="polite" className="text-sm">{message ? <span className="inline-flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-4 w-4" aria-hidden="true" />{message}</span> : null}{error ? <span className="text-rose-600">{error}</span> : null}</div><div className="flex flex-wrap gap-2">{activeTenant.role === 'owner' ? <Button type="button" variant="danger" onClick={() => setDeleteOpen(true)} icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}>Delete organization</Button> : null}<Button type="submit" isLoading={saving} disabled={loading} icon={<Save className="h-4 w-4" aria-hidden="true" />}>Save organization</Button></div></div>
         </form>
       </CardContent>
+      {createOpen ? <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-5 py-8 backdrop-blur-sm"><div role="dialog" aria-modal="true" aria-labelledby="create-organization-title" className="my-auto w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">New workspace</p><h2 id="create-organization-title" className="mt-1 text-xl font-semibold text-slate-950">Create an organization</h2><p className="mt-2 text-sm text-slate-500">These details are required to configure your organization workspace.</p></div><button type="button" aria-label="Close create organization dialog" onClick={() => setCreateOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" aria-hidden="true" /></button></div><div className="mt-5"><TenantCreationForm onCreated={() => { setCreateOpen(false); setMessage('Organization created and selected.'); }} /></div></div></div> : null}
+      {limitOpen ? <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 px-5 py-8 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setLimitOpen(false); }}><div role="dialog" aria-modal="true" aria-labelledby="organization-create-limit-title" className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-amber-200 bg-white p-6 shadow-2xl"><div className="flex items-start justify-between gap-4"><div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><AlertTriangle className="h-5 w-5" aria-hidden="true" /></span><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Plan limit reached</p><h2 id="organization-create-limit-title" className="mt-1 text-xl font-semibold text-slate-950">You cannot create another organization</h2></div></div><button type="button" aria-label="Close organization limit dialog" onClick={() => setLimitOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" aria-hidden="true" /></button></div><p className="mt-5 text-sm leading-6 text-slate-600">Your current plan allows <strong>{billing?.organization_limit}</strong> organizations, and you already use <strong>{billing?.organizations_used}</strong>. Upgrade your plan to create another organization.</p><div className="mt-5 flex flex-wrap justify-center gap-3">{upgradePlans.filter((plan) => plan.limits?.organizations === 'unlimited' || Number(plan.limits?.organizations) > Number(billing?.organization_limit)).map((plan) => <button key={plan.id} type="button" onClick={() => navigate(`/dashboard/billing/checkout/${plan.id}`)} className="inline-flex min-w-56 items-center justify-between gap-5 rounded-lg bg-[#8200fa] px-4 py-2.5 text-left text-white shadow-sm shadow-[#8200fa]/20 transition hover:bg-[#7000d9]"><span><span className="block text-sm font-semibold">Upgrade to {plan.name}</span><span className="mt-0.5 block text-xs text-white/85">{plan.limits?.organizations === 'unlimited' ? 'Unlimited organizations' : `Up to ${plan.limits?.organizations} organizations`}</span></span><ArrowUpRight className="h-4 w-4" aria-hidden="true" /></button>)}{upgradePlans.filter((plan) => plan.limits?.organizations === 'unlimited' || Number(plan.limits?.organizations) > Number(billing?.organization_limit)).length === 0 ? <button type="button" onClick={() => navigate('/dashboard/billing')} className="inline-flex items-center gap-2 rounded-lg bg-[#8200fa] px-4 py-2.5 text-sm font-semibold text-white">Review available plans <ArrowUpRight className="h-4 w-4" aria-hidden="true" /></button> : null}</div><div className="mt-5 flex justify-center"><button type="button" onClick={() => setLimitOpen(false)} className="rounded-lg bg-[#8200fa] px-7 py-2.5 text-sm font-semibold text-white shadow-sm shadow-[#8200fa]/20 transition hover:bg-[#7000d9]">Close</button></div></div></div> : null}
       {deleteOpen ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-5 py-8 backdrop-blur-sm"><div role="dialog" aria-modal="true" aria-labelledby="delete-organization-title" className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-rose-600">Delete organization</p><h2 id="delete-organization-title" className="mt-1 text-xl font-semibold text-slate-950">Remove {activeTenant.name}?</h2></div><button type="button" aria-label="Close delete confirmation" onClick={() => setDeleteOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" aria-hidden="true" /></button></div><p className="mt-4 text-sm leading-6 text-slate-600">This removes the organization from your active workspace list. Its historical record is retained safely for audit purposes.</p><div className="mt-6 flex justify-end gap-2"><Button type="button" variant="secondary" disabled={deleting} onClick={() => setDeleteOpen(false)}>Cancel</Button><Button type="button" variant="danger" isLoading={deleting} onClick={() => void remove()}>Confirm delete</Button></div></div></div> : null}
     </Card>
   );

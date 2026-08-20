@@ -49,7 +49,7 @@ class TenantService
             $this->createTenantDatabase($databaseName);
             $databaseCreated = true;
             $this->migrateTenantDatabase($tenant);
-            $this->seedTenantData($tenant);
+            $this->seedTenantData($tenant, $data);
 
             return $tenant;
         } catch (Throwable $e) {
@@ -87,10 +87,6 @@ class TenantService
                 'organization_duplicate_name',
                 'You already have an organization with this name.',
             );
-        }
-
-        if (in_array($owner->role, User::ADMIN_ROLES, true)) {
-            return;
         }
 
         $subscription = $this->creationSubscription($owner);
@@ -179,6 +175,31 @@ class TenantService
         return 'tenant_' . str_replace('-', '_', $slug);
     }
 
+    public function ensureProvisioned(Tenant $tenant): void
+    {
+        $databaseName = $tenant->database_name;
+        $driver = config('database.default');
+
+        $exists = $driver === 'sqlite'
+            ? file_exists(database_path($databaseName . '.sqlite'))
+            : (bool) DB::selectOne(
+                'SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?',
+                [$databaseName],
+            );
+
+        if (! $exists) {
+            $this->createTenantDatabase($databaseName);
+        }
+
+        $this->migrateTenantDatabase($tenant);
+
+        $tenant->run(function () use ($tenant) {
+            if (DB::connection('tenant')->table('tenant_settings')->count() === 0) {
+                $this->seedTenantData($tenant);
+            }
+        });
+    }
+
     protected function createTenantDatabase(string $databaseName): void
     {
         $driver = config('database.default');
@@ -211,12 +232,16 @@ class TenantService
         }
     }
 
-    protected function seedTenantData(Tenant $tenant): void
+    protected function seedTenantData(Tenant $tenant, array $data = []): void
     {
-        $tenant->run(function () use ($tenant) {
+        $tenant->run(function () use ($tenant, $data) {
             // Insert default settings
             DB::connection('tenant')->table('tenant_settings')->insert([
                 ['key' => 'site_name', 'value' => $tenant->name, 'type' => 'string'],
+                ['key' => 'industry', 'value' => $data['industry'] ?? null, 'type' => 'string'],
+                ['key' => 'website', 'value' => $data['website'] ?? null, 'type' => 'string'],
+                ['key' => 'contact_email', 'value' => $data['contact_email'] ?? null, 'type' => 'string'],
+                ['key' => 'description', 'value' => $data['description'] ?? null, 'type' => 'string'],
                 ['key' => 'timezone', 'value' => 'UTC', 'type' => 'string'],
                 ['key' => 'currency', 'value' => 'USD', 'type' => 'string'],
             ]);
