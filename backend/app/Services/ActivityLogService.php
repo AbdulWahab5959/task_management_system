@@ -14,9 +14,10 @@ class ActivityLogService
         ?int $userId = null,
         ?string $ipAddress = null,
         ?string $userAgent = null,
+        ?int $tenantId = null,
     ): ActivityLog {
         return ActivityLog::create([
-            'tenant_id' => null,
+            'tenant_id' => $tenantId,
             'user_id' => $userId,
             'action' => $action,
             'description' => $description,

@@ -6,8 +6,8 @@ export const tenantService = {
     return api.get<TenantListResponse>('/tenants');
   },
 
-  create(name: string) {
-    return api.post<TenantResponse>('/tenants', { name });
+  create(data: { name: string; industry: string; website: string; contact_email: string; description?: string }) {
+    return api.post<TenantResponse>('/tenants', data);
   },
 
   get(id: number) {

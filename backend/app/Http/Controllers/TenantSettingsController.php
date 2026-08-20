@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Tenant;
 use App\Models\TenantSetting;
 use App\Services\ActivityLogService;
+use App\Services\TenantService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -33,13 +34,17 @@ class TenantSettingsController extends Controller
         'currency',
     ];
 
-    public function __construct(private readonly ActivityLogService $activityLogService)
+    public function __construct(
+        private readonly ActivityLogService $activityLogService,
+        private readonly TenantService $tenantService,
+    )
     {
     }
 
     public function show(Request $request): JsonResponse
     {
         $tenant = $this->resolvedTenant($request);
+        $this->tenantService->ensureProvisioned($tenant);
         $settings = TenantSetting::query()
             ->whereIn('key', array_merge(['site_name'], self::SETTING_KEYS))
             ->get()

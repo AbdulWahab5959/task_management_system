@@ -9,7 +9,7 @@ export interface TenantContextType {
   error: string;
   selectTenant: (tenantId: number) => void;
   refreshTenants: () => Promise<Tenant[]>;
-  createTenant: (name: string) => Promise<Tenant>;
+  createTenant: (data: { name: string; industry: string; website: string; contact_email: string; description?: string }) => Promise<Tenant>;
   pendingInvitations: TenantInvitation[];
   pendingInvitationsLoading: boolean;
   refreshPendingInvitations: () => Promise<TenantInvitation[]>;

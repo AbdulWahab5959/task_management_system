@@ -40,12 +40,12 @@ class TenantApiTest extends TestCase
         $service = Mockery::mock(TenantService::class);
         $service->shouldReceive('create')
             ->once()
-            ->with(['name' => 'Acme Logistics'], Mockery::on(fn (User $owner) => $owner->is($user)))
+            ->with(Mockery::on(fn (array $data) => $data['name'] === 'Acme Logistics' && $data['industry'] === 'logistics' && $data['website'] === 'https://example.com' && $data['contact_email'] === 'hello@example.com'), Mockery::on(fn (User $owner) => $owner->is($user)))
             ->andReturn($tenant);
         $this->app->instance(TenantService::class, $service);
 
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/tenants', ['name' => 'Acme Logistics'])
+            ->postJson('/api/tenants', $this->organizationPayload())
             ->assertCreated()
             ->assertJsonPath('data.id', $tenant->id)
             ->assertJsonPath('data.role', 'owner');
@@ -59,7 +59,7 @@ class TenantApiTest extends TestCase
         $this->app->instance(TenantService::class, $service);
 
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/tenants', ['name' => 'Acme Logistics'])
+            ->postJson('/api/tenants', $this->organizationPayload())
             ->assertForbidden()
             ->assertJsonPath('message', 'Please choose a plan before creating an organization.');
 
@@ -75,26 +75,22 @@ class TenantApiTest extends TestCase
         $this->app->instance(TenantService::class, $service);
 
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/tenants', ['name' => 'Acme Logistics'])
+            ->postJson('/api/tenants', $this->organizationPayload())
             ->assertForbidden()
             ->assertJsonPath('message', 'Please choose a plan before creating an organization.');
     }
 
-    public function test_admin_without_subscription_can_create_a_tenant(): void
+    public function test_admin_without_subscription_cannot_create_a_tenant(): void
     {
         $user = User::factory()->create(['role' => 'admin']);
-        $tenant = $this->createTenant($user, 'owner');
         $service = Mockery::mock(TenantService::class);
-        $service->shouldReceive('create')
-            ->once()
-            ->with(['name' => 'Acme Logistics'], Mockery::on(fn (User $owner) => $owner->is($user)))
-            ->andReturn($tenant);
+        $service->shouldReceive('create')->never();
         $this->app->instance(TenantService::class, $service);
 
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/tenants', ['name' => 'Acme Logistics'])
-            ->assertCreated()
-            ->assertJsonPath('data.role', 'owner');
+            ->postJson('/api/tenants', $this->organizationPayload())
+            ->assertForbidden()
+            ->assertJsonPath('code', 'subscription_required');
     }
 
     public function test_tenant_service_creates_and_seeds_the_tenant_database(): void
@@ -208,5 +204,15 @@ class TenantApiTest extends TestCase
             'status' => $status,
             'starts_at' => now(),
         ]);
+    }
+
+    private function organizationPayload(): array
+    {
+        return [
+            'name' => 'Acme Logistics',
+            'industry' => 'logistics',
+            'website' => 'https://example.com',
+            'contact_email' => 'hello@example.com',
+        ];
     }
 }

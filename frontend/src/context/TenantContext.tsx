@@ -7,10 +7,18 @@ import { teamInvitationsService } from '../services/team-invitations.service';
 import type { TenantInvitation } from '../types/team-invitation.types';
 
 const ACTIVE_TENANT_KEY = 'active_tenant_id';
+const activeTenantPreferenceKey = (userId: number) => `${ACTIVE_TENANT_KEY}:user:${userId}`;
 
-function selectInitialTenant(tenants: Tenant[]): Tenant | null {
-  const storedId = Number(localStorage.getItem(ACTIVE_TENANT_KEY));
-  const storedTenant = tenants.find((tenant) => tenant.id === storedId && tenant.status === 'active');
+function selectInitialTenant(tenants: Tenant[], userId?: number): Tenant | null {
+  const scopedId = userId ? localStorage.getItem(activeTenantPreferenceKey(userId)) : null;
+  // The shared key is updated on every explicit selection and is therefore
+  // the latest choice. Keep the scoped key as a fallback for a fresh session.
+  const latestId = localStorage.getItem(ACTIVE_TENANT_KEY);
+  const storedTenant = [latestId, scopedId]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => Number(value))
+    .map((id) => tenants.find((tenant) => tenant.id === id && tenant.status === 'active'))
+    .find((tenant): tenant is Tenant => Boolean(tenant));
   return storedTenant ?? tenants.find((tenant) => tenant.status === 'active') ?? tenants[0] ?? null;
 }
 
@@ -25,17 +33,20 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const applyTenants = useCallback((nextTenants: Tenant[]) => {
     setTenants(nextTenants);
-    const nextActive = selectInitialTenant(nextTenants);
+    const nextActive = selectInitialTenant(nextTenants, user?.id);
     setActiveTenant(nextActive);
 
     if (nextActive) {
       localStorage.setItem(ACTIVE_TENANT_KEY, String(nextActive.id));
+      if (user?.id) {
+        localStorage.setItem(activeTenantPreferenceKey(user.id), String(nextActive.id));
+      }
     } else {
       localStorage.removeItem(ACTIVE_TENANT_KEY);
     }
 
     return nextActive;
-  }, []);
+  }, [user?.id]);
 
   const refreshTenants = useCallback(async () => {
     setLoading(true);
@@ -82,7 +93,6 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setPendingInvitations([]);
         setError('');
       });
-      localStorage.removeItem(ACTIVE_TENANT_KEY);
       return;
     }
 
@@ -102,13 +112,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       setActiveTenant(tenant);
       localStorage.setItem(ACTIVE_TENANT_KEY, String(tenant.id));
+      if (user?.id) {
+        localStorage.setItem(activeTenantPreferenceKey(user.id), String(tenant.id));
+      }
     },
-    [tenants],
+    [tenants, user?.id],
   );
 
   const createTenant = useCallback(
-    async (name: string) => {
-      const response = await tenantService.create(name);
+    async (data: { name: string; industry: string; website: string; contact_email: string; description?: string }) => {
+      const response = await tenantService.create(data);
       const createdTenant = response.data.data;
       let currentCreatedTenant = createdTenant;
 
@@ -125,9 +138,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       setActiveTenant(currentCreatedTenant);
       localStorage.setItem(ACTIVE_TENANT_KEY, String(currentCreatedTenant.id));
+      if (user?.id) {
+        localStorage.setItem(activeTenantPreferenceKey(user.id), String(currentCreatedTenant.id));
+      }
       return currentCreatedTenant;
     },
-    [refreshTenants],
+    [refreshTenants, user?.id],
   );
 
   const contextValue = useMemo(
