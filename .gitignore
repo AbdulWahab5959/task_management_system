@@ -12,7 +12,7 @@ backend/storage/framework/cache/data/
 backend/storage/framework/sessions/
 backend/storage/framework/views/
 
-# Documentation source/output requested to remain local
+# Documentation source/output remains local, like environment files.
 *.md
 *.pdf
 output/
