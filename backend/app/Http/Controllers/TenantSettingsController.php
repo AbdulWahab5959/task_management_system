@@ -71,7 +71,7 @@ class TenantSettingsController extends Controller
         $tenant = $this->resolvedTenant($request);
         $role = $request->user()->getRoleInTenant($tenant);
 
-        if (!in_array($role, ['owner', 'admin'], true)) {
+        if (!$request->user()->isAdminInTenant($tenant)) {
             return response()->json(['message' => 'Only tenant owners and admins can update organization settings.'], 403);
         }
 

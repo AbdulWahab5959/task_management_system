@@ -25,7 +25,7 @@ class EnsureAdminRole
             ], Response::HTTP_FORBIDDEN);
         }
 
-        if (! in_array($user->role, User::ADMIN_ROLES, true)) {
+        if ($user->role !== User::ROLE_SUPER_ADMIN) {
             return response()->json([
                 'message' => 'Forbidden.',
             ], Response::HTTP_FORBIDDEN);

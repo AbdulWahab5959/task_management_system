@@ -37,6 +37,7 @@ class TenantSubscriptionAccessController extends Controller
                 'name' => $plan->name,
             ] : null,
             'features' => $plan?->features ?? [],
+            'entitlements' => $plan?->entitlements() ?? [],
             'limits' => $entitlements->normalizedLimits($tenant),
         ]);
     }

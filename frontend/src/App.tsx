@@ -71,14 +71,14 @@ function App() {
         >
           <Route index element={<DashboardPage />} />
           <Route path="organizations/*" element={<OrganizationsPage />} />
-          <Route path="billing" element={<BillingPage />} />
-          <Route path="billing/checkout/:planId" element={<CheckoutPage />} />
-          <Route path="billing/success" element={<BillingSuccessPage />} />
-          <Route path="billing/cancel" element={<BillingCancelPage />} />
+          <Route path="billing" element={<RoleProtectedRoute allowedRoles={['user', 'admin']}><BillingPage /></RoleProtectedRoute>} />
+          <Route path="billing/checkout/:planId" element={<RoleProtectedRoute allowedRoles={['user', 'admin']}><CheckoutPage /></RoleProtectedRoute>} />
+          <Route path="billing/success" element={<RoleProtectedRoute allowedRoles={['user', 'admin']}><BillingSuccessPage /></RoleProtectedRoute>} />
+          <Route path="billing/cancel" element={<RoleProtectedRoute allowedRoles={['user', 'admin']}><BillingCancelPage /></RoleProtectedRoute>} />
           <Route
             path="admin"
             element={
-              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
                 <AdminPage />
               </RoleProtectedRoute>
             }
@@ -86,7 +86,7 @@ function App() {
           <Route
             path="admin/subscriptions"
             element={
-              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
                 <AdminSubscriptionsPage />
               </RoleProtectedRoute>
             }
@@ -94,7 +94,7 @@ function App() {
           <Route
             path="admin/payments"
             element={
-              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
                 <AdminPaymentsPage />
               </RoleProtectedRoute>
             }
@@ -102,7 +102,7 @@ function App() {
           <Route
             path="activity-logs"
             element={
-              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
                 <ActivityLogsPage />
               </RoleProtectedRoute>
             }
@@ -110,7 +110,7 @@ function App() {
           <Route
             path="contact-messages"
             element={
-              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
                 <ContactMessagesPage />
               </RoleProtectedRoute>
             }
@@ -118,7 +118,7 @@ function App() {
           <Route
             path="plans"
             element={
-              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
                 <PlansPage />
               </RoleProtectedRoute>
             }
@@ -126,7 +126,7 @@ function App() {
           <Route
             path="users"
             element={
-              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
                 <UsersPage />
               </RoleProtectedRoute>
             }
@@ -134,13 +134,20 @@ function App() {
           <Route
             path="users/:id"
             element={
-              <RoleProtectedRoute allowedRoles={['admin', 'super_admin']}>
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
                 <UserDetailPage />
               </RoleProtectedRoute>
             }
           />
           <Route path="profile" element={<ProfilePage />} />
-          <Route path="webmcp-test" element={<WebMcpTestPage />} />
+          <Route
+            path="webmcp-test"
+            element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <WebMcpTestPage />
+              </RoleProtectedRoute>
+            }
+          />
 
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/account" element={<UserSettingsPage />} />

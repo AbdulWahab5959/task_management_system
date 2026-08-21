@@ -1,5 +1,7 @@
+import { LayoutDashboard } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
+import { useAuth } from '../../hooks/useAuth';
 
 const navLinks = [
   { to: '/', label: 'Home' },
@@ -10,7 +12,9 @@ const navLinks = [
 
 export default function PublicNavbar() {
   const location = useLocation();
+  const { user, loading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isAuthenticated = Boolean(user);
 
   return (
     <nav className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
@@ -41,20 +45,18 @@ export default function PublicNavbar() {
         </div>
 
         {/* Desktop Auth Buttons */}
-        <div className="hidden items-center gap-3 md:flex">
-          <Link
-            to="/login"
-            className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-medium text-slate-200 transition hover:border-cyan-400 hover:text-white"
-          >
-            Log in
-          </Link>
-          <Link
-            to="/register"
-            className="rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-cyan-500/25 transition hover:shadow-cyan-500/40"
-          >
-            Get started
-          </Link>
-        </div>
+        {!loading ? <div className="hidden items-center gap-3 md:flex">
+          {isAuthenticated ? <Link to="/dashboard" className="group inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-slate-950/10 transition-[transform,box-shadow,background-color] hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-cyan-400/20 active:translate-y-0">
+            <LayoutDashboard className="h-4 w-4 text-cyan-600" aria-hidden="true" /> Dashboard 
+          </Link> : <>
+            <Link to="/login" className="group inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/20 bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-[border-color,background-color,transform] hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-white/10 active:translate-y-0">
+              Log in 
+            </Link>
+            <Link to="/register" className="inline-flex min-h-10 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/25 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-cyan-500/40 active:translate-y-0">
+              Sign up
+            </Link>
+          </>}
+        </div> : null}
 
         {/* Mobile Toggle */}
         <button
@@ -94,20 +96,10 @@ export default function PublicNavbar() {
               </Link>
             ))}
             <hr className="border-white/10" />
-            <Link
-              to="/login"
-              onClick={() => setMobileOpen(false)}
-              className="rounded-xl border border-white/10 px-5 py-2.5 text-center text-sm font-medium text-slate-200 transition hover:border-cyan-400"
-            >
-              Log in
-            </Link>
-            <Link
-              to="/register"
-              onClick={() => setMobileOpen(false)}
-              className="rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-2.5 text-center text-sm font-medium text-white shadow-lg shadow-cyan-500/25"
-            >
-              Get started
-            </Link>
+            {!loading ? (isAuthenticated ? <Link to="/dashboard" onClick={() => setMobileOpen(false)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-center text-sm font-bold text-slate-950 shadow-lg shadow-slate-950/10 transition hover:bg-cyan-50"><LayoutDashboard className="h-4 w-4 text-cyan-600" aria-hidden="true" /> Dashboard</Link> : <>
+            <Link to="/login" onClick={() => setMobileOpen(false)} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/20 bg-white/[0.06] px-5 py-2.5 text-center text-sm font-semibold text-white transition hover:border-cyan-300 hover:bg-white/10">Log in</Link>
+              <Link to="/register" onClick={() => setMobileOpen(false)} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-2.5 text-center text-sm font-bold text-white shadow-lg shadow-cyan-500/25">Sign up</Link>
+            </> ) : null}
           </div>
         </div>
       )}

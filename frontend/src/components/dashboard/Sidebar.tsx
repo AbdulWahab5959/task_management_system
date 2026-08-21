@@ -41,20 +41,20 @@ interface NavigationItem {
 const mainNavItems: NavigationItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, end: true },
   { label: 'Organizations', to: '/dashboard/organizations', icon: Building2 },
-  { label: 'Billing', to: '/dashboard/billing', icon: CreditCard, nested: true },
+  { label: 'Billing', to: '/dashboard/billing', icon: CreditCard, nested: true, roles: ['user', 'admin'] },
   {
     label: 'Analytics',
     to: '/dashboard/admin',
     icon: BarChart3,
     matchPaths: ['/dashboard/admin', '/dashboard/admin/analytics'],
-    roles: ['admin', 'super_admin'],
+    roles: ['super_admin'],
   },
-  { label: 'Subscriptions', to: '/dashboard/admin/subscriptions', icon: BadgeCheck, nested: true, roles: ['admin', 'super_admin'] },
-  { label: 'Payments', to: '/dashboard/admin/payments', icon: ReceiptText, roles: ['admin', 'super_admin'] },
-  { label: 'Plans', to: '/dashboard/plans', icon: Package, roles: ['admin', 'super_admin'] },
-  { label: 'Users', to: '/dashboard/users', icon: Users, nested: true, roles: ['admin', 'super_admin'] },
-  { label: 'Activity Logs', to: '/dashboard/activity-logs', icon: Activity },
-  { label: 'Contact Messages', to: '/dashboard/contact-messages', icon: Mail, roles: ['admin', 'super_admin'] },
+  { label: 'Subscriptions', to: '/dashboard/admin/subscriptions', icon: BadgeCheck, nested: true, roles: ['super_admin'] },
+  { label: 'Payments', to: '/dashboard/admin/payments', icon: ReceiptText, roles: ['super_admin'] },
+  { label: 'Plans', to: '/dashboard/plans', icon: Package, roles: ['super_admin'] },
+  { label: 'Users', to: '/dashboard/users', icon: Users, nested: true, roles: ['super_admin'] },
+  { label: 'Activity Logs', to: '/dashboard/activity-logs', icon: Activity, roles: ['super_admin'] },
+  { label: 'Contact Messages', to: '/dashboard/contact-messages', icon: Mail, roles: ['super_admin'] },
 ];
 
 const accountNavItems: NavigationItem[] = [
@@ -63,7 +63,7 @@ const accountNavItems: NavigationItem[] = [
   { label: 'Account settings', to: '/dashboard/settings/account', icon: UserCog },
 
   { label: 'Profile', to: '/dashboard/profile', icon: UserCircle },
-  { label: 'WebMCP Test', to: '/dashboard/webmcp-test', icon: FlaskConical },
+  { label: 'WebMCP Test', to: '/dashboard/webmcp-test', icon: FlaskConical, roles: ['super_admin'] },
 
 ];
 
@@ -195,7 +195,9 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
           <div className="mt-3 border-t border-white/10 pt-3">
             <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-widest text-slate-500">Account</p>
             <div className="space-y-1">
-              {accountNavItems.map((item) => {
+              {accountNavItems
+                .filter((item) => !item.roles || item.roles.includes(user?.role ?? 'user'))
+                .map((item) => {
                 const Icon = item.icon;
                 const isActive = isNavigationItemActive(item, location.pathname);
 

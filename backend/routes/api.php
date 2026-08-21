@@ -98,7 +98,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
-Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+// Platform-wide administration is restricted to super admins. Organization
+// admins use the tenant-scoped routes above, which validate membership first.
+Route::middleware(['auth:sanctum', 'super.admin'])->prefix('admin')->group(function () {
     Route::get('/analytics', [AdminAnalyticsController::class, 'index']);
     Route::get('/activity-logs', [AdminActivityLogController::class, 'index']);
     Route::get('/activity-logs/actions', [AdminActivityLogController::class, 'actions']);

@@ -41,10 +41,15 @@ class PlanSeederTest extends TestCase
             $this->assertSame($productId, $plan->metadata['stripe_product_id']);
             $this->assertIsArray($plan->features);
             $this->assertIsArray($plan->limits);
+            $this->assertIsArray($plan->entitlements());
             $this->assertTrue($plan->is_active);
         }
 
         $this->assertSame(6, Plan::query()->distinct()->count('slug'));
         $this->assertSame(6, Plan::query()->distinct()->count('stripe_price_id'));
+        $this->assertSame(1, Plan::query()->where('slug', 'starter-monthly')->firstOrFail()->getLimit('organizations'));
+        $this->assertSame(2, Plan::query()->whereIn('slug', ['pro-monthly', 'pro-yearly'])->pluck('limits')->map(fn ($limits) => $limits['organizations'])->unique()->first());
+        $this->assertSame(3, Plan::query()->where('slug', 'business-yearly')->firstOrFail()->getLimit('organizations'));
+        $this->assertSame('unlimited', Plan::query()->where('slug', 'enterprise-monthly')->firstOrFail()->getLimit('organizations'));
     }
 }

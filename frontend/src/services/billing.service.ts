@@ -10,6 +10,7 @@ export interface BillingPlan {
   interval: string | null;
   billing_interval: string | null;
   features: string[];
+  entitlements?: string[];
   limits: Record<string, number | string>;
   is_popular?: boolean;
   is_active: boolean;

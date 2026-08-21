@@ -32,6 +32,13 @@ class TenantEntitlementService
         return $this->booleanLimit($plan, $feature) === true;
     }
 
+    public function hasEntitlement(?Tenant $tenant, string $key): bool
+    {
+        return ($plan = $this->plan($tenant)) !== null
+            && $this->subscriptions->isActive($tenant)
+            && $plan->hasEntitlement($key);
+    }
+
     public function limit(?Tenant $tenant, string $key, mixed $default = null): mixed
     {
         $plan = $this->plan($tenant);

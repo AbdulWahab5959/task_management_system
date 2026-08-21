@@ -15,7 +15,7 @@ class RoleAccessTest extends TestCase
     {
         parent::setUp();
 
-        Route::middleware(['auth:sanctum', 'admin'])
+        Route::middleware(['auth:sanctum', 'super.admin'])
             ->get('/api/admin/rbac-test', fn () => response()->json(['ok' => true]));
     }
 
@@ -32,19 +32,30 @@ class RoleAccessTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_admin_and_super_admin_can_access_admin_routes(): void
+    public function test_admin_cannot_access_platform_routes(): void
     {
-        foreach (User::ADMIN_ROLES as $role) {
-            $user = User::factory()->create([
-                'role' => $role,
-            ]);
+        $user = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+        ]);
 
-            $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('auth_token')->plainTextToken;
 
-            $this->withHeader('Authorization', 'Bearer '.$token)
-                ->getJson('/api/admin/rbac-test')
-                ->assertOk()
-                ->assertJsonPath('ok', true);
-        }
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/admin/rbac-test')
+            ->assertForbidden();
+    }
+
+    public function test_super_admin_can_access_platform_routes(): void
+    {
+        $user = User::factory()->create([
+            'role' => User::ROLE_SUPER_ADMIN,
+        ]);
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/admin/rbac-test')
+            ->assertOk()
+            ->assertJsonPath('ok', true);
     }
 }

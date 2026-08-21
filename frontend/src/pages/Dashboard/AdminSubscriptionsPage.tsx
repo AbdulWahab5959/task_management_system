@@ -176,11 +176,7 @@ export default function AdminSubscriptionsPage() {
   }, [search, statusFilter, planFilter, gatewayFilter, startDate, endDate]);
 
   useEffect(() => {
-    setPage(1);
-  }, [search, statusFilter, planFilter, gatewayFilter, startDate, endDate]);
-
-  useEffect(() => {
-    void loadSubscriptions(page);
+    queueMicrotask(() => void loadSubscriptions(page));
   }, [page, loadSubscriptions]);
 
   const handleCancelNow = async () => {
@@ -243,13 +239,13 @@ export default function AdminSubscriptionsPage() {
                   type="text"
                   placeholder="Search user or plan..."
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) => { setSearch(event.target.value); setPage(1); }}
                   className="dashboard-control dashboard-control--icon"
                 />
               </div>
               <select
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
+                  onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }}
                 className="dashboard-control"
               >
                 <option value="">All statuses</option>
@@ -262,7 +258,7 @@ export default function AdminSubscriptionsPage() {
               </select>
               <select
                 value={planFilter}
-                onChange={(event) => setPlanFilter(event.target.value)}
+                  onChange={(event) => { setPlanFilter(event.target.value); setPage(1); }}
                 className="dashboard-control"
               >
                 <option value="">All plans</option>
@@ -272,7 +268,7 @@ export default function AdminSubscriptionsPage() {
               </select>
               <select
                 value={gatewayFilter}
-                onChange={(event) => setGatewayFilter(event.target.value)}
+                  onChange={(event) => { setGatewayFilter(event.target.value); setPage(1); }}
                 className="dashboard-control"
               >
                 <option value="">All gateways</option>
@@ -284,14 +280,14 @@ export default function AdminSubscriptionsPage() {
                 type="date"
                 aria-label="Start date"
                 value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
+                  onChange={(event) => { setStartDate(event.target.value); setPage(1); }}
                 className="dashboard-control"
               />
               <input
                 type="date"
                 aria-label="End date"
                 value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
+                  onChange={(event) => { setEndDate(event.target.value); setPage(1); }}
                 className="dashboard-control"
               />
             </div>

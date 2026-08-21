@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -192,11 +193,7 @@ export default function AdminPaymentsPage() {
   }, [search, statusFilter, gatewayFilter, startDate, endDate]);
 
   useEffect(() => {
-    setPage(1);
-  }, [search, statusFilter, gatewayFilter, startDate, endDate]);
-
-  useEffect(() => {
-    void loadPayments(page);
+    queueMicrotask(() => void loadPayments(page));
   }, [page, loadPayments]);
 
   const handleOpenRefund = (payment: AdminPayment) => {
@@ -217,8 +214,16 @@ export default function AdminPaymentsPage() {
       const amount = isPartialRefund && refundAmount ? Number.parseFloat(refundAmount) : undefined;
       const reason = refundReason || undefined;
 
-      if (isPartialRefund && (!amount || amount <= 0)) {
+      const refundableAmount = getRefundableAmount(refundModal);
+
+      if (isPartialRefund && (!amount || !Number.isFinite(amount) || amount <= 0)) {
         setRefundError('Please enter a valid refund amount.');
+        setRefunding(false);
+        return;
+      }
+
+      if (isPartialRefund && amount !== undefined && amount > refundableAmount) {
+        setRefundError(`Refund amount cannot exceed the remaining refundable balance of ${formatAmount(refundableAmount, refundModal.currency)}.`);
         setRefunding(false);
         return;
       }
@@ -267,6 +272,12 @@ export default function AdminPaymentsPage() {
 
     return latestRefundAmount > 0 ? latestRefundAmount : totalRefunded;
   };
+
+  const refundableAmount = refundModal ? getRefundableAmount(refundModal) : 0;
+  const requestedRefundAmount = Number.parseFloat(refundAmount);
+  const refundAmountExceedsBalance = isPartialRefund
+    && Number.isFinite(requestedRefundAmount)
+    && requestedRefundAmount > refundableAmount;
 
   const getRefundedBy = (payment: AdminPayment): string => {
     return payment.latest_refund?.admin_email || payment.latest_refund?.admin_name || 'admin not recorded';
@@ -367,13 +378,13 @@ export default function AdminPaymentsPage() {
                   type="text"
                   placeholder="Search user or plan..."
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) => { setSearch(event.target.value); setPage(1); }}
                   className="dashboard-control dashboard-control--icon"
                 />
               </div>
               <select
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
+                  onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }}
                 className="dashboard-control"
               >
                 <option value="">All statuses</option>
@@ -385,7 +396,7 @@ export default function AdminPaymentsPage() {
               </select>
               <select
                 value={gatewayFilter}
-                onChange={(event) => setGatewayFilter(event.target.value)}
+                  onChange={(event) => { setGatewayFilter(event.target.value); setPage(1); }}
                 className="dashboard-control"
               >
                 <option value="">All gateways</option>
@@ -397,14 +408,14 @@ export default function AdminPaymentsPage() {
                 type="date"
                 aria-label="Start date"
                 value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
+                  onChange={(event) => { setStartDate(event.target.value); setPage(1); }}
                 className="dashboard-control"
               />
               <input
                 type="date"
                 aria-label="End date"
                 value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
+                  onChange={(event) => { setEndDate(event.target.value); setPage(1); }}
                 className="dashboard-control"
               />
             </div>
@@ -550,18 +561,17 @@ export default function AdminPaymentsPage() {
 
       {/* Refund modal */}
       {refundModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" aria-labelledby="refund-title" className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-950/20">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-md">
+          <div role="dialog" aria-modal="true" aria-labelledby="refund-title" className="flex max-h-[calc(100dvh-2rem)] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.28)]">
+            <div className="flex items-start justify-between gap-5 border-b border-slate-100 bg-white px-6 py-5 sm:px-7">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
                   <RotateCcw className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
                 </div>
                 <div>
-                  <h2 id="refund-title" className="text-base font-semibold text-slate-950">Refund payment</h2>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">
-                    Issue a refund for {formatAmount(refundModal.amount, refundModal.currency)} payment.
-                  </p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-violet-600">Payment action</p>
+                  <h2 id="refund-title" className="mt-1 text-xl font-semibold tracking-tight text-slate-950">Refund payment</h2>
+                  <p className="mt-1 text-sm text-slate-500">Return funds securely through Stripe.</p>
                 </div>
               </div>
               <button
@@ -574,15 +584,28 @@ export default function AdminPaymentsPage() {
               </button>
             </div>
 
-            <div className="space-y-4 px-6 py-5">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
-                <p><strong>Payment:</strong> {refundModal.reference}</p>
-                <p><strong>User:</strong> {refundModal.user_name || 'Unknown'}</p>
-                <p><strong>Amount paid:</strong> {formatAmount(refundModal.amount, refundModal.currency)}</p>
-                <p><strong>Refundable:</strong> {formatAmount(getRefundableAmount(refundModal), refundModal.currency)}</p>
+            <div className="min-h-0 space-y-5 overflow-y-auto px-6 py-5 sm:px-7">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:col-span-2">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Payment reference</p>
+                  <p className="mt-1 truncate font-mono text-sm font-semibold text-slate-700" title={refundModal.reference}>{refundModal.reference}</p>
+                  <p className="mt-1 text-xs text-slate-500">{refundModal.user_name || 'Unknown user'}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <p className="text-xs font-medium text-slate-500">Amount paid</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums text-slate-950">{formatAmount(refundModal.amount, refundModal.currency)}</p>
+                </div>
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+                  <p className="text-xs font-medium text-emerald-700">Remaining refundable</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-900">{formatAmount(refundableAmount, refundModal.currency)}</p>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <label htmlFor="partial-refund" className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-slate-200 px-4 py-3.5 transition hover:border-violet-200 hover:bg-violet-50/40">
+                <span>
+                  <span className="block text-sm font-semibold text-slate-800">Partial refund</span>
+                  <span className="mt-0.5 block text-xs text-slate-500">Choose a specific amount instead of refunding the full balance.</span>
+                </span>
                 <input
                   type="checkbox"
                   id="partial-refund"
@@ -591,35 +614,44 @@ export default function AdminPaymentsPage() {
                     setIsPartialRefund(e.target.checked);
                     if (!e.target.checked) setRefundAmount('');
                   }}
-                  className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-200"
+                  className="h-5 w-5 rounded-md border-slate-300 text-violet-600 focus:ring-2 focus:ring-violet-200"
                 />
-                <label htmlFor="partial-refund" className="text-sm font-medium text-slate-700">
-                  Partial refund
-                </label>
-              </div>
+              </label>
 
               {isPartialRefund ? (
-                <div>
-                  <label htmlFor="refund-amount" className="block text-sm font-medium text-slate-700 mb-1">
-                    Refund amount
-                  </label>
-                  <input
-                    id="refund-amount"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max={getRefundableAmount(refundModal)}
-                    value={refundAmount}
-                    onChange={(e) => setRefundAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="dashboard-control w-full"
-                  />
+                <div className="rounded-2xl border border-violet-100 bg-violet-50/45 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <label htmlFor="refund-amount" className="block text-sm font-semibold text-slate-800">Refund amount</label>
+                    <span className="text-xs font-medium tabular-nums text-slate-500">Max {formatAmount(refundableAmount, refundModal.currency)}</span>
+                  </div>
+                  <div className="relative mt-2">
+                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm font-semibold text-slate-400">{refundModal.currency}</span>
+                    <input
+                      id="refund-amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      max={refundableAmount}
+                      value={refundAmount}
+                      onChange={(e) => {
+                        setRefundAmount(e.target.value);
+                        if (Number.parseFloat(e.target.value) <= refundableAmount) setRefundError('');
+                      }}
+                      placeholder="0.00"
+                      aria-invalid={refundAmountExceedsBalance}
+                      aria-describedby="refund-amount-help refund-error"
+                      className={`dashboard-control w-full pl-16 ${refundAmountExceedsBalance ? 'border-rose-400 ring-2 ring-rose-100' : ''}`}
+                    />
+                  </div>
+                  <p id="refund-amount-help" className={`mt-2 text-xs ${refundAmountExceedsBalance ? 'font-semibold text-rose-700' : 'text-slate-500'}`}>
+                    {refundAmountExceedsBalance ? 'This amount is higher than the remaining refundable balance.' : `Enter an amount from 0.01 to ${formatAmount(refundableAmount, refundModal.currency)}.`}
+                  </p>
                 </div>
               ) : null}
 
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-                <p className="font-medium mb-1">⚠️ Important</p>
-                <p>Refunding returns money to the customer. This does not automatically reactivate or cancel subscription access. The customer's access will be determined by their current subscription status.</p>
+              <div className="flex gap-3 rounded-2xl border border-amber-200/80 bg-amber-50 px-4 py-3.5 text-sm leading-6 text-amber-950">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+                <p><span className="font-semibold">Refunds affect money only.</span> Subscription access follows the customer’s current subscription status.</p>
               </div>
 
               <div>
@@ -637,25 +669,25 @@ export default function AdminPaymentsPage() {
               </div>
 
               {refundError ? (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                <div id="refund-error" role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
                   {refundError}
                 </div>
               ) : null}
             </div>
 
-            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50/90 px-6 py-4 sm:flex-row sm:justify-end sm:px-7">
               <button
                 type="button"
                 onClick={() => setRefundModal(null)}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-transform hover:bg-slate-50 active:scale-[0.96] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => void handleRefund()}
-                disabled={refunding}
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-200 disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={refunding || refundAmountExceedsBalance}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 text-sm font-semibold text-white transition-transform hover:bg-violet-700 active:scale-[0.96] focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-200 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {refunding ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <RotateCcw className="h-4 w-4" aria-hidden="true" />}
                 {refunding ? 'Processing...' : (isPartialRefund ? `Refund ${formatAmount(refundAmount || '0', refundModal.currency)}` : 'Confirm Refund')}

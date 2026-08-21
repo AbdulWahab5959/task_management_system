@@ -80,11 +80,16 @@ class User extends Authenticatable implements MustVerifyEmailContract
     // Helper Methods
     public function hasAccessToTenant(Tenant $tenant): bool
     {
-        return $this->tenants()->where('tenants.id', $tenant->id)->exists();
+        return $this->role === self::ROLE_SUPER_ADMIN
+            || $this->tenants()->where('tenants.id', $tenant->id)->exists();
     }
 
     public function getRoleInTenant(Tenant $tenant): ?string
     {
+        if ($this->role === self::ROLE_SUPER_ADMIN) {
+            return 'owner';
+        }
+
         $pivotData = $this->tenants()
             ->where('tenants.id', $tenant->id)
             ->first();
@@ -93,11 +98,15 @@ class User extends Authenticatable implements MustVerifyEmailContract
 
     public function isOwnerOfTenant(Tenant $tenant): bool
     {
-        return $this->getRoleInTenant($tenant) === 'owner';
+        return $this->role === self::ROLE_SUPER_ADMIN || $this->getRoleInTenant($tenant) === 'owner';
     }
 
     public function isAdminInTenant(Tenant $tenant): bool
     {
+        if ($this->role === self::ROLE_SUPER_ADMIN) {
+            return true;
+        }
+
         $role = $this->getRoleInTenant($tenant);
         return in_array($role, ['owner', 'admin']);
     }

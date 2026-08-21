@@ -32,6 +32,51 @@ class TenantApiTest extends TestCase
             ->assertJsonFragment(['id' => $memberTenant->id, 'role' => 'member']);
     }
 
+    public function test_super_admin_can_list_all_active_tenants_without_membership(): void
+    {
+        $superAdmin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
+        $owner = User::factory()->create();
+        $first = $this->createTenant($owner, 'owner');
+        $second = $this->createTenant(User::factory()->create(), 'owner');
+
+        $this->actingAs($superAdmin, 'sanctum')
+            ->getJson('/api/tenants')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonFragment(['id' => $first->id, 'role' => User::ROLE_SUPER_ADMIN])
+            ->assertJsonFragment(['id' => $second->id, 'role' => User::ROLE_SUPER_ADMIN]);
+    }
+
+    public function test_super_admin_cannot_create_a_tenant(): void
+    {
+        $superAdmin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
+
+        $this->actingAs($superAdmin, 'sanctum')
+            ->postJson('/api/tenants', $this->organizationPayload())
+            ->assertForbidden()
+            ->assertJsonPath('code', 'super_admin_creation_forbidden');
+    }
+
+    public function test_super_admin_can_view_and_delete_a_tenant_without_membership(): void
+    {
+        $superAdmin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
+        $tenant = $this->createTenant(User::factory()->create(), 'owner');
+        $service = Mockery::mock(TenantService::class);
+        $service->shouldReceive('switchTenant')->twice()->with(Mockery::type(Tenant::class));
+        $service->shouldReceive('delete')->once()->with(Mockery::on(fn (Tenant $target) => $target->is($tenant)))->andReturnTrue();
+        $this->app->instance(TenantService::class, $service);
+
+        $this->actingAs($superAdmin, 'sanctum')
+            ->getJson('/api/tenants/'.$tenant->id)
+            ->assertOk()
+            ->assertJsonPath('data.id', $tenant->id)
+            ->assertJsonPath('data.role', User::ROLE_SUPER_ADMIN);
+
+        $this->actingAs($superAdmin, 'sanctum')
+            ->deleteJson('/api/tenants/'.$tenant->id)
+            ->assertOk();
+    }
+
     public function test_authenticated_user_can_create_a_tenant_through_the_existing_service(): void
     {
         $user = User::factory()->create();

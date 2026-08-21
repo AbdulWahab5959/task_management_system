@@ -24,10 +24,23 @@ class AdminContactMessageTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_admin_can_search_and_paginate_contact_messages(): void
+    public function test_admin_cannot_access_platform_contact_messages(): void
     {
         $admin = User::factory()->create([
             'role' => User::ROLE_ADMIN,
+        ]);
+
+        $token = $admin->createToken('auth_token')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/admin/contact-messages')
+            ->assertForbidden();
+    }
+
+    public function test_super_admin_can_search_and_paginate_contact_messages(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_SUPER_ADMIN,
         ]);
 
         ContactMessage::create([
@@ -102,7 +115,7 @@ class AdminContactMessageTest extends TestCase
     public function test_invalid_contact_message_status_is_rejected(): void
     {
         $admin = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
+            'role' => User::ROLE_SUPER_ADMIN,
         ]);
 
         $message = ContactMessage::create([

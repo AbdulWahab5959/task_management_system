@@ -46,7 +46,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     return nextActive;
-  }, [user?.id]);
+  }, [user]);
 
   const refreshTenants = useCallback(async () => {
     setLoading(true);
@@ -116,7 +116,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         localStorage.setItem(activeTenantPreferenceKey(user.id), String(tenant.id));
       }
     },
-    [tenants, user?.id],
+    [tenants, user],
   );
 
   const createTenant = useCallback(
@@ -143,7 +143,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       return currentCreatedTenant;
     },
-    [refreshTenants, user?.id],
+    [refreshTenants, user],
   );
 
   const contextValue = useMemo(

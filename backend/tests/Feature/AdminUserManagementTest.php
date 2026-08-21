@@ -23,10 +23,23 @@ class AdminUserManagementTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_admin_can_search_paginate_and_filter_users(): void
+    public function test_admin_cannot_access_platform_user_management(): void
     {
         $admin = User::factory()->create([
             'role' => User::ROLE_ADMIN,
+        ]);
+
+        $token = $admin->createToken('auth_token')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/admin/users')
+            ->assertForbidden();
+    }
+
+    public function test_super_admin_can_search_paginate_and_filter_users(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_SUPER_ADMIN,
         ]);
 
         User::factory()->create([
@@ -57,10 +70,10 @@ class AdminUserManagementTest extends TestCase
             ->assertJsonPath('total', 1);
     }
 
-    public function test_admin_can_view_and_update_regular_user(): void
+    public function test_super_admin_can_view_and_update_regular_user(): void
     {
         $admin = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
+            'role' => User::ROLE_SUPER_ADMIN,
         ]);
 
         $managedUser = User::factory()->create([
@@ -93,10 +106,10 @@ class AdminUserManagementTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_update_regular_user_status_and_role(): void
+    public function test_super_admin_can_update_regular_user_status_and_role(): void
     {
         $admin = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
+            'role' => User::ROLE_SUPER_ADMIN,
         ]);
 
         $managedUser = User::factory()->create([

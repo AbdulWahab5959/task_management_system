@@ -76,4 +76,22 @@ class Plan extends Model
     {
         return is_array($this->features) && in_array($feature, $this->features, true);
     }
+
+    /**
+     * Stable authorization keys are stored separately from display labels.
+     * Unknown keys fail closed because only explicitly configured keys match.
+     */
+    public function entitlements(): array
+    {
+        $entitlements = $this->metadata['entitlements'] ?? [];
+
+        return is_array($entitlements)
+            ? array_values(array_filter($entitlements, static fn (mixed $value): bool => is_string($value)))
+            : [];
+    }
+
+    public function hasEntitlement(string $key): bool
+    {
+        return in_array($key, $this->entitlements(), true);
+    }
 }

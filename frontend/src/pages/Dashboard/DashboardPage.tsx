@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ArrowRight,
   Building2,
   Check,
   CircleAlert,
@@ -129,7 +128,7 @@ export default function DashboardPage() {
             <h1 className="mt-4 text-lg font-semibold text-slate-950">Welcome to your LaunchStack dashboard</h1>
             <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">Use the administration tools to manage plans, users, billing, and platform activity.</p>
             <Link to="/dashboard/admin" className="mt-5 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">
-              Open admin tools <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              Open admin tools
             </Link>
           </CardContent>
         </Card>
@@ -160,7 +159,7 @@ export default function DashboardPage() {
             <h1 className="mt-4 text-lg font-semibold text-slate-950">Choose a plan to start your workspace</h1>
             <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">Select a LaunchStack plan before creating your organization.</p>
             <Link to="/dashboard/billing" className="mt-5 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">
-              View Plans <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              View Plans
             </Link>
           </CardContent>
         </Card>
@@ -192,9 +191,13 @@ export default function DashboardPage() {
   if (!summary) return null;
   const profile = summary.organization_profile;
   const subscription = summary.billing.current_subscription;
+  const isSuperAdmin = user?.role === 'super_admin';
   const organizationLimit = summary.billing.organization_limit === 'unlimited' ? null : Number(summary.billing.organization_limit);
   const isOverOrganizationLimit = organizationLimit !== null && summary.billing.organizations_used > organizationLimit;
   const organizationsOverLimit = isOverOrganizationLimit ? summary.billing.organizations_used - (organizationLimit ?? 0) : 0;
+  const setupChecklist = isSuperAdmin
+    ? summary.setup_checklist.filter((item) => item.key !== 'billing')
+    : summary.setup_checklist;
 
   return (
     <>
@@ -218,7 +221,7 @@ export default function DashboardPage() {
         <StatsCard title="Your subscription" value={subscription?.plan_name ?? 'Not available'} description={subscription ? `${subscription.status} · ${summary.billing.subscription_scope}-scoped` : 'Billing information is not available yet.'} icon={<CreditCard />} variant={subscription ? 'emerald' : 'rose'} />
       </div>
 
-      {isOverOrganizationLimit ? <div role="alert" className="mt-5 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">Your account is over the current organization limit.</p><p className="mt-0.5">You have {summary.billing.organizations_used} active organizations, but your {subscription?.plan_name ?? 'current'} plan allows {organizationLimit}. New organizations are blocked until you upgrade or archive {organizationsOverLimit} organization{organizationsOverLimit === 1 ? '' : 's'}.</p></div><Link to="/dashboard/billing" className="shrink-0 font-semibold text-amber-800 underline underline-offset-2">Review plan</Link></div> : null}
+      {isSuperAdmin ? <div role="status" className="mt-5 flex flex-col gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-950 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">Platform administration mode</p><p className="mt-0.5 text-indigo-800">You are viewing this organization with platform-wide access. Customer plan limits and organization creation rules do not apply to your super-admin account.</p></div><Link to="/dashboard/organizations" className="shrink-0 font-semibold text-indigo-700 underline underline-offset-2">Manage organizations</Link></div> : isOverOrganizationLimit ? <div role="alert" className="mt-5 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">Your account is over the current organization limit.</p><p className="mt-0.5">You have {summary.billing.organizations_used} active organizations, but your {subscription?.plan_name ?? 'current'} plan allows {organizationLimit}. New organizations are blocked until you upgrade or archive {organizationsOverLimit} organization{organizationsOverLimit === 1 ? '' : 's'}.</p></div><Link to="/dashboard/billing" className="shrink-0 font-semibold text-amber-800 underline underline-offset-2">Review plan</Link></div> : null}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
         <Card>
@@ -245,7 +248,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader><CardTitle>Setup checklist</CardTitle><CardDescription>Recommended steps for this workspace.</CardDescription></CardHeader>
           <CardContent className="space-y-3">
-            {summary.setup_checklist.map((item) => <div key={item.key} className="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-3"><span className={`flex h-7 w-7 items-center justify-center rounded-full ${item.completed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>{item.completed ? <Check className="h-4 w-4" aria-hidden="true" /> : <span className="h-2 w-2 rounded-full bg-current" />}</span><span className={`text-sm ${item.completed ? 'text-slate-500 line-through' : 'font-semibold text-slate-800'}`}>{item.label}</span></div>)}
+            {setupChecklist.map((item) => <div key={item.key} className="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-3"><span className={`flex h-7 w-7 items-center justify-center rounded-full ${item.completed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>{item.completed ? <Check className="h-4 w-4" aria-hidden="true" /> : <span className="h-2 w-2 rounded-full bg-current" />}</span><span className={`text-sm ${item.completed ? 'text-slate-500 line-through' : 'font-semibold text-slate-800'}`}>{item.label}</span></div>)}
           </CardContent>
         </Card>
       </div>
@@ -253,11 +256,11 @@ export default function DashboardPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Team overview</CardTitle><CardDescription>Active members and pending invitations are counted separately.</CardDescription></CardHeader>
-          <CardContent><div className="grid grid-cols-3 gap-3"><Metric label="Owners" value={summary.team.owners} /><Metric label="Admins" value={summary.team.admins} /><Metric label="Members" value={summary.team.members} /></div><p className="mt-4 text-sm text-slate-600">{summary.team.members_total <= 1 ? 'Invite your first team member.' : `${summary.team.members_total} active members in this organization.`}</p><Link to="/dashboard/team" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-indigo-700 hover:text-indigo-900">Manage team <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></CardContent>
+          <CardContent><div className="grid grid-cols-3 gap-3"><Metric label="Owners" value={summary.team.owners} /><Metric label="Admins" value={summary.team.admins} /><Metric label="Members" value={summary.team.members} /></div><p className="mt-4 text-sm text-slate-600">{summary.team.members_total <= 1 ? 'Invite your first team member.' : `${summary.team.members_total} active members in this organization.`}</p><Link to="/dashboard/team" className="mt-4 inline-flex items-center justify-center text-sm font-semibold text-indigo-700 hover:text-indigo-900">Manage team</Link></CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Your current subscription</CardTitle><CardDescription>Your plan and payment belong to your account and cover your organizations.</CardDescription></CardHeader>
-          <CardContent>{subscription ? <div className="space-y-3"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Plan</span><span className="text-sm font-semibold text-slate-900">{subscription.plan_name ?? 'Unnamed plan'}</span></div><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Organizations</span><span className="text-sm font-semibold text-slate-900">{summary.billing.organizations_used} of {summary.billing.organization_limit}</span></div><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Status</span><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold capitalize text-emerald-700">{subscription.status}</span></div>{subscription.current_period_end ? <div className="flex items-center justify-between"><span className="text-sm text-slate-500">Current period ends</span><span className="text-sm font-semibold text-slate-900">{formatDate(subscription.current_period_end)}</span></div> : null}<div className="border-t border-slate-100 pt-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chatbot features</p><ul className="mt-2 space-y-1 text-sm text-slate-600">{summary.billing.plan_features.map((feature) => <li key={feature}>• {feature}</li>)}</ul></div></div> : <p className="text-sm text-slate-500">Billing information is not available yet.</p>}<Link to="/dashboard/billing" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-indigo-700 hover:text-indigo-900">Manage billing <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></CardContent>
+          <CardHeader><CardTitle>{isSuperAdmin ? 'Platform administration' : 'Your current subscription'}</CardTitle><CardDescription>{isSuperAdmin ? 'Organization plans and billing are managed from the platform administration tools.' : 'Your plan and payment belong to your account and cover your organizations.'}</CardDescription></CardHeader>
+          <CardContent>{subscription ? <div className="space-y-3"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Plan</span><span className="text-sm font-semibold text-slate-900">{subscription.plan_name ?? 'Unnamed plan'}</span></div><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Organizations</span><span className="text-sm font-semibold text-slate-900">{summary.billing.organizations_used} of {summary.billing.organization_limit}</span></div><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Status</span><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold capitalize text-emerald-700">{subscription.status}</span></div>{subscription.current_period_end ? <div className="flex items-center justify-between"><span className="text-sm text-slate-500">Current period ends</span><span className="text-sm font-semibold text-slate-900">{formatDate(subscription.current_period_end)}</span></div> : null}<div className="border-t border-slate-100 pt-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chatbot features</p><ul className="mt-2 space-y-1 text-sm text-slate-600">{summary.billing.plan_features.map((feature) => <li key={feature}>• {feature}</li>)}</ul></div></div> : <p className="text-sm text-slate-500">Billing information is not available yet.</p>}<Link to="/dashboard/billing" className="mt-5 inline-flex items-center justify-center text-sm font-semibold text-indigo-700 hover:text-indigo-900">Manage billing</Link></CardContent>
         </Card>
       </div>
 

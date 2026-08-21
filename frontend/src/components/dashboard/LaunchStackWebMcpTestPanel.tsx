@@ -22,6 +22,17 @@ interface PreviewSettings {
   dashboard_note: string;
 }
 
+interface ModelContext {
+  registerTool: (definition: {
+    name: string;
+    description: string;
+    inputSchema: typeof jsToolSchema;
+    handler: (params: Record<string, unknown>) => string;
+  }, options: { signal: AbortSignal }) => void;
+}
+
+type ModelContextHost = { modelContext?: ModelContext };
+
 const DECLARATIVE_TOOL_NAME = 'update-launchstack-preview-settings';
 const DECLARATIVE_TOOL_DESCRIPTION =
   'Updates harmless preview-only LaunchStack UI settings for testing browser-native AI tool interaction.';
@@ -45,7 +56,7 @@ const jsToolSchema = {
 };
 
 function getModelContext() {
-  return (document as any).modelContext || (navigator as any).modelContext || null;
+  return (document as ModelContextHost).modelContext || (navigator as ModelContextHost).modelContext || null;
 }
 
 
@@ -57,7 +68,7 @@ export default function LaunchStackWebMcpTestPanel() {
   });
 
   const [webMcpAvailable, setWebMcpAvailable] = useState(false);
-  const [secureContext, setSecureContext] = useState(false);
+  const [secureContext] = useState(() => window.isSecureContext);
   const [jsToolRegistered, setJsToolRegistered] = useState(false);
   const [executionResult, setExecutionResult] = useState<ExecutionResult>({ status: 'idle', message: 'No execution yet.' });
 
@@ -65,8 +76,8 @@ export default function LaunchStackWebMcpTestPanel() {
   const registeredRef = useRef(false);
 
   const [debugInfo, setDebugInfo] = useState({
-    typeofDocumentModelContext: typeof (document as any).modelContext,
-    typeofNavigatorModelContext: typeof (navigator as any).modelContext,
+    typeofDocumentModelContext: typeof (document as ModelContextHost).modelContext,
+    typeofNavigatorModelContext: typeof (navigator as ModelContextHost).modelContext,
     typeofRegisterTool: 'not_checked' as string,
     registrationAttemptCount: 0,
     lastRegistrationError: '',
@@ -75,9 +86,6 @@ export default function LaunchStackWebMcpTestPanel() {
   });
 
   useEffect(() => {
-    const isSecure = window.isSecureContext;
-    setSecureContext(isSecure);
-
     console.log('[WebMCP] Panel mounted');
 
     const ctx = getModelContext();
@@ -86,24 +94,23 @@ export default function LaunchStackWebMcpTestPanel() {
     const hasRegister = ctx !== null && typeof ctx.registerTool === 'function';
     console.log('[WebMCP] registerTool function found:', hasRegister);
 
-    setWebMcpAvailable(hasRegister);
+    queueMicrotask(() => setWebMcpAvailable(hasRegister));
 
-    setDebugInfo((prev) => ({
+    queueMicrotask(() => setDebugInfo((prev) => ({
       ...prev,
-      typeofDocumentModelContext: typeof (document as any).modelContext,
-      typeofNavigatorModelContext: typeof (navigator as any).modelContext,
+      typeofDocumentModelContext: typeof (document as ModelContextHost).modelContext,
+      typeofNavigatorModelContext: typeof (navigator as ModelContextHost).modelContext,
       typeofRegisterTool: hasRegister ? 'function' : typeof ctx?.registerTool,
-    }));
+    })));
 
     if (!hasRegister) {
-      setJsToolRegistered(false);
       return;
     }
 
     // Guard: prevent duplicate registration from React Strict Mode / Vite dev double-mount
     if (registeredRef.current) {
       console.log('[WebMCP] Tool already registered by this component instance, skipping re-registration');
-      setJsToolRegistered(true);
+      queueMicrotask(() => setJsToolRegistered(true));
       return;
     }
 
@@ -111,10 +118,10 @@ export default function LaunchStackWebMcpTestPanel() {
     controllerRef.current = controller;
 
     console.log('[WebMCP] Tool registration started for:', JS_TOOL_NAME);
-    setDebugInfo((prev) => ({
+    queueMicrotask(() => setDebugInfo((prev) => ({
       ...prev,
       registrationAttemptCount: prev.registrationAttemptCount + 1,
-    }));
+    })));
 
     try {
       ctx.registerTool(
@@ -148,17 +155,17 @@ export default function LaunchStackWebMcpTestPanel() {
         { signal: controller.signal },
       );
 
-      setJsToolRegistered(true);
+      queueMicrotask(() => setJsToolRegistered(true));
       registeredRef.current = true;
       console.log('[WebMCP] Tool registration success');
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       console.error('[WebMCP] Tool registration failed:', e);
-      setJsToolRegistered(false);
-      setDebugInfo((prev) => ({
+      queueMicrotask(() => setJsToolRegistered(false));
+      queueMicrotask(() => setDebugInfo((prev) => ({
         ...prev,
         lastRegistrationError: errorMessage,
-      }));
+      })));
     }
 
     return () => {

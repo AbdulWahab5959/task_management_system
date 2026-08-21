@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowUpRight, Building2, ChevronDown, LogOut, Menu, Settings, UserCircle, X } from 'lucide-react';
+import { AlertTriangle, Building2, Check, ChevronDown, LogOut, Menu, Search, Settings, UserCircle, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -74,7 +74,7 @@ function getAvatarUrl(url?: string | null): string | null {
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
-  const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') ?? 'http://localhost:8000';
+  const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') ?? 'http://localhost:8000';
   return `${baseUrl}${url}`;
 }
 
@@ -83,16 +83,24 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const { tenants, activeTenant, selectTenant } = useTenant();
+  const isSuperAdmin = user?.role === 'super_admin';
   const [billing, setBilling] = useState<CurrentBillingResponse | null>(null);
   const [upgradePlans, setUpgradePlans] = useState<BillingPlan[]>([]);
   const [limitTenant, setLimitTenant] = useState<{ name: string; limit: number | string } | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [organizationOpen, setOrganizationOpen] = useState(false);
+  const [organizationSearch, setOrganizationSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [createOpenPath, setCreateOpenPath] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const organizationDropdownRef = useRef<HTMLDivElement>(null);
   const pageTitle = getPageTitle(location.pathname);
 
   useEffect(() => {
+    if (isSuperAdmin) {
+      return;
+    }
+
     let mounted = true;
     void Promise.all([getCurrentBilling(), getBillingPlans()])
       .then(([currentBilling, plansResponse]) => {
@@ -104,7 +112,7 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
         // Organization switching remains available if billing is temporarily unavailable.
       });
     return () => { mounted = false; };
-  }, []);
+  }, [isSuperAdmin]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -124,6 +132,20 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
   }, [profileOpen]);
 
   useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (organizationDropdownRef.current && !organizationDropdownRef.current.contains(event.target as Node)) {
+        setOrganizationOpen(false);
+      }
+    };
+
+    if (organizationOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [organizationOpen]);
+
+  useEffect(() => {
     if (!createOpen) return;
 
     const handleEsc = (event: KeyboardEvent) => {
@@ -136,8 +158,10 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
 
   // Persistent dashboard navigation must not keep a dialog mounted after routing away.
   useEffect(() => {
-    setLimitTenant(null);
-    setCreateOpen(false);
+    queueMicrotask(() => {
+      setLimitTenant(null);
+      setCreateOpen(false);
+    });
   }, [location.pathname]);
 
   // Close dropdown on Escape key
@@ -175,6 +199,34 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
     return position >= limit;
   };
 
+  const filteredOrganizations = tenants.filter((tenant) => {
+    const query = organizationSearch.trim().toLowerCase();
+    return !query || tenant.name.toLowerCase().includes(query) || tenant.slug.toLowerCase().includes(query);
+  });
+
+  const selectOrganization = (tenantId: number) => {
+    const selectedTenant = tenants.find((tenant) => tenant.id === tenantId);
+    if (!selectedTenant) return;
+    if (isOverPlanLimit(tenantId)) {
+      setLimitTenant({ name: selectedTenant.name, limit: billing?.organization_limit ?? 0 });
+      return;
+    }
+    selectTenant(tenantId);
+    setOrganizationOpen(false);
+    setOrganizationSearch('');
+  };
+
+  const openOrganizationCreation = () => {
+    if (billing && billing.organization_limit !== 'unlimited' && Number(billing.organizations_used) >= Number(billing.organization_limit)) {
+      setLimitTenant({ name: 'a new organization', limit: billing.organization_limit });
+      return;
+    }
+    setOrganizationOpen(false);
+    setOrganizationSearch('');
+    setCreateOpenPath(location.pathname);
+    setCreateOpen(true);
+  };
+
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 shadow-sm shadow-slate-200/50 backdrop-blur-xl supports-[backdrop-filter]:bg-white/80">
       <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-5 lg:px-6">
@@ -194,8 +246,18 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <div className="hidden items-center gap-2 sm:flex">
-            <Building2 className="h-4 w-4 text-white" aria-hidden="true" />
+          <div ref={organizationDropdownRef} className="relative hidden sm:block">
+            <Building2 className="hidden" aria-hidden="true" />
+            <button type="button" aria-label="Choose active organization" aria-expanded={organizationOpen} aria-haspopup="listbox" onClick={() => setOrganizationOpen((current) => !current)} onKeyDown={(event) => { if (event.key === 'Escape') setOrganizationOpen(false); }} className="group flex min-h-10 w-64 items-center gap-2.5 rounded-xl border border-slate-200 bg-white/95 px-3 text-left shadow-sm shadow-slate-200/50 outline-none transition-[border-color,box-shadow] hover:border-indigo-300 focus-visible:border-indigo-500 focus-visible:ring-4 focus-visible:ring-indigo-500/15">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 transition-transform group-active:scale-[0.96]"><Building2 className="h-4 w-4" aria-hidden="true" /></span>
+              <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-800">{activeTenant?.name ?? 'Select organization'}</span><span className="block truncate text-[11px] text-slate-500">{activeTenant?.slug ?? 'Choose a workspace'}</span></span>
+              <ChevronDown className={cn('h-4 w-4 shrink-0 text-slate-400 transition-transform duration-150', organizationOpen && 'rotate-180 text-indigo-600')} aria-hidden="true" />
+            </button>
+            {organizationOpen ? <div className="absolute right-0 top-[calc(100%+0.6rem)] z-50 w-[21rem] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/15 ring-1 ring-slate-900/5" role="dialog" aria-label="Organization switcher">
+              <div className="border-b border-slate-100 bg-slate-50/80 p-3"><div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 shadow-sm focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/10"><Search className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" /><input type="search" value={organizationSearch} onChange={(event) => setOrganizationSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape') setOrganizationOpen(false); }} placeholder="Search organizations" aria-label="Search organizations" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400" autoFocus /></div><div className="mt-3 flex items-center justify-between px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400"><span>Organizations</span><span className="tabular-nums">{filteredOrganizations.length} of {tenants.length}</span></div></div>
+              <div className="max-h-80 overflow-y-auto p-2" role="listbox" aria-label="Organizations">{filteredOrganizations.length > 0 ? filteredOrganizations.map((tenant) => { const selected = tenant.id === activeTenant?.id; return <button key={tenant.id} type="button" role="option" aria-selected={selected} onClick={() => selectOrganization(tenant.id)} className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-[background-color,box-shadow] hover:bg-slate-50 focus-visible:bg-indigo-50 focus-visible:outline-none', selected && 'bg-indigo-50/80 ring-1 ring-indigo-100')}><span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold', selected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600')}>{tenant.name.slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-800">{tenant.name}</span><span className="mt-0.5 block truncate text-xs text-slate-500">{tenant.slug} · {tenant.role === 'super_admin' ? 'Platform access' : tenant.role ?? 'Member'}</span></span>{selected ? <Check className="h-4 w-4 shrink-0 text-indigo-600" aria-label="Selected organization" /> : null}</button>; }) : <div className="px-4 py-8 text-center"><Building2 className="mx-auto h-7 w-7 text-slate-300" aria-hidden="true" /><p className="mt-2 text-sm font-semibold text-slate-700">No organizations found</p><p className="mt-1 text-xs text-slate-500">Try a different name or slug.</p></div>}</div>
+              {!isSuperAdmin ? <div className="border-t border-slate-100 bg-slate-50/70 p-2"><button type="button" onClick={openOrganizationCreation} className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-50 focus-visible:bg-indigo-50 focus-visible:outline-none"><span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">+</span>Create organization</button></div> : null}
+            </div> : null}
             <select
               aria-label="Active organization"
               value={activeTenant?.id ?? ''}
@@ -217,14 +279,14 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
                 }
                 selectTenant(tenantId);
               }}
-              className="max-w-44 rounded-lg border border-slate-200 bg-white/90 py-2 pl-2.5 pr-8 text-sm font-semibold text-slate-700 shadow-sm outline-none transition hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+              className="hidden"
             >
               {tenants.map((tenant) => (
                 <option key={tenant.id} value={tenant.id}>
                   {tenant.name} · {tenant.slug}
                 </option>
               ))}
-              <option value="create">＋ Create organization</option>
+              {!isSuperAdmin ? <option value="create">Create organization</option> : null}
             </select>
           </div>
           <NotificationDropdown unreadCount={0} onUnreadCountChange={() => {}} />
@@ -381,20 +443,20 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
       ) : null}
       {limitTenant ? (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/55 px-5 py-8 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setLimitTenant(null); }}>
-          <div role="dialog" aria-modal="true" aria-labelledby="organization-limit-title" className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-amber-200 bg-white p-6 shadow-2xl shadow-slate-950/20">
+          <div role="dialog" aria-modal="true" aria-labelledby="organization-limit-title" className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-x-hidden overflow-y-auto rounded-2xl border border-amber-200 bg-white p-6 shadow-2xl shadow-slate-950/20">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><AlertTriangle className="h-5 w-5" aria-hidden="true" /></span><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Plan limit reached</p><h2 id="organization-limit-title" className="mt-1 text-xl font-semibold text-slate-950">Upgrade to open {limitTenant.name}</h2></div></div>
               <button type="button" aria-label="Close organization limit dialog" onClick={() => setLimitTenant(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900"><X className="h-5 w-5" aria-hidden="true" /></button>
             </div>
             <p className="mt-5 text-sm leading-6 text-slate-600">This organization is beyond your current allowance of <strong>{limitTenant.limit}</strong> organizations. Upgrade your account plan to access it, or archive an organization you no longer need.</p>
-            <div className="mt-5 flex justify-start gap-3">
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {upgradePlans.filter((plan) => {
                 if (limitTenant.limit === 'unlimited') return false;
                 const currentLimit = Number(limitTenant.limit);
                 const planLimit = plan.limits?.organizations;
                 return planLimit === 'unlimited' || (Number.isFinite(Number(planLimit)) && Number(planLimit) > currentLimit);
-              }).map((plan) => <button key={plan.id} type="button" onClick={() => { setLimitTenant(null); navigate(`/dashboard/billing/checkout/${plan.id}`); }} className="inline-flex min-w-56 items-center justify-between gap-5 rounded-lg bg-[#8200fa] px-4 py-2.5 text-left text-white shadow-sm shadow-[#8200fa]/20 transition hover:bg-[#7000d9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8200fa] focus-visible:ring-offset-2"><span><span className="block text-sm font-semibold">Upgrade to {plan.name}</span><span className="mt-0.5 block text-xs text-white/85">{plan.limits?.organizations === 'unlimited' ? 'Unlimited organizations' : `Up to ${plan.limits?.organizations ?? 0} organizations`}</span></span></button>)}
-              {upgradePlans.filter((plan) => plan.limits?.organizations === 'unlimited' || Number(plan.limits?.organizations) > Number(limitTenant.limit)).length === 0 ? <button type="button" onClick={() => { setLimitTenant(null); navigate('/dashboard/billing'); }} className="inline-flex items-center gap-2 rounded-lg bg-[#8200fa] px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-[#8200fa]/20 transition hover:bg-[#7000d9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8200fa] focus-visible:ring-offset-2">Review available plans <ArrowUpRight className="h-4 w-4" aria-hidden="true" /></button> : null}
+              }).map((plan) => <button key={plan.id} type="button" onClick={() => { setLimitTenant(null); navigate(`/dashboard/billing/checkout/${plan.id}`); }} className="inline-flex min-w-0 w-full items-center justify-between gap-3 rounded-lg bg-[#8200fa] px-4 py-2.5 text-left text-white shadow-sm shadow-[#8200fa]/20 transition hover:bg-[#7000d9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8200fa] focus-visible:ring-offset-2"><span className="min-w-0"><span className="block truncate text-sm font-semibold">Upgrade to {plan.name}</span><span className="mt-0.5 block truncate text-xs text-white/85">{plan.limits?.organizations === 'unlimited' ? 'Unlimited organizations' : `Up to ${plan.limits?.organizations ?? 0} organizations`}</span></span></button>)}
+              {upgradePlans.filter((plan) => plan.limits?.organizations === 'unlimited' || Number(plan.limits?.organizations) > Number(limitTenant.limit)).length === 0 ? <button type="button" onClick={() => { setLimitTenant(null); navigate('/dashboard/billing'); }} className="inline-flex items-center justify-center rounded-lg bg-[#8200fa] px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-[#8200fa]/20 transition hover:bg-[#7000d9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8200fa] focus-visible:ring-offset-2">Review available plans</button> : null}
             </div>
             <div className="mt-5 flex justify-center">
               <button type="button" onClick={() => setLimitTenant(null)} className="rounded-lg bg-[#8200fa] px-7 py-2.5 text-sm font-semibold text-white shadow-sm shadow-[#8200fa]/20 transition hover:bg-[#7000d9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8200fa] focus-visible:ring-offset-2">Close</button>

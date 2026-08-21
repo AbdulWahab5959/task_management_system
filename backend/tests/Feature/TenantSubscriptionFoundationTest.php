@@ -78,6 +78,7 @@ class TenantSubscriptionFoundationTest extends TestCase
         $tenant = $this->createTenant();
         $plan = $this->createPlan([
             'features' => ['priority_support'],
+            'metadata' => ['entitlements' => ['chatbot.basic']],
             'limits' => [
                 'projects' => 3,
                 'custom_branding' => true,
@@ -90,6 +91,8 @@ class TenantSubscriptionFoundationTest extends TestCase
         $entitlements = app(TenantEntitlementService::class);
 
         $this->assertTrue($entitlements->hasFeature($tenant, 'priority_support'));
+        $this->assertTrue($entitlements->hasEntitlement($tenant, 'chatbot.basic'));
+        $this->assertFalse($entitlements->hasEntitlement($tenant, 'chatbot.unknown'));
         $this->assertTrue($entitlements->hasFeature($tenant, 'custom_branding'));
         $this->assertFalse($entitlements->hasFeature($tenant, 'api_access'));
         $this->assertFalse($entitlements->hasFeature($tenant, 'unknown_feature'));

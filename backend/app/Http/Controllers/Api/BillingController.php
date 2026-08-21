@@ -433,6 +433,7 @@ class BillingController extends Controller
             'interval' => $plan->interval ?? $plan->billing_interval,
             'billing_interval' => $plan->billing_interval,
             'features' => $plan->features,
+            'entitlements' => $plan->entitlements(),
             'limits' => $plan->limits ?? [],
             'is_popular' => $plan->is_popular,
             'is_active' => $plan->is_active,

@@ -28,7 +28,11 @@ class TenantController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $tenants = $request->user()->tenants()
+        $query = $request->user()->role === User::ROLE_SUPER_ADMIN
+            ? Tenant::query()
+            : $request->user()->tenants();
+
+        $tenants = $query
             ->where('tenants.status', Tenant::STATUS_ACTIVE)
             ->get(['tenants.id', 'tenants.name', 'tenants.slug', 'tenants.status', 'tenants.owner_id', 'tenants.trial_ends_at', 'tenants.created_at'])
             ->map(fn (Tenant $tenant) => $this->serializeTenant($tenant, $request->user()));
@@ -38,6 +42,13 @@ class TenantController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        if ($request->user()->role === User::ROLE_SUPER_ADMIN) {
+            return response()->json([
+                'message' => 'Super admins manage existing organizations and cannot create organizations.',
+                'code' => 'super_admin_creation_forbidden',
+            ], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'industry' => ['required', 'string', Rule::in([
@@ -132,7 +143,9 @@ class TenantController extends Controller
             'name' => $tenant->name,
             'slug' => $tenant->slug,
             'status' => $tenant->status,
-            'role' => $tenant->pivot?->role ?? $user->getRoleInTenant($tenant),
+            'role' => $user->role === User::ROLE_SUPER_ADMIN
+                ? User::ROLE_SUPER_ADMIN
+                : ($tenant->pivot?->role ?? $user->getRoleInTenant($tenant)),
             'owner_id' => $tenant->owner_id,
             'trial_ends_at' => $tenant->trial_ends_at?->toISOString(),
             'created_at' => $tenant->created_at?->toISOString(),

@@ -300,6 +300,10 @@ class TenantInvitationController extends Controller
 
     private function authorizeManager(Request $request, Tenant $tenant): string
     {
+        if ($request->user()->role === \App\Models\User::ROLE_SUPER_ADMIN) {
+            return 'owner';
+        }
+
         $role = $request->user()->getRoleInTenant($tenant);
         if (!in_array($role, ['owner', 'admin'], true)) {
             abort(403, 'You do not have permission to manage invitations.');
