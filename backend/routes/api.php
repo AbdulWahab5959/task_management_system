@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PlanController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\TenantSettingsController;
 use App\Http\Controllers\TenantInvitationController;
@@ -158,6 +159,8 @@ Route::prefix('auth')->group(function () {
 
     Route::post('/login', [AuthController::class, 'login'])
         ->middleware('throttle:auth-login');
+    Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])
+        ->middleware('throttle:auth-2fa-challenge');
 
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
         ->middleware('throttle:auth-forgot-password');
@@ -173,6 +176,12 @@ Route::prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/email/verification-notification', [AuthController::class, 'sendVerificationNotification'])
             ->middleware('throttle:auth-email-verification-notification');
+        Route::prefix('2fa')->group(function () {
+            Route::post('/setup', [TwoFactorController::class, 'setup']);
+            Route::post('/confirm', [TwoFactorController::class, 'confirm'])->middleware('throttle:auth-2fa-confirm');
+            Route::post('/disable', [TwoFactorController::class, 'disable'])->middleware('throttle:auth-2fa-confirm');
+            Route::post('/recovery-codes', [TwoFactorController::class, 'recoveryCodes'])->middleware('throttle:auth-2fa-confirm');
+        });
     });
 
     Route::get('/verify-email/{id}/{hash}', [AuthController::class, 'verifyEmail'])

@@ -16,6 +16,8 @@ use Illuminate\Auth\Events\Verified;
 use App\Models\User;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
@@ -72,6 +74,21 @@ class AuthController extends Controller
             ]);
         }
 
+        if ($user->two_factor_confirmed_at) {
+            $challengeToken = Str::random(64);
+            Cache::put('2fa-login:' . hash('sha256', $challengeToken), $user->id, now()->addMinutes(5));
+            return response()->json([
+                'two_factor_required' => true,
+                'challenge_token' => $challengeToken,
+                'requires_email_verification' => ! $user->hasVerifiedEmail(),
+            ], 202);
+        }
+
+        return $this->issueLoginResponse($request, $user);
+    }
+
+    public function issueLoginResponse(Request $request, User $user)
+    {
         $token = $user->createToken('auth_token')->plainTextToken;
 
         $this->activityLogService->log(

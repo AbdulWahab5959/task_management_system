@@ -31,7 +31,7 @@ class UserSettingsTest extends TestCase
             ->assertJsonPath('data.notifications.marketing_enabled', true)
             ->assertJsonPath('data.preferences.timezone', 'Asia/Karachi')
             ->assertJsonPath('data.preferences.locale', 'en')
-            ->assertJsonPath('data.security.two_factor_status', 'coming_soon');
+            ->assertJsonPath('data.security.two_factor_status', 'available');
     }
 
     public function test_authenticated_user_can_update_their_settings(): void

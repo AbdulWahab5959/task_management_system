@@ -26,9 +26,11 @@ export interface RegisterData {
 }
 
 export interface AuthResponse {
-  user: User;
-  token: string;
+  user?: User;
+  token?: string;
   requires_email_verification?: boolean;
+  two_factor_required?: boolean;
+  challenge_token?: string;
   message?: string;
 }
 

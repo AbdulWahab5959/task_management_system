@@ -4,7 +4,7 @@ import type { LoginCredentials, RegisterData, User } from '../types/auth.types';
 export interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (credentials: LoginCredentials) => Promise<{ requires_email_verification?: boolean; message?: string }>;
+  login: (credentials: LoginCredentials) => Promise<{ requires_email_verification?: boolean; message?: string; two_factor_required?: boolean; challenge_token?: string }>;
   register: (data: RegisterData) => Promise<{ requires_email_verification?: boolean; message?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;

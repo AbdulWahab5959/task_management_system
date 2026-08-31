@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/dashboard/PageHeader';
 import { userSettingsService } from '../../services/user-settings.service';
+import { authService } from '../../services/auth.service';
 import type {
   UserNotificationPreferences,
   UserPreferences,
@@ -135,6 +136,12 @@ export default function UserSettingsPage() {
   const [fieldErrors, setFieldErrors] = useState<ApiErrors>({});
   const [savedMessage, setSavedMessage] = useState('');
   const [securityStatus, setSecurityStatus] = useState<string>('coming_soon');
+  const [twoFactorPassword, setTwoFactorPassword] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [twoFactorSecret, setTwoFactorSecret] = useState('');
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [twoFactorError, setTwoFactorError] = useState('');
+  const [twoFactorBusy, setTwoFactorBusy] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -200,6 +207,27 @@ export default function UserSettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const startTwoFactorSetup = async () => {
+    setTwoFactorBusy(true); setTwoFactorError('');
+    try { const response = await authService.twoFactorSetup(twoFactorPassword); setTwoFactorSecret(response.data.secret); setSecurityStatus('setup'); }
+    catch { setTwoFactorError('We could not start setup. Check your password and try again.'); }
+    finally { setTwoFactorBusy(false); }
+  };
+
+  const confirmTwoFactor = async () => {
+    setTwoFactorBusy(true); setTwoFactorError('');
+    try { const response = await authService.twoFactorConfirm(twoFactorCode); setRecoveryCodes(response.data.recovery_codes); setSecurityStatus('enabled'); setTwoFactorSecret(''); setTwoFactorCode(''); setTwoFactorPassword(''); }
+    catch { setTwoFactorError('That authenticator code is invalid or expired.'); }
+    finally { setTwoFactorBusy(false); }
+  };
+
+  const disableTwoFactor = async () => {
+    setTwoFactorBusy(true); setTwoFactorError('');
+    try { await authService.twoFactorDisable(twoFactorPassword, twoFactorCode); setSecurityStatus('disabled'); setTwoFactorPassword(''); setTwoFactorCode(''); }
+    catch { setTwoFactorError('The password or authentication code is invalid.'); }
+    finally { setTwoFactorBusy(false); }
   };
 
   return (
@@ -359,7 +387,7 @@ export default function UserSettingsPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4">
+              <div className="rounded-xl border border-slate-200 p-4">
                 <div className="flex items-center gap-3">
                   <KeyRound className="h-5 w-5 text-slate-500" aria-hidden="true" />
                   <div>
@@ -390,9 +418,14 @@ export default function UserSettingsPage() {
                     </p>
                   </div>
                 </div>
-                <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold capitalize text-slate-600">
-                  {securityStatus === 'coming_soon' ? 'Coming soon' : securityStatus}
-                </span>
+                {securityStatus === 'enabled' ? <span className="mt-3 inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Enabled</span> : null}
+                <div className="mt-4 space-y-3">
+                  {securityStatus !== 'enabled' && !twoFactorSecret ? <><input type="password" value={twoFactorPassword} onChange={(event) => setTwoFactorPassword(event.target.value)} placeholder="Confirm your password" className="dashboard-control" /><Button type="button" size="sm" isLoading={twoFactorBusy} onClick={() => void startTwoFactorSetup()}>Set up authenticator</Button></> : null}
+                  {twoFactorSecret ? <div className="space-y-3 rounded-lg bg-slate-50 p-3 text-sm"><p>Enter this secret in your authenticator app:</p><code className="block break-all font-mono text-xs text-slate-700">{twoFactorSecret}</code><input inputMode="numeric" value={twoFactorCode} onChange={(event) => setTwoFactorCode(event.target.value)} placeholder="6-digit code" className="dashboard-control" /><Button type="button" size="sm" isLoading={twoFactorBusy} onClick={() => void confirmTwoFactor()}>Confirm and enable</Button></div> : null}
+                  {securityStatus === 'enabled' ? <><div className="grid gap-3 sm:grid-cols-2"><input type="password" value={twoFactorPassword} onChange={(event) => setTwoFactorPassword(event.target.value)} placeholder="Password" className="dashboard-control" /><input value={twoFactorCode} onChange={(event) => setTwoFactorCode(event.target.value)} placeholder="Authenticator or recovery code" className="dashboard-control" /></div><Button type="button" size="sm" variant="danger" isLoading={twoFactorBusy} onClick={() => void disableTwoFactor()}>Disable 2FA</Button></> : null}
+                  {recoveryCodes.length > 0 ? <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><p className="font-semibold">Save these recovery codes somewhere safe. Each works once.</p><code className="mt-2 block whitespace-pre-wrap font-mono">{recoveryCodes.join('\n')}</code></div> : null}
+                  {twoFactorError ? <p className="text-xs font-medium text-rose-600" role="alert">{twoFactorError}</p> : null}
+                </div>
               </div>
 
               <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4">

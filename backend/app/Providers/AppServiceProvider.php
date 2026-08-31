@@ -31,6 +31,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($request->ip().'|'.$email);
         });
 
+        RateLimiter::for('auth-2fa-challenge', function (Request $request) {
+            return Limit::perMinute(6)->by($request->ip().'|'.hash('sha256', (string) $request->input('challenge_token')));
+        });
+
+        RateLimiter::for('auth-2fa-confirm', function (Request $request) {
+            return Limit::perMinute(6)->by($request->user()?->getAuthIdentifier() ?? $request->ip());
+        });
+
         RateLimiter::for('auth-register', function (Request $request) {
             $email = strtolower((string) $request->input('email'));
 

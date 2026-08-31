@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import AuthLayout from '../../components/auth/AuthLayout';
 import type { LoginCredentials } from '../../types/auth.types';
+import { authService } from '../../services/auth.service';
 
 type FieldErrors = Partial<Record<keyof LoginCredentials, string[]>> & { email?: string[] };
 
@@ -53,6 +54,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [challengeToken, setChallengeToken] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -62,6 +65,10 @@ export default function LoginPage() {
 
     try {
       const response = await login(formData);
+      if (response.two_factor_required && response.challenge_token) {
+        setChallengeToken(response.challenge_token);
+        return;
+      }
       const redirectParam = searchParams.get('redirect');
       const redirectTo = redirectParam?.startsWith('/') && !redirectParam.startsWith('//')
         ? redirectParam
@@ -96,6 +103,20 @@ export default function LoginPage() {
     }
   };
 
+  const handleChallenge = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const response = await authService.challenge({ challenge_token: challengeToken, code: twoFactorCode });
+      if (!response.data.token) throw new Error('The sign-in response was incomplete.');
+      localStorage.setItem('auth_token', response.data.token);
+      window.location.assign('/dashboard');
+    } catch (exception: unknown) {
+      setError(getLoginErrorMessage(exception));
+    } finally { setLoading(false); }
+  };
+
   return (
     <AuthLayout
       title="Login"
@@ -110,7 +131,7 @@ export default function LoginPage() {
         </>
       }
     >
-      <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
+      {challengeToken ? <form className="mt-8 space-y-4" onSubmit={handleChallenge}>{error ? <div role="alert" className="rounded-lg border border-rose-400/20 bg-rose-500/15 px-4 py-3 text-sm leading-6 text-rose-100"><p className="font-semibold">Verification failed</p><p className="mt-1">{error}</p></div> : null}<p className="text-sm leading-6 text-slate-300">Enter the 6-digit code from your authenticator app, or use one of your recovery codes.</p><div><label className="mb-1 block text-sm text-slate-200" htmlFor="two-factor-code">Authentication code</label><input id="two-factor-code" inputMode="numeric" autoFocus value={twoFactorCode} onChange={(event) => setTwoFactorCode(event.target.value)} className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none focus:border-cyan-400" /></div><button type="submit" disabled={loading} className="w-full rounded-xl bg-cyan-400 px-4 py-3 font-medium text-slate-950 transition hover:bg-cyan-300 disabled:opacity-60">{loading ? 'Verifying...' : 'Verify and sign in'}</button><button type="button" onClick={() => { setChallengeToken(''); setTwoFactorCode(''); setError(''); }} className="w-full text-sm text-slate-400 hover:text-white">Back to password</button></form> : <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
         {error ? <div role="alert" className="rounded-lg border border-rose-400/20 bg-rose-500/15 px-4 py-3 text-sm leading-6 text-rose-100"><p className="font-semibold">We couldn’t sign you in</p><p className="mt-1">{error}</p></div> : null}
 
         <div>
@@ -151,7 +172,7 @@ export default function LoginPage() {
         >
           {loading ? 'Signing in...' : 'Sign in'}
         </button>
-      </form>
+      </form>}
     </AuthLayout>
   );
 }
