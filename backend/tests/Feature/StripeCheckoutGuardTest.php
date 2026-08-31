@@ -99,6 +99,93 @@ class StripeCheckoutGuardTest extends TestCase
         $this->assertDatabaseCount('payments', 1);
     }
 
+    public function test_explicit_retry_creates_a_new_session_and_expires_the_old_payment(): void
+    {
+        config([
+            'services.stripe.secret' => 'sk_test_checkout_guard',
+            'services.frontend.url' => 'http://localhost:5173',
+        ]);
+
+        $stripeClient = new RecordingStripeClient;
+        ApiRequestor::setHttpClient($stripeClient);
+
+        $user = User::factory()->create();
+        $plan = $this->createPlan();
+        Sanctum::actingAs($user);
+
+        $subscription = Subscription::create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'gateway' => 'stripe',
+            'status' => 'pending',
+        ]);
+
+        $oldPayment = Payment::create([
+            'user_id' => $user->id,
+            'subscription_id' => $subscription->id,
+            'plan_id' => $plan->id,
+            'gateway' => 'stripe',
+            'reference' => 'pay_expired_checkout',
+            'provider_session_id' => 'cs_test_expired_checkout',
+            'amount' => $plan->amount,
+            'currency' => 'USD',
+            'status' => Payment::STATUS_PENDING,
+            'checkout_url' => 'https://checkout.stripe.test/expired',
+        ]);
+
+        $this->postJson('/api/billing/stripe/checkout', [
+            'plan_id' => $plan->id,
+            'retry_payment_reference' => $oldPayment->reference,
+        ])
+            ->assertOk()
+            ->assertJsonPath('session_id', 'cs_test_recorded_1');
+
+        $this->assertSame(Payment::STATUS_EXPIRED, $oldPayment->fresh()->status);
+        $this->assertSame('failed', $subscription->fresh()->status);
+        $this->assertSame(2, Payment::query()->count());
+        $this->assertSame(2, Subscription::query()->count());
+        $this->assertCount(1, $stripeClient->requests);
+    }
+
+    public function test_retry_cannot_use_another_users_payment_reference(): void
+    {
+        $owner = User::factory()->create();
+        $attacker = User::factory()->create();
+        $plan = $this->createPlan();
+
+        $subscription = Subscription::create([
+            'user_id' => $owner->id,
+            'plan_id' => $plan->id,
+            'gateway' => 'stripe',
+            'status' => 'pending',
+        ]);
+
+        $payment = Payment::create([
+            'user_id' => $owner->id,
+            'subscription_id' => $subscription->id,
+            'plan_id' => $plan->id,
+            'gateway' => 'stripe',
+            'reference' => 'pay_other_user_checkout',
+            'provider_session_id' => 'cs_other_user_checkout',
+            'amount' => $plan->amount,
+            'currency' => 'USD',
+            'status' => Payment::STATUS_PENDING,
+            'checkout_url' => 'https://checkout.stripe.test/other-user',
+        ]);
+
+        Sanctum::actingAs($attacker);
+
+        $this->postJson('/api/billing/stripe/checkout', [
+            'plan_id' => $plan->id,
+            'retry_payment_reference' => $payment->reference,
+        ])
+            ->assertNotFound()
+            ->assertJson(['message' => 'This pending payment cannot be retried.']);
+
+        $this->assertSame(Payment::STATUS_PENDING, $payment->fresh()->status);
+        $this->assertDatabaseCount('payments', 1);
+    }
+
     public function test_monthly_and_yearly_checkout_send_their_stored_stripe_price_ids(): void
     {
         config([

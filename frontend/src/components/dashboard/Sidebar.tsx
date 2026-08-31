@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   Mail,
+  MessageCircle,
   Package,
   ReceiptText,
   Rocket,
@@ -55,12 +56,13 @@ const mainNavItems: NavigationItem[] = [
   { label: 'Users', to: '/dashboard/users', icon: Users, nested: true, roles: ['super_admin'] },
   { label: 'Activity Logs', to: '/dashboard/activity-logs', icon: Activity, roles: ['super_admin'] },
   { label: 'Contact Messages', to: '/dashboard/contact-messages', icon: Mail, roles: ['super_admin'] },
+  { label: 'Support Inbox', to: '/dashboard/support', icon: MessageCircle, roles: ['super_admin'] },
 ];
 
 const accountNavItems: NavigationItem[] = [
   { label: 'Team', to: '/dashboard/team', icon: Users },
   { label: 'Settings', to: '/dashboard/settings', icon: Settings },
-  { label: 'Account settings', to: '/dashboard/settings/account', icon: UserCog },
+  { label: 'Personal settings', to: '/dashboard/settings/account', icon: UserCog },
 
   { label: 'Profile', to: '/dashboard/profile', icon: UserCircle },
   { label: 'WebMCP Test', to: '/dashboard/webmcp-test', icon: FlaskConical, roles: ['super_admin'] },
@@ -159,6 +161,7 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="sidebar-scrollbar flex-1 overflow-y-auto scroll-smooth px-2.5 py-3" aria-label="Dashboard navigation">
+          <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Workspace</p>
           <div className="space-y-1">
             {mainNavItems
               .filter((item) => !item.roles || item.roles.includes(user?.role ?? 'user'))
@@ -193,7 +196,7 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
           </div>
 
           <div className="mt-3 border-t border-white/10 pt-3">
-            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-widest text-slate-500">Account</p>
+            <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Account</p>
             <div className="space-y-1">
               {accountNavItems
                 .filter((item) => !item.roles || item.roles.includes(user?.role ?? 'user'))

@@ -89,15 +89,15 @@ export default function PlanCard({
 
   return (
     <article
-      className={`flex h-full flex-col rounded-lg border p-6 shadow-sm ${
+      className={`public-panel flex h-full flex-col border p-6 transition-transform duration-200 hover:-translate-y-1 ${
         isPopular
-          ? 'border-cyan-400 bg-cyan-400/10 shadow-cyan-950/40'
-          : 'border-white/10 bg-white/[0.04]'
+          ? 'border-[#d7f36b] bg-[#d7f36b]/[0.08]'
+          : 'border-white/10'
       }`}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-white">{plan.name}</h2>
+          <h2 className="text-xl font-bold text-white">{plan.name}</h2>
           {plan.description ? (
             <p className="mt-2 text-sm leading-6 text-slate-300">
               {plan.description}
@@ -105,7 +105,7 @@ export default function PlanCard({
           ) : null}
         </div>
         {isPopular ? (
-          <span className="rounded-md bg-cyan-300 px-2.5 py-1 text-xs font-semibold text-slate-950">
+            <span className="bg-[#d7f36b] px-2.5 py-1 text-xs font-bold text-slate-950">
             Popular
           </span>
         ) : null}
@@ -124,7 +124,7 @@ export default function PlanCard({
         <ul className="mt-8 space-y-3">
           {features.map((feature) => (
             <li key={feature} className="flex gap-3 text-sm text-slate-300">
-              <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#d7f36b]" aria-hidden="true" />
               <span>{feature}</span>
             </li>
           ))}
@@ -148,7 +148,7 @@ export default function PlanCard({
           disabled={loading}
           aria-busy={loading}
           aria-describedby={error ? errorId : undefined}
-          className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md bg-cyan-400 px-3.5 text-sm font-bold leading-none text-slate-950 transition hover:bg-cyan-300 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-70"
+            className="public-button public-button--lime w-full disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading ? (
             <>

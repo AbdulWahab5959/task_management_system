@@ -5,10 +5,13 @@ import Sidebar from '../components/dashboard/Sidebar';
 import { useTenant } from '../hooks/useTenant';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
+import SupportWidget from '../components/support/SupportWidget';
+import { useAuth } from '../hooks/useAuth';
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { loading, error, refreshTenants } = useTenant();
+  const { user } = useAuth();
 
   if (loading) {
     return (
@@ -32,11 +35,12 @@ export default function DashboardLayout() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex min-w-0 flex-col lg:pl-64">
         <DashboardNavbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="min-w-0 flex-1 px-3 py-5 sm:px-5 sm:py-6 lg:px-6">
+        <main className={`min-w-0 flex-1 px-3 py-5 sm:px-5 sm:py-6 lg:px-6 ${user?.role !== 'super_admin' ? 'dashboard-main-with-support' : ''}`}>
           <div className="mx-auto w-full max-w-[1500px]">
             <Outlet />
           </div>
         </main>
+        {user?.role !== 'super_admin' ? <SupportWidget /> : null}
       </div>
     </div>
   );

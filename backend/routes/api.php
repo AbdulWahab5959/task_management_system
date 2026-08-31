@@ -35,6 +35,16 @@ Route::post('/stripe/webhook', StripeWebhookController::class);
 Route::get('/invitations/{token}', [TenantInvitationController::class, 'preview']);
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('support')->middleware('throttle:30,1')->group(function () {
+        Route::get('/faqs', [App\Http\Controllers\Api\SupportController::class, 'faqs'])->withoutMiddleware('throttle:30,1');
+        Route::get('/faqs/{slug}', [App\Http\Controllers\Api\SupportController::class, 'faqAnswer'])->withoutMiddleware('throttle:30,1');
+        Route::post('/conversation/faqs/{slug}', [App\Http\Controllers\Api\SupportController::class, 'faqInteraction']);
+        Route::get('/conversation', [App\Http\Controllers\Api\SupportController::class, 'show']);
+        Route::get('/conversation/messages', [App\Http\Controllers\Api\SupportController::class, 'messages']);
+        Route::post('/conversation/messages', [App\Http\Controllers\Api\SupportController::class, 'send'])->middleware('throttle:support-messages');
+        Route::post('/conversation/read', [App\Http\Controllers\Api\SupportController::class, 'markRead']);
+        Route::post('/conversation/status/{status}', [App\Http\Controllers\Api\SupportController::class, 'updateStatus']);
+    });
     // Tenant membership and creation. Tenant deletion remains intentionally unrouted.
     Route::get('/tenants', [TenantController::class, 'index']);
     Route::post('/tenants', [TenantController::class, 'store']);
@@ -101,6 +111,14 @@ Route::middleware('auth:sanctum')->group(function () {
 // Platform-wide administration is restricted to super admins. Organization
 // admins use the tenant-scoped routes above, which validate membership first.
 Route::middleware(['auth:sanctum', 'super.admin'])->prefix('admin')->group(function () {
+    Route::prefix('support')->middleware('throttle:60,1')->group(function () {
+        Route::get('/conversations', [App\Http\Controllers\Api\SupportController::class, 'adminIndex']);
+        Route::get('/conversations/{conversation}', [App\Http\Controllers\Api\SupportController::class, 'adminShow']);
+        Route::get('/conversations/{conversation}/messages', [App\Http\Controllers\Api\SupportController::class, 'adminMessages']);
+        Route::post('/conversations/{conversation}/messages', [App\Http\Controllers\Api\SupportController::class, 'adminSend'])->middleware('throttle:support-admin-messages');
+        Route::post('/conversations/{conversation}/read', [App\Http\Controllers\Api\SupportController::class, 'adminMarkRead']);
+        Route::post('/conversations/{conversation}/status/{status}', [App\Http\Controllers\Api\SupportController::class, 'adminStatus']);
+    });
     Route::get('/analytics', [AdminAnalyticsController::class, 'index']);
     Route::get('/activity-logs', [AdminActivityLogController::class, 'index']);
     Route::get('/activity-logs/actions', [AdminActivityLogController::class, 'actions']);

@@ -4,7 +4,7 @@ import PublicFooter from './PublicFooter';
 
 export default function PublicLayout() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="public-site min-h-screen text-white">
       <PublicNavbar />
       <main className="pt-16">
         <Outlet />

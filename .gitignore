@@ -17,3 +17,5 @@ backend/storage/framework/views/
 *.pdf
 output/
 tmp/pdfs/
+.clinerules
+.github/copilot-instructions.md

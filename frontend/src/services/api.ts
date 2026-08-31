@@ -3,6 +3,7 @@ import axios from 'axios';
 declare module 'axios' {
   interface AxiosRequestConfig {
     tenantScoped?: boolean;
+    tenantId?: number;
   }
 }
 
@@ -25,7 +26,7 @@ api.interceptors.request.use((config) => {
   }
 
   if (config.tenantScoped) {
-    const activeTenantId = localStorage.getItem('active_tenant_id');
+    const activeTenantId = config.tenantId ?? localStorage.getItem('active_tenant_id');
     if (activeTenantId) {
       config.headers = config.headers ?? {};
       config.headers['X-Tenant-ID'] = activeTenantId;

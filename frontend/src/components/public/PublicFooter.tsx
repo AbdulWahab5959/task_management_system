@@ -2,16 +2,14 @@ import { Link } from 'react-router-dom';
 
 export default function PublicFooter() {
   return (
-    <footer className="border-t border-white/10 bg-slate-950">
-      <div className="mx-auto max-w-7xl px-6 py-12">
+    <footer className="public-footer border-t border-white/10">
+      <div className="public-container px-5 py-12 sm:px-8">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div>
             <Link to="/" className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 text-xs font-bold text-white">
-                L
-              </div>
-              <span className="text-base font-bold text-white">LaunchStack</span>
+              <span className="public-mark public-mark--small">L<span>/</span></span>
+              <span className="public-wordmark">LaunchStack</span>
             </Link>
             <p className="mt-3 text-sm leading-6 text-slate-400">
               The modern SaaS boilerplate for building and launching your next big idea.
@@ -20,15 +18,15 @@ export default function PublicFooter() {
 
           {/* Navigation */}
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-white">Navigation</h3>
+            <h3 className="public-kicker mb-3">Navigation</h3>
             <div className="flex flex-col gap-2">
-              <Link to="/" className="text-sm text-slate-400 transition hover:text-cyan-400">
+              <Link to="/" className="public-footer-link text-sm transition">
                 Home
               </Link>
-              <Link to="/about" className="text-sm text-slate-400 transition hover:text-cyan-400">
+              <Link to="/about" className="public-footer-link text-sm transition">
                 About
               </Link>
-              <Link to="/contact" className="text-sm text-slate-400 transition hover:text-cyan-400">
+              <Link to="/contact" className="public-footer-link text-sm transition">
                 Contact
               </Link>
             </div>
@@ -36,12 +34,12 @@ export default function PublicFooter() {
 
           {/* Auth */}
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-white">Account</h3>
+            <h3 className="public-kicker mb-3">Account</h3>
             <div className="flex flex-col gap-2">
-              <Link to="/login" className="text-sm text-slate-400 transition hover:text-cyan-400">
+              <Link to="/login" className="public-footer-link text-sm transition">
                 Log in
               </Link>
-              <Link to="/register" className="text-sm text-slate-400 transition hover:text-cyan-400">
+              <Link to="/register" className="public-footer-link text-sm transition">
                 Register
               </Link>
             </div>
@@ -49,7 +47,7 @@ export default function PublicFooter() {
 
           {/* Legal */}
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-white">Legal</h3>
+            <h3 className="public-kicker mb-3">Legal</h3>
             <div className="flex flex-col gap-2">
               <span className="text-sm text-slate-400">Privacy Policy</span>
               <span className="text-sm text-slate-400">Terms of Service</span>

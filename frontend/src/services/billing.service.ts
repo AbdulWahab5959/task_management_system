@@ -109,9 +109,13 @@ export async function createCheckoutSession(planId: number, gateway = 'manual'):
   return response.data;
 }
 
-export async function createStripeCheckoutSession(planId: number): Promise<StripeCheckoutResponse> {
+export async function createStripeCheckoutSession(
+  planId: number,
+  options?: { retryPaymentReference?: string },
+): Promise<StripeCheckoutResponse> {
   const response = await api.post<StripeCheckoutResponse>('/billing/stripe/checkout', {
     plan_id: planId,
+    ...(options?.retryPaymentReference ? { retry_payment_reference: options.retryPaymentReference } : {}),
   });
   return response.data;
 }
