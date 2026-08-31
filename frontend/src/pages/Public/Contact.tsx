@@ -57,7 +57,7 @@ export default function Contact() {
   if (submitted) {
     return (
       <div>
-        <section className="px-6 pb-20 pt-24 sm:pb-28 sm:pt-32">
+        <section className="public-container px-5 pb-20 pt-24 sm:px-8 sm:pb-28 sm:pt-32">
           <div className="mx-auto max-w-xl text-center">
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/20">
               <svg className="h-8 w-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -75,7 +75,7 @@ export default function Contact() {
                 setSuccessMessage('');
                 setErrors({});
               }}
-              className="mt-8 rounded-xl border border-white/10 px-6 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-400 hover:text-white"
+              className="public-button public-button--quiet mt-8"
             >
               Send another message
             </button>
@@ -88,18 +88,19 @@ export default function Contact() {
   return (
     <div>
       {/* Hero */}
-      <section className="px-6 pb-12 pt-24 sm:pt-32">
-        <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-4xl font-bold text-white sm:text-5xl">Contact us</h1>
-          <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-slate-300">
+      <section className="public-container px-5 pb-12 pt-24 sm:px-8 sm:pt-32">
+        <div className="max-w-3xl">
+          <p className="public-kicker">Start a conversation</p>
+          <h1 className="mt-5 text-5xl font-black tracking-[-.06em] text-white sm:text-7xl">Let’s make the<br /><span className="text-[#d7f36b]">next release real.</span></h1>
+          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">
             Have a question, feedback, or want to learn more? Send us a message and we will get back to you.
           </p>
         </div>
       </section>
 
       {/* Contact Form */}
-      <section className="px-6 pb-20">
-        <div className="mx-auto max-w-lg">
+      <section className="public-container px-5 pb-20 sm:px-8 sm:pb-28">
+        <div className="public-panel max-w-2xl p-6 sm:p-10">
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-200" htmlFor="contact-name">
@@ -112,9 +113,9 @@ export default function Contact() {
                 value={formData.name}
                 onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="Your name"
-                className={`w-full rounded-xl border px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-cyan-400 ${
+                className={`w-full border bg-[#0b0d0c] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#d7f36b] ${
                   errors.name ? 'border-red-500' : 'border-white/10'
-                } bg-slate-900`}
+                }`}
               />
               {errors.name && <p className="mt-1 text-sm text-red-400">{errors.name}</p>}
             </div>
@@ -130,9 +131,9 @@ export default function Contact() {
                 value={formData.email}
                 onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
                 placeholder="you@example.com"
-                className={`w-full rounded-xl border px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-cyan-400 ${
+                className={`w-full border bg-[#0b0d0c] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#d7f36b] ${
                   errors.email ? 'border-red-500' : 'border-white/10'
-                } bg-slate-900`}
+                }`}
               />
               {errors.email && <p className="mt-1 text-sm text-red-400">{errors.email}</p>}
             </div>
@@ -148,9 +149,9 @@ export default function Contact() {
                 value={formData.subject}
                 onChange={(e) => setFormData((prev) => ({ ...prev, subject: e.target.value }))}
                 placeholder="How can we help?"
-                className={`w-full rounded-xl border px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-cyan-400 ${
+                className={`w-full border bg-[#0b0d0c] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#d7f36b] ${
                   errors.subject ? 'border-red-500' : 'border-white/10'
-                } bg-slate-900`}
+                }`}
               />
               {errors.subject && <p className="mt-1 text-sm text-red-400">{errors.subject}</p>}
             </div>
@@ -166,9 +167,9 @@ export default function Contact() {
                 value={formData.message}
                 onChange={(e) => setFormData((prev) => ({ ...prev, message: e.target.value }))}
                 placeholder="Tell us more about your inquiry..."
-                className={`w-full resize-none rounded-xl border px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-cyan-400 ${
+                className={`w-full resize-none border bg-[#0b0d0c] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#d7f36b] ${
                   errors.message ? 'border-red-500' : 'border-white/10'
-                } bg-slate-900`}
+                }`}
               />
               {errors.message && <p className="mt-1 text-sm text-red-400">{errors.message}</p>}
             </div>
@@ -176,7 +177,7 @@ export default function Contact() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:shadow-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+              className="public-button public-button--lime w-full disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">

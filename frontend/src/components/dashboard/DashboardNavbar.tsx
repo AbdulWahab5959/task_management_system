@@ -29,6 +29,7 @@ const pageTitles: Record<string, string> = {
   '/dashboard/organizations': 'Organizations',
   '/dashboard/team': 'Team',
   '/dashboard/activity-logs': 'Activity Logs',
+  '/dashboard/support': 'Support inbox',
 };
 
 function getPageTitle(pathname: string) {
@@ -234,14 +235,14 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
           <button
             type="button"
             aria-label="Open sidebar"
-            className="rounded-lg p-2 text-white/80 transition hover:bg-white/15 hover:text-white lg:hidden"
+            className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 lg:hidden"
             onClick={onMenuClick}
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
           <div className="min-w-0">
-            <p className="truncate text-[11px] font-bold uppercase tracking-wider text-white/75">LaunchStack</p>
-            <h2 className="truncate text-lg font-semibold leading-6 text-white">{pageTitle}</h2>
+            <p className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-400">LaunchStack</p>
+            <h2 className="truncate text-lg font-semibold leading-6 text-slate-900">{pageTitle}</h2>
           </div>
         </div>
 

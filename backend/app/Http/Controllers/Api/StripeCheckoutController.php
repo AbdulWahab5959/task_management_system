@@ -23,6 +23,7 @@ class StripeCheckoutController extends Controller
         $validated = $request->validate([
             'plan_id' => ['required', 'integer', 'exists:plans,id'],
             'tenant_id' => ['nullable', 'integer', 'exists:tenants,id'],
+            'retry_payment_reference' => ['nullable', 'string', 'max:255'],
         ]);
 
         $user = $request->user();
@@ -82,6 +83,25 @@ class StripeCheckoutController extends Controller
             ], 409);
         }
 
+        // An explicit retry must bypass pending-session reuse because the
+        // existing Stripe Checkout session may already have expired.
+        $retryPayment = null;
+        if (! empty($validated['retry_payment_reference'])) {
+            $retryPayment = Payment::query()
+                ->where('reference', $validated['retry_payment_reference'])
+                ->where('user_id', $user->id)
+                ->where('plan_id', $plan->id)
+                ->where('gateway', 'stripe')
+                ->where('status', Payment::STATUS_PENDING)
+                ->first();
+
+            if (! $retryPayment) {
+                return response()->json([
+                    'message' => 'This pending payment cannot be retried.',
+                ], 404);
+            }
+        }
+
         $pendingPayment = Payment::query()
             ->where('user_id', $user->id)
             ->where('plan_id', $plan->id)
@@ -93,7 +113,7 @@ class StripeCheckoutController extends Controller
             ->latest()
             ->first();
 
-        if ($pendingPayment) {
+        if ($pendingPayment && ! $retryPayment) {
             return response()->json([
                 'checkout_url' => $pendingPayment->checkout_url,
                 'session_id' => $pendingPayment->provider_session_id,
@@ -178,6 +198,20 @@ class StripeCheckoutController extends Controller
                 'provider_session_id' => $session->id,
                 'checkout_url' => $session->url,
             ]);
+
+            if ($retryPayment) {
+                $retryPayment->update([
+                    'status' => Payment::STATUS_EXPIRED,
+                    'failure_reason' => 'Checkout session replaced by a new retry.',
+                ]);
+
+                if ($retryPayment->subscription_id) {
+                    Subscription::query()
+                        ->whereKey($retryPayment->subscription_id)
+                        ->where('status', 'pending')
+                        ->update(['status' => 'failed']);
+                }
+            }
 
             return response()->json([
                 'checkout_url' => $session->url,

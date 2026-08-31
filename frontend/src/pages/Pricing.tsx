@@ -68,15 +68,15 @@ export default function Pricing() {
   );
 
   return (
-    <section className="mx-auto min-h-[calc(100vh-4rem)] max-w-7xl px-6 py-20 lg:px-8">
+    <section className="public-container min-h-[calc(100vh-4rem)] px-5 py-20 sm:px-8 sm:py-28">
       <div className="mx-auto max-w-3xl text-center">
-        <p className="text-sm font-semibold uppercase tracking-wider text-cyan-300">
+        <p className="public-kicker">
           Pricing
         </p>
-        <h1 className="mt-4 text-4xl font-bold tracking-tight text-white sm:text-5xl">
-          Choose the plan that fits your team
+        <h1 className="mt-5 text-5xl font-black tracking-[-.06em] text-white sm:text-7xl">
+          Pick your <span className="text-[#d7f36b]">starting line.</span>
         </h1>
-        <p className="mt-5 text-base leading-7 text-slate-300">
+        <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-slate-300">
           Pick a plan and continue to a secure hosted checkout when you are
           ready to subscribe.
         </p>

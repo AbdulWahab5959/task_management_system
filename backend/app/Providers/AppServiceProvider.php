@@ -67,6 +67,17 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->user()?->id.'|'.(string) $request->route('invitation'));
         });
 
+        // Support message sending has its own dedicated bucket so it is not
+        // diluted by the group throttle (which shares the user key with any
+        // numeric throttle applied on the same route).
+        RateLimiter::for('support-messages', function (Request $request) {
+            return Limit::perMinute(10)->by($request->user()?->getAuthIdentifier() ?? $request->ip());
+        });
+
+        RateLimiter::for('support-admin-messages', function (Request $request) {
+            return Limit::perMinute(20)->by($request->user()?->getAuthIdentifier() ?? $request->ip());
+        });
+
         $frontendUrl = rtrim((string) env('FRONTEND_URL', config('app.url')), '/');
 
         VerifyEmail::createUrlUsing(function ($notifiable) use ($frontendUrl) {

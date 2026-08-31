@@ -1,120 +1,17 @@
-const benefits = [
-  {
-    title: 'Save Weeks of Development',
-    description: 'Skip the repetitive setup. Authentication, team management, and billing are already built and tested.',
-  },
-  {
-    title: 'Production-Ready Code',
-    description: 'Built with best practices, TypeScript, and modern patterns. Deploy with confidence from day one.',
-  },
-  {
-    title: 'Scalable Architecture',
-    description: 'Laravel backend with React frontend — a proven stack that scales from prototype to enterprise.',
-  },
-  {
-    title: 'Active Maintenance',
-    description: 'Regular updates, security patches, and new features. You focus on your product, we maintain the foundation.',
-  },
+import { ArrowUpRight, Code2, Layers3, ShieldCheck, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+const principles = [
+  ['01', 'Clarity over cleverness', 'A foundation should disappear into the work. Every layer is readable, documented, and yours to change.'],
+  ['02', 'Secure by default', 'The server owns auth, billing, permissions, and tenant boundaries, so the product stays trustworthy as it grows.'],
+  ['03', 'Ship in the open', 'LaunchStack is built around real product milestones: account, workspace, payment, and the next customer.'],
 ];
 
 export default function About() {
-  return (
-    <div>
-      {/* Hero */}
-      <section className="px-6 pb-20 pt-24 sm:pb-28 sm:pt-32">
-        <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-4xl font-bold text-white sm:text-5xl">
-            About <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">LaunchStack</span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-            LaunchStack is a modern SaaS boilerplate designed to accelerate your product development.
-            We provide the essential infrastructure so you can focus on building your unique value proposition.
-          </p>
-        </div>
-      </section>
-
-      {/* Mission */}
-      <section className="border-t border-white/10 px-6 py-20">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid items-center gap-12 lg:grid-cols-2">
-            <div>
-              <h2 className="text-3xl font-bold text-white sm:text-4xl">Our Mission</h2>
-              <p className="mt-4 text-lg leading-8 text-slate-300">
-                Every SaaS founder knows the drill — months of building authentication, team management, 
-                subscription billing, and dashboard UI before you can even start on your actual product.
-              </p>
-              <p className="mt-4 text-lg leading-8 text-slate-300">
-                We built LaunchStack to eliminate that initial grind. Our mission is to give developers a
-                production-ready foundation that handles the boring but critical parts of every SaaS application, 
-                so you can ship faster and iterate smarter.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-500/10 to-blue-600/10 p-8">
-              <div className="text-6xl font-bold text-white">100+</div>
-              <div className="mt-2 text-sm text-slate-400">Hours saved per project</div>
-              <div className="mt-6 text-6xl font-bold text-white">99.9%</div>
-              <div className="mt-2 text-sm text-slate-400">TypeScript coverage</div>
-              <div className="mt-6 text-6xl font-bold text-white">10+</div>
-              <div className="mt-2 text-sm text-slate-400">Pre-built features</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits */}
-      <section className="border-t border-white/10 px-6 py-20">
-        <div className="mx-auto max-w-7xl">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold text-white sm:text-4xl">Why choose LaunchStack?</h2>
-            <p className="mt-4 text-lg leading-7 text-slate-300">
-              A modern tech stack and thoughtful architecture make LaunchStack the ideal starting point.
-            </p>
-          </div>
-
-          <div className="mt-16 grid gap-6 sm:grid-cols-2">
-            {benefits.map((benefit) => (
-              <div
-                key={benefit.title}
-                className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 transition hover:border-cyan-500/50"
-              >
-                <h3 className="mb-2 text-lg font-semibold text-white">{benefit.title}</h3>
-                <p className="text-sm leading-6 text-slate-400">{benefit.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Tech Stack */}
-      <section className="border-t border-white/10 px-6 py-20">
-        <div className="mx-auto max-w-7xl">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold text-white sm:text-4xl">Built with modern technology</h2>
-            <p className="mt-4 text-lg leading-7 text-slate-300">
-              LaunchStack leverages the best tools in the industry for performance, scalability, and developer experience.
-            </p>
-          </div>
-
-          <div className="mt-12 grid gap-4 text-center sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
-              <div className="text-lg font-semibold text-white">React 19</div>
-              <div className="mt-1 text-sm text-slate-400">Frontend framework</div>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
-              <div className="text-lg font-semibold text-white">TypeScript</div>
-              <div className="mt-1 text-sm text-slate-400">Type safety</div>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
-              <div className="text-lg font-semibold text-white">Laravel</div>
-              <div className="mt-1 text-sm text-slate-400">Backend API</div>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
-              <div className="text-lg font-semibold text-white">Tailwind CSS</div>
-              <div className="mt-1 text-sm text-slate-400">Styling</div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
+  return <div>
+    <section className="border-b border-white/10 px-5 pb-20 pt-24 sm:px-8 sm:pb-28 sm:pt-32"><div className="public-container grid gap-10 lg:grid-cols-[1.3fr_.7fr]"><div><p className="public-kicker">About LaunchStack</p><h1 className="mt-6 max-w-4xl text-5xl font-black leading-[.95] tracking-[-.07em] text-white sm:text-7xl">A better first<br /><span className="text-[#d7f36b]">commit.</span></h1></div><p className="max-w-sm self-end text-lg leading-8 text-slate-300">We built the foundation we wanted when every new SaaS idea started with the same month of setup work.</p></div></section>
+    <section className="public-container px-5 py-20 sm:px-8 sm:py-28"><div className="grid gap-12 lg:grid-cols-[.7fr_1.3fr]"><div><p className="public-kicker">Our point of view</p><div className="mt-8 flex gap-4"><Sparkles className="mt-1 h-5 w-5 shrink-0 text-[#d7f36b]" /><p className="text-2xl font-bold leading-9 text-white">The best boilerplate is the one that helps you forget it exists.</p></div></div><div className="space-y-6 text-lg leading-8 text-slate-300"><p>Product teams should spend their best energy on the part nobody else can build. But too often, the path to that work is blocked by authentication screens, organization tables, billing webhooks, and admin plumbing.</p><p>LaunchStack makes those first miles intentional. It is not a black box or a shortcut that creates another rewrite. It is a sturdy, opinionated base you can inspect, own, and take all the way to production.</p></div></div></section>
+    <section className="border-y border-white/10 px-5 py-20 sm:px-8 sm:py-28"><div className="public-container"><p className="public-kicker">What we optimize for</p><div className="mt-12 divide-y divide-white/10 border-t border-white/10">{principles.map(([number, title, description]) => <article key={number} className="grid gap-5 py-7 sm:grid-cols-[5rem_1fr_1fr] sm:items-start"><span className="public-outline-number text-3xl font-black">{number}</span><h2 className="text-xl font-bold text-white">{title}</h2><p className="text-sm leading-6 text-slate-400">{description}</p></article>)}</div></div></section>
+    <section className="public-container px-5 py-20 sm:px-8 sm:py-28"><div className="grid gap-8 sm:grid-cols-3"><div className="public-panel p-6"><ShieldCheck className="h-5 w-5 text-[#d7f36b]" /><p className="mt-10 text-3xl font-black text-white">Server-first</p><p className="mt-2 text-sm text-slate-400">Auth and billing stay where they belong.</p></div><div className="public-panel p-6"><Code2 className="h-5 w-5 text-[#d7f36b]" /><p className="mt-10 text-3xl font-black text-white">Type-safe</p><p className="mt-2 text-sm text-slate-400">React, TypeScript, Laravel, and APIs with intent.</p></div><div className="public-panel p-6"><Layers3 className="h-5 w-5 text-[#d7f36b]" /><p className="mt-10 text-3xl font-black text-white">Extensible</p><p className="mt-2 text-sm text-slate-400">A starting line, never a ceiling.</p></div></div><div className="mt-16 flex flex-col items-start justify-between gap-6 border-t border-white/10 pt-10 sm:flex-row sm:items-center"><p className="text-xl font-bold text-white">Ready to make your first commit count?</p><Link to="/register" className="public-button public-button--lime">Start building <ArrowUpRight className="h-4 w-4" /></Link></div></section>
+  </div>;
 }

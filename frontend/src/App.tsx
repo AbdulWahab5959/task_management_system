@@ -39,6 +39,7 @@ import CheckoutSuccess from './pages/CheckoutSuccess';
 import CheckoutCancel from './pages/CheckoutCancel';
 import TeamPage from './pages/Dashboard/TeamPage';
 import InvitationAcceptPage from './pages/InvitationAcceptPage';
+import SupportInboxPage from './pages/Dashboard/SupportInboxPage';
 
 function App() {
   return (
@@ -148,6 +149,7 @@ function App() {
               </RoleProtectedRoute>
             }
           />
+          <Route path="support" element={<RoleProtectedRoute allowedRoles={['super_admin']}><SupportInboxPage /></RoleProtectedRoute>} />
 
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/account" element={<UserSettingsPage />} />

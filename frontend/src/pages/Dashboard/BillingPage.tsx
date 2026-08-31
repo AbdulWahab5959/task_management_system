@@ -23,11 +23,13 @@ import PageHeader from '../../components/dashboard/PageHeader';
 import {
   cancelNowUserSubscription,
   cancelUserSubscription,
+  createStripeCheckoutSession,
   getBillingPlans,
   getCurrentBilling,
   type BillingPlan,
   type CurrentBillingResponse,
   type CurrentSubscription,
+  type PaymentRecord,
 } from '../../services/billing.service';
 import { cn } from '../../utils/cn';
 
@@ -293,6 +295,8 @@ export default function BillingPage() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelNowModalOpen, setCancelNowModalOpen] = useState(false);
   const [cancelError, setCancelError] = useState('');
+  const [retryingPaymentId, setRetryingPaymentId] = useState<number | null>(null);
+  const [paymentRetryError, setPaymentRetryError] = useState('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -349,6 +353,28 @@ export default function BillingPage() {
   const handleSelectPlan = (plan: BillingPlan) => {
     if (plan.is_active) {
       navigate(`/dashboard/billing/checkout/${plan.id}`);
+    }
+  };
+
+  const handleRetryPayment = async (payment: PaymentRecord) => {
+    if (payment.status !== 'pending' || !payment.plan?.id || !payment.reference || retryingPaymentId !== null) return;
+
+    setRetryingPaymentId(payment.id);
+    setPaymentRetryError('');
+
+    try {
+      const response = await createStripeCheckoutSession(payment.plan.id, {
+        retryPaymentReference: payment.reference,
+      });
+
+      if (!response.checkout_url) {
+        throw new Error('Checkout URL was not returned.');
+      }
+
+      window.location.assign(response.checkout_url);
+    } catch {
+      setPaymentRetryError('We could not reopen this payment. Please try again or contact support.');
+      setRetryingPaymentId(null);
     }
   };
 
@@ -658,6 +684,11 @@ export default function BillingPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {paymentRetryError ? (
+              <div role="alert" className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {paymentRetryError}
+              </div>
+            ) : null}
             {paymentHistory.length === 0 ? (
               <EmptyState
                 icon={<CreditCard className="h-6 w-6" aria-hidden="true" />}
@@ -702,6 +733,21 @@ export default function BillingPage() {
                                   refundedAmount={payment.refunded_amount}
                                   currency={payment.currency}
                                 />
+                              ) : null}
+                              {payment.status === 'pending' && payment.plan?.id && payment.reference ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleRetryPayment(payment)}
+                                  disabled={retryingPaymentId !== null}
+                                  className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {retryingPaymentId === payment.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                                  ) : (
+                                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                                  )}
+                                  {retryingPaymentId === payment.id ? 'Opening checkout...' : 'Retry payment'}
+                                </button>
                               ) : null}
                             </div>
                           </td>
