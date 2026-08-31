@@ -1,0 +1,13 @@
+import LegalPage, { type LegalSection } from './LegalPage';
+
+const sections: LegalSection[] = [
+  { id: 'acceptance', title: '1. Acceptance of these terms', content: <p>By creating an account or using LaunchStack, you agree to these terms and any policies referenced here. If you use LaunchStack for an organization, you confirm that you have authority to accept these terms for that organization.</p> },
+  { id: 'service', title: '2. The service', content: <p>LaunchStack provides SaaS application infrastructure and related workspace features. We may change, improve, suspend, or discontinue parts of the service as the product evolves. We will make reasonable efforts to communicate material changes.</p> },
+  { id: 'accounts', title: '3. Accounts and responsibilities', content: <><p>You are responsible for keeping your login credentials secure, providing accurate account information, and promptly notifying us of unauthorized access.</p><p>You may not misuse the service, interfere with its operation, attempt unauthorized access, or use it in violation of applicable law.</p></> },
+  { id: 'billing', title: '4. Plans and billing', content: <><p>Paid features are billed according to the plan and billing interval selected at checkout. Prices, limits, taxes, renewals, cancellation behavior, and refund eligibility are presented through the service or checkout flow.</p><p>Subscription cancellation may take effect immediately or at the end of the current billing period, depending on the selected action and plan rules.</p></> },
+  { id: 'content', title: '5. Your content', content: <p>You retain rights to information and content you submit to LaunchStack. You grant us the limited rights needed to host, process, secure, and display that content to provide the service. You are responsible for having the necessary rights and permissions for submitted content.</p> },
+  { id: 'availability', title: '6. Availability and warranties', content: <p>LaunchStack is provided on an as-available basis. To the maximum extent permitted by law, we disclaim warranties not expressly stated in these terms. We do not guarantee that the service will always be uninterrupted, error-free, or suitable for every use case.</p> },
+  { id: 'contact', title: '7. Contact', content: <p>Questions about these terms can be sent through our <a className="text-[#d7f36b] underline underline-offset-4" href="/contact">Contact page</a>. We may update these terms as the service changes.</p> },
+];
+
+export default function TermsOfService() { return <LegalPage kind="terms" eyebrow="Legal / Terms" title="Terms of Service" intro="The basic rules for using LaunchStack safely, fairly, and with clear expectations." updated="September 1, 2026" sections={sections} />; }

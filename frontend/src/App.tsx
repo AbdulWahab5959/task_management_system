@@ -34,6 +34,9 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import HomePage from './pages/Public/Home';
 import AboutPage from './pages/Public/About';
 import ContactPage from './pages/Public/Contact';
+import ChatbotsPage from './pages/Public/Chatbots';
+import PrivacyPolicyPage from './pages/Public/PrivacyPolicy';
+import TermsOfServicePage from './pages/Public/TermsOfService';
 import Pricing from './pages/Pricing';
 import CheckoutSuccess from './pages/CheckoutSuccess';
 import CheckoutCancel from './pages/CheckoutCancel';
@@ -53,6 +56,9 @@ function App() {
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
           <Route path="/checkout/cancel" element={<CheckoutCancel />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/chatbots" element={<ChatbotsPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsOfServicePage />} />
         </Route>
         <Route path="/health" element={<HealthCheckPage />} />
         <Route path="/login" element={<LoginPage />} />

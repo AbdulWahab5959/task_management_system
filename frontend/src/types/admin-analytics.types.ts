@@ -6,6 +6,15 @@ export interface AdminAnalyticsStats {
   contact_messages_total: number;
   new_contact_messages: number;
   activity_logs_count: number;
+  organizations_total: number;
+  organizations_active: number;
+  organizations_suspended: number;
+  subscriptions_active: number;
+  subscriptions_trialing: number;
+  subscriptions_past_due: number;
+  revenue_total: number;
+  revenue_last_30_days: number;
+  paid_transactions: number;
 }
 
 export interface RecentUser {
@@ -36,9 +45,29 @@ export interface ContactSummary {
   replied: number;
 }
 
+export interface AnalyticsTrend {
+  label: string;
+  signups: number;
+  revenue: number;
+}
+
+export interface PlanDistributionItem {
+  name: string;
+  subscriptions: number;
+}
+
+export interface SupportSummary {
+  open: number;
+  pending: number;
+  closed: number;
+}
+
 export interface AdminAnalyticsResponse {
   stats: AdminAnalyticsStats;
   recent_users: RecentUser[];
   recent_activity: RecentActivityItem[];
   contact_summary: ContactSummary;
+  trends: AnalyticsTrend[];
+  plan_distribution: PlanDistributionItem[];
+  support_summary: SupportSummary;
 }

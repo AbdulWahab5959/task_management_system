@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, BarChart3, Inbox, MailCheck, MessageSquareReply, Users, UserCheck, UserX, UserPlus } from 'lucide-react';
+import { Activity, BarChart3, Building2, CreditCard, DollarSign, Headphones, Inbox, MailCheck, MessageSquareReply, Users, UserCheck, UserX, UserPlus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/common/Card';
 import PageHeader from '../../components/dashboard/PageHeader';
 import StatsCard from '../../components/dashboard/StatsCard';
@@ -19,6 +19,10 @@ function formatDate(dateString: string): string {
 
 function formatRole(role: string): string {
   return role.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 }
 
 export default function AdminPage() {
@@ -124,7 +128,11 @@ export default function AdminPage() {
     );
   }
 
-  const { stats, recent_users, recent_activity, contact_summary } = data;
+  const { stats, recent_users, recent_activity, contact_summary, trends, plan_distribution, support_summary } = data;
+  const maxTrendRevenue = Math.max(...trends.map((trend) => trend.revenue), 1);
+  const maxTrendSignups = Math.max(...trends.map((trend) => trend.signups), 1);
+  const totalLiveSubscriptions = stats.subscriptions_active + stats.subscriptions_trialing;
+  const totalSupportConversations = support_summary.open + support_summary.pending + support_summary.closed;
 
   return (
     <>
@@ -178,6 +186,43 @@ export default function AdminPage() {
           icon={<Activity className="h-6 w-6" />}
           variant="violet"
         />
+        <StatsCard title="Active Organizations" value={String(stats.organizations_active)} icon={<Building2 className="h-6 w-6" />} variant="indigo" />
+        <StatsCard title="Live Subscriptions" value={String(totalLiveSubscriptions)} icon={<CreditCard className="h-6 w-6" />} variant="emerald" />
+        <StatsCard title="Revenue (30 days)" value={formatCurrency(stats.revenue_last_30_days)} icon={<DollarSign className="h-6 w-6" />} variant="cyan" />
+        <StatsCard title="Past Due" value={String(stats.subscriptions_past_due)} icon={<Activity className="h-6 w-6" />} variant="amber" />
+      </div>
+
+      <div className="mb-6 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.8fr)]">
+        <Card>
+          <CardHeader><CardTitle>Growth and revenue</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-6 items-end gap-2 sm:gap-4" aria-label="Six month signup and revenue trend">
+              {trends.map((trend) => (
+                <div key={trend.label} className="min-w-0 text-center">
+                  <div className="mb-2 flex h-36 items-end justify-center gap-1.5 sm:gap-2">
+                    <div className="w-1/2 rounded-t-md bg-indigo-500/80" style={{ height: `${Math.max((trend.signups / maxTrendSignups) * 100, trend.signups ? 8 : 2)}%` }} title={`${trend.signups} signups`} />
+                    <div className="w-1/2 rounded-t-md bg-emerald-500/80" style={{ height: `${Math.max((trend.revenue / maxTrendRevenue) * 100, trend.revenue ? 8 : 2)}%` }} title={`${formatCurrency(trend.revenue)} revenue`} />
+                  </div>
+                  <p className="truncate text-[11px] font-medium text-slate-500">{trend.label}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 flex flex-wrap gap-4 text-xs text-slate-500"><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-indigo-500/80" /> Signups</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-emerald-500/80" /> Revenue</span></div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Plan distribution</CardTitle></CardHeader>
+          <CardContent>
+            {plan_distribution.length === 0 ? <EmptyState icon={<CreditCard className="h-6 w-6" />} title="No live subscriptions" /> : <div className="space-y-4">{plan_distribution.map((item) => { const percentage = totalLiveSubscriptions ? Math.round((item.subscriptions / totalLiveSubscriptions) * 100) : 0; return <div key={item.name}><div className="mb-1 flex justify-between gap-3 text-sm"><span className="truncate font-medium text-slate-700">{item.name}</span><span className="tabular-nums text-slate-500">{item.subscriptions} · {percentage}%</span></div><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${percentage}%` }} /></div></div>; })}</div>}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mb-6 grid gap-5 sm:grid-cols-3">
+        <StatsCard title="Total Revenue" value={formatCurrency(stats.revenue_total)} icon={<DollarSign className="h-6 w-6" />} variant="indigo" />
+        <StatsCard title="Paid Transactions" value={String(stats.paid_transactions)} icon={<CreditCard className="h-6 w-6" />} variant="emerald" />
+        <StatsCard title="Support Conversations" value={String(totalSupportConversations)} icon={<Headphones className="h-6 w-6" />} variant="violet" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

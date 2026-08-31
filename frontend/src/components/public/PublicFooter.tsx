@@ -29,6 +29,9 @@ export default function PublicFooter() {
               <Link to="/contact" className="public-footer-link text-sm transition">
                 Contact
               </Link>
+              <Link to="/chatbots" className="public-footer-link text-sm transition">
+                Chatbots
+              </Link>
             </div>
           </div>
 
@@ -49,8 +52,8 @@ export default function PublicFooter() {
           <div>
             <h3 className="public-kicker mb-3">Legal</h3>
             <div className="flex flex-col gap-2">
-              <span className="text-sm text-slate-400">Privacy Policy</span>
-              <span className="text-sm text-slate-400">Terms of Service</span>
+              <Link to="/privacy" className="public-footer-link text-sm transition">Privacy Policy</Link>
+              <Link to="/terms" className="public-footer-link text-sm transition">Terms of Service</Link>
             </div>
           </div>
         </div>
