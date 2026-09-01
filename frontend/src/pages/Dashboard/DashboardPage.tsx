@@ -41,7 +41,7 @@ function formatIndustry(industry?: string | null) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { activeTenant, pendingInvitations, pendingInvitationsLoading } = useTenant();
+  const { activeTenant, loading: tenantsLoading, pendingInvitations, pendingInvitationsLoading } = useTenant();
   const [billing, setBilling] = useState<CurrentBillingResponse | null>(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [summary, setSummary] = useState<TenantDashboardSummary | null>(null);
@@ -120,6 +120,10 @@ export default function DashboardPage() {
   };
 
   if (!activeTenant) {
+    if (tenantsLoading) {
+      return <div className="space-y-5" role="status" aria-label="Loading organizations"><div className="h-10 w-2/5 animate-pulse rounded-lg bg-slate-100" /><div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">{[1, 2, 3, 4].map((item) => <div key={item} className="h-28 animate-pulse rounded-xl bg-slate-100" />)}</div><div className="h-72 animate-pulse rounded-xl bg-slate-100" /></div>;
+    }
+
     if (user?.role === 'admin' || user?.role === 'super_admin') {
       return (
         <Card>

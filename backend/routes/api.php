@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Admin\SubscriptionController as AdminSubscriptionController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\BillingController;
+use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\TenantDashboardController;
 use App\Http\Controllers\Api\TenantSubscriptionAccessController;
@@ -81,6 +82,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Billing routes for authenticated users
     Route::prefix('billing')->group(function () {
+        Route::get('/invoices', [InvoiceController::class, 'index']);
+        Route::get('/invoices/{invoice}', [InvoiceController::class, 'show']);
+        Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download']);
         Route::get('/current', [BillingController::class, 'getCurrentSubscription']);
         Route::get('/plans', [BillingController::class, 'getPlans']);
         Route::post('/checkout', [BillingController::class, 'checkout']);

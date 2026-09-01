@@ -24,7 +24,7 @@ class BillingController extends Controller
 
         $subscription = Subscription::query()
             ->where('user_id', $user->id)
-            ->whereIn('status', ['active', 'trialing'])
+            ->whereIn('status', ['active', 'trialing', 'past_due', 'unpaid', 'pending'])
             ->with('plan')
             ->latest()
             ->first();
