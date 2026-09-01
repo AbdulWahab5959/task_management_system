@@ -24,6 +24,7 @@ function formatTimeAgo(dateStr: string): string {
 }
 
 function getNotificationLink(notification: NotificationItem): string | null {
+  if (notification.action_url) return notification.action_url;
   if (notification.type.startsWith('refund') && notification.data?.payment_id) {
     return '/dashboard/billing#payment-history';
   }
@@ -54,16 +55,20 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [error, setError] = useState('');
+  const [markingAll, setMarkingAll] = useState(false);
+  const [markingId, setMarkingId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const response = await getNotifications(10);
       setNotifications(response.data);
       onUnreadCountChange(response.unread_count);
     } catch {
-      // Silently fail
+      setError('Notifications could not be loaded. Try again.');
     } finally {
       setLoading(false);
     }
@@ -78,16 +83,24 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
   };
 
   const handleMarkAllRead = async () => {
+    if (markingAll || unreadCount === 0) return;
+    setMarkingAll(true);
+    setError('');
     try {
       await markAllAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read_at: new Date().toISOString(), is_read: true })));
       onUnreadCountChange(0);
     } catch {
-      // Silently fail
+      setError('We could not mark all notifications as read. Try again.');
+    } finally {
+      setMarkingAll(false);
     }
   };
 
   const handleMarkRead = async (notificationId: number) => {
+    if (markingId !== null) return;
+    setMarkingId(notificationId);
+    setError('');
     try {
       await markAsRead(notificationId);
       setNotifications((prev) =>
@@ -95,7 +108,9 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
       );
       onUnreadCountChange(Math.max(0, unreadCount - 1));
     } catch {
-      // Silently fail
+      setError('We could not update that notification. Try again.');
+    } finally {
+      setMarkingId(null);
     }
   };
 
@@ -137,7 +152,7 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
         type="button"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
         onClick={handleToggle}
-        className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white/90 text-slate-500 shadow-sm shadow-slate-200/50 transition-all duration-150 hover:border-slate-300 hover:bg-white hover:text-slate-900"
+        className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white/90 text-slate-500 shadow-sm shadow-slate-200/50 transition-colors duration-150 hover:border-slate-300 hover:bg-white hover:text-slate-900"
       >
         <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
         {unreadCount > 0 ? (
@@ -152,23 +167,35 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
           className="absolute right-0 mt-2 w-[22rem] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-900/10 ring-1 ring-slate-900/5 sm:w-96"
         >
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-            <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
+              <p className="mt-0.5 text-xs text-slate-500" aria-live="polite">{unreadCount > 0 ? `${unreadCount} need${unreadCount === 1 ? 's' : ''} your attention` : 'Nothing needs your attention'}</p>
+            </div>
             {unreadCount > 0 ? (
               <button
                 type="button"
                 onClick={() => void handleMarkAllRead()}
-                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 transition hover:bg-indigo-50"
+                disabled={markingAll}
+                className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 transition-colors duration-150 hover:bg-indigo-50 disabled:cursor-wait disabled:opacity-60"
               >
                 <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                Mark all read
+                {markingAll ? 'Saving…' : 'Mark all read'}
               </button>
             ) : null}
           </div>
 
           <div className="max-h-80 overflow-y-auto">
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-slate-400" aria-hidden="true" />
+            {error ? (
+              <div className="px-4 py-6 text-center" role="alert">
+                <p className="text-sm font-medium text-slate-700">{error}</p>
+                <button type="button" onClick={() => void fetchNotifications()} className="mt-3 inline-flex min-h-10 items-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-indigo-600 transition-colors duration-150 hover:bg-indigo-50">
+                  Try again
+                </button>
+              </div>
+            ) : loading ? (
+              <div className="space-y-3 px-4 py-4" role="status" aria-label="Loading notifications">
+                <Loader2 className="sr-only" aria-hidden="true" />
+                {[1, 2, 3].map((item) => <div key={item} className="flex gap-3"><div className="item-skeleton h-8 w-8 shrink-0 rounded-lg" /><div className="min-w-0 flex-1 space-y-2"><div className="item-skeleton h-3 w-2/3 rounded" /><div className="item-skeleton h-3 w-full rounded" /></div></div>)}
               </div>
             ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center px-4 py-8 text-center">
@@ -210,16 +237,17 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
                               }}
                               className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
                             >
-                              View details
+                              {getNotificationAction(notification)}
                             </Link>
                           ) : null}
                           {!notification.is_read ? (
                             <button
                               type="button"
                               onClick={() => void handleMarkRead(notification.id)}
-                              className="text-xs font-medium text-slate-400 hover:text-slate-600"
+                              disabled={markingId !== null}
+                              className="min-h-10 text-xs font-medium text-slate-400 transition-colors duration-150 hover:text-slate-600 disabled:cursor-wait disabled:opacity-60"
                             >
-                              Mark read
+                              {markingId === notification.id ? 'Saving…' : 'Mark read'}
                             </button>
                           ) : null}
                         </div>
@@ -234,4 +262,12 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
       ) : null}
     </div>
   );
+}
+
+function getNotificationAction(notification: NotificationItem): string {
+  if (notification.type.startsWith('refund')) return 'View refund';
+  if (notification.type.includes('payment')) return 'Review billing';
+  if (notification.type.includes('invitation')) return 'Review invitation';
+  if (notification.type.includes('support')) return 'Open support';
+  return 'View details';
 }

@@ -15,15 +15,23 @@ export interface NotificationItem {
   read_at: string | null;
   created_at: string;
   is_read: boolean;
+  category: 'security' | 'billing' | 'team' | 'organization' | 'support' | 'product' | string;
+  severity: 'info' | 'success' | 'warning' | 'error' | string;
+  mandatory: boolean;
+  action_url: string | null;
 }
 
 export interface NotificationsResponse {
   data: NotificationItem[];
   unread_count: number;
+  categories?: string[];
+  meta?: { limit: number; returned: number };
 }
 
-export async function getNotifications(limit = 20): Promise<NotificationsResponse> {
-  const response = await api.get<NotificationsResponse>(`/notifications?limit=${limit}`);
+export async function getNotifications(limit = 20, category?: string): Promise<NotificationsResponse> {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (category) query.set('category', category);
+  const response = await api.get<NotificationsResponse>(`/notifications?${query.toString()}`);
   return response.data;
 }
 

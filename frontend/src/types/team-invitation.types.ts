@@ -5,6 +5,7 @@ export interface TenantInvitation {
   id: number;
   email: string;
   role: InvitationRole;
+  permissions?: string[];
   status: InvitationStatus;
   invited_by: { id: number; name: string; email: string } | null;
   expires_at: string;

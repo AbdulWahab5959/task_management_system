@@ -6,6 +6,9 @@ use App\Mail\TenantInvitationMail;
 use App\Models\Tenant;
 use App\Models\TenantInvitation;
 use App\Services\ActivityLogService;
+use App\Services\TenantPermissionService;
+use App\Services\NotificationService;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +20,7 @@ class TenantInvitationController extends Controller
 {
     private const INVITABLE_ROLES = ['admin', 'member'];
 
-    public function __construct(private readonly ActivityLogService $activityLogService)
+    public function __construct(private readonly ActivityLogService $activityLogService, private readonly TenantPermissionService $permissions, private readonly NotificationService $notifications)
     {
     }
 
@@ -59,7 +62,15 @@ class TenantInvitationController extends Controller
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:255'],
             'role' => ['required', Rule::in($role === 'admin' ? ['member'] : self::INVITABLE_ROLES)],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['string'],
         ]);
+
+        $assignable = $this->permissions->assignablePermissions($request->user(), $tenant);
+        $requestedPermissions = collect($validated['permissions'] ?? [])->unique()->values();
+        if ($requestedPermissions->diff($assignable)->isNotEmpty()) {
+            return response()->json(['message' => 'One or more permissions cannot be assigned by your account.'], 422);
+        }
 
         $email = strtolower(trim($validated['email']));
         if (strtolower((string) $request->user()->email) === $email) {
@@ -90,6 +101,7 @@ class TenantInvitationController extends Controller
             'tenant_id' => $tenant->id,
             'email' => $email,
             'role' => $validated['role'],
+            'permissions' => $requestedPermissions->all(),
             'token_hash' => hash('sha256', $token),
             'invited_by' => $request->user()->id,
             'status' => TenantInvitation::STATUS_PENDING,
@@ -97,6 +109,8 @@ class TenantInvitationController extends Controller
         ]);
 
         $this->logEvent('team.invitation.created', $request, $invitation);
+        $recipient = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+        if ($recipient) $this->notifications->teamInvitation($recipient->id, $tenant->id, $tenant->name, $invitation->id);
         $mailSent = $this->sendInvitation($invitation, $token);
 
         return response()->json([
@@ -240,9 +254,22 @@ class TenantInvitationController extends Controller
                 'invited_at' => $locked->created_at,
                 'joined_at' => now(),
             ]);
+            $permissionIds = DB::table('permissions')->whereIn('key', $locked->permissions ?? [])->pluck('id');
+            foreach ($permissionIds as $permissionId) {
+                DB::table('tenant_user_permissions')->insert([
+                    'tenant_id' => $locked->tenant_id,
+                    'user_id' => $user->id,
+                    'permission_id' => $permissionId,
+                    'granted' => true,
+                    'granted_by' => $locked->invited_by,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
             $locked->update(['status' => TenantInvitation::STATUS_ACCEPTED, 'accepted_at' => now()]);
 
             $this->logEvent('team.invitation.accepted', $request, $locked, $user->id);
+            $this->notifications->teamMembershipChanged($user->id, $locked->tenant_id, "You joined {$locked->tenant->name}.", "invitation-accepted:{$locked->id}");
 
             return ['message' => 'Invitation accepted.', 'status' => 200];
         });
@@ -305,7 +332,7 @@ class TenantInvitationController extends Controller
         }
 
         $role = $request->user()->getRoleInTenant($tenant);
-        if (!in_array($role, ['owner', 'admin'], true)) {
+        if (!$role) {
             abort(403, 'You do not have permission to manage invitations.');
         }
 
@@ -340,7 +367,7 @@ class TenantInvitationController extends Controller
         }
     }
 
-    private function logEvent(string $action, Request $request, TenantInvitation $invitation): void
+    private function logEvent(string $action, Request $request, TenantInvitation $invitation, ?int $targetUserId = null): void
     {
         $this->activityLogService->logFromRequest(
             action: $action,
@@ -349,6 +376,8 @@ class TenantInvitationController extends Controller
                 'tenant_id' => $invitation->tenant_id,
                 'invitation_id' => $invitation->id,
                 'role' => $invitation->role,
+                'permissions' => $invitation->permissions ?? [],
+                'target_user_id' => $targetUserId,
             ],
             request: $request,
         );
@@ -360,6 +389,7 @@ class TenantInvitationController extends Controller
             'id' => $invitation->id,
             'email' => $invitation->email,
             'role' => $invitation->role,
+            'permissions' => $invitation->permissions ?? [],
             'status' => $invitation->effectiveStatus(),
             'invited_by' => $invitation->inviter ? [
                 'id' => $invitation->inviter->id,

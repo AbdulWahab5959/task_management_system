@@ -17,24 +17,58 @@ class NotificationService
         string $title,
         string $message,
         ?array $data = null,
+        ?int $tenantId = null,
+        ?string $dedupeKey = null,
     ): Notification {
-        if (! $this->shouldNotify($userId, $type)) {
+        $definition = config("notifications.types.{$type}", [
+            'category' => $this->categoryFor($type),
+            'severity' => 'info',
+            'mandatory' => false,
+            'action_url' => null,
+        ]);
+        $mandatory = (bool) ($definition['mandatory'] ?? false);
+
+        if (! $mandatory && ! $this->shouldNotify($userId, $type)) {
             return new Notification([
                 'user_id' => $userId,
                 'type' => $type,
                 'title' => $title,
                 'message' => $message,
                 'data' => $data,
+                'category' => $definition['category'],
+                'severity' => $definition['severity'],
+                'mandatory' => false,
             ]);
         }
 
-        $notification = Notification::create([
+        $attributes = [
             'user_id' => $userId,
+            'tenant_id' => $tenantId,
             'type' => $type,
+            'category' => $definition['category'],
+            'severity' => $definition['severity'],
             'title' => $title,
             'message' => $message,
+            'action_url' => $definition['action_url'] ?? null,
             'data' => $data,
-        ]);
+            'mandatory' => $mandatory,
+            'dedupe_key' => $dedupeKey,
+            'delivered_at' => now(),
+        ];
+        try {
+            $notification = $dedupeKey
+                ? Notification::firstOrCreate(['user_id' => $userId, 'dedupe_key' => $dedupeKey], $attributes)
+                : Notification::create($attributes);
+        } catch (\Throwable $exception) {
+            Log::warning('Notification persistence failed; continuing the primary operation.', [
+                'user_id' => $userId,
+                'type' => $type,
+                'tenant_id' => $tenantId,
+                'error_class' => get_class($exception),
+            ]);
+
+            return new Notification($attributes);
+        }
 
         Log::info('Notification created.', [
             'notification_id' => $notification->id,
@@ -68,6 +102,13 @@ class NotificationService
         return (bool) $settings->email_enabled;
     }
 
+    private function categoryFor(string $type): string
+    {
+        return str_contains($type, 'refund') || str_contains($type, 'payment') || str_contains($type, 'billing') || str_contains($type, 'subscription')
+            ? 'billing'
+            : (str_contains($type, 'team') || str_contains($type, 'invitation') ? 'team' : 'product');
+    }
+
     /**
      * Create a refund initiated notification.
      */
@@ -88,6 +129,16 @@ class NotificationService
                 'status' => 'initiated',
             ],
         );
+    }
+
+    public function teamInvitation(int $userId, int $tenantId, string $organizationName, int $invitationId): Notification
+    {
+        return $this->create($userId, 'team_invitation', 'New team invitation', "You have been invited to join {$organizationName}.", ['invitation_id' => $invitationId], $tenantId, "team-invitation:{$invitationId}:{$userId}");
+    }
+
+    public function teamMembershipChanged(int $userId, int $tenantId, string $message, string $eventKey): Notification
+    {
+        return $this->create($userId, 'team_membership_changed', 'Team access updated', $message, ['event' => $eventKey], $tenantId, "team-membership:{$eventKey}:{$userId}");
     }
 
     /**
@@ -149,12 +200,18 @@ class NotificationService
     /**
      * Get recent notifications for a user.
      */
-    public function getForUser(int $userId, int $limit = 20)
+    public function getForUser(int $userId, int $limit = 20, ?string $category = null)
     {
-        return Notification::forUser($userId)
+        return Notification::forUser($userId)->when($category, fn ($query) => $query->byCategory($category))
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->latest()
             ->limit($limit)
             ->get();
+    }
+
+    public function categories(): array
+    {
+        return config('notifications.categories', []);
     }
 
     /**

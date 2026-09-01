@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class NotificationController extends Controller
 {
@@ -20,14 +21,20 @@ class NotificationController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        $limit = min((int) ($request->input('limit', 20)), 50);
+        $validated = $request->validate([
+            'limit' => ['sometimes', 'integer', 'min:1', 'max:50'],
+            'category' => ['nullable', 'string', Rule::in($this->notificationService->categories())],
+        ]);
+        $limit = (int) ($validated['limit'] ?? 20);
 
-        $notifications = $this->notificationService->getForUser($user->id, $limit);
+        $notifications = $this->notificationService->getForUser($user->id, $limit, $validated['category'] ?? null);
         $unreadCount = $this->notificationService->getUnreadCount($user->id);
 
         return response()->json([
             'data' => $notifications->map(fn ($notification) => $this->serialize($notification)),
             'unread_count' => $unreadCount,
+            'categories' => $this->notificationService->categories(),
+            'meta' => ['limit' => $limit, 'returned' => $notifications->count()],
         ]);
     }
 
@@ -88,6 +95,10 @@ class NotificationController extends Controller
             'read_at' => $notification->read_at?->toISOString(),
             'created_at' => $notification->created_at->toISOString(),
             'is_read' => $notification->isRead(),
+            'category' => $notification->category,
+            'severity' => $notification->severity,
+            'mandatory' => (bool) $notification->mandatory,
+            'action_url' => is_string($notification->action_url) && str_starts_with($notification->action_url, '/dashboard/') ? $notification->action_url : null,
         ];
     }
 }

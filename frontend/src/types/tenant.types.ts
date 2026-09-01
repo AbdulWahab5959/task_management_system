@@ -9,6 +9,7 @@ export interface Tenant {
   owner_id?: number;
   trial_ends_at?: string | null;
   created_at?: string;
+  permissions?: string[];
 }
 
 export interface TenantListResponse {

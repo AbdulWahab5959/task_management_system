@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Tenant;
 use App\Services\ActivityLogService;
+use App\Services\TenantPermissionService;
+use App\Services\NotificationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,7 +14,7 @@ use Illuminate\Validation\Rule;
 
 class TenantMemberController extends Controller
 {
-    public function __construct(private readonly ActivityLogService $activityLogService)
+    public function __construct(private readonly ActivityLogService $activityLogService, private readonly TenantPermissionService $permissions, private readonly NotificationService $notifications)
     {
     }
 
@@ -31,6 +33,9 @@ class TenantMemberController extends Controller
                 'joined_at' => $user->pivot->joined_at
                     ? CarbonImmutable::parse($user->pivot->joined_at)->toISOString()
                     : null,
+                'effective_permissions' => $this->permissions->permissionsFor($user, $tenant)->values(),
+                'direct_permissions' => $this->permissions->directPermissions($user, $tenant)->values(),
+                'protected' => $user->pivot->role === 'owner',
             ]);
 
         return response()->json(['data' => $members]);
@@ -40,6 +45,9 @@ class TenantMemberController extends Controller
     {
         $tenant = $this->resolvedTenant($request);
         $actorRole = $this->actorRole($request, $tenant);
+        if (!in_array($actorRole, ['owner', 'admin'], true)) {
+            return response()->json(['message' => 'Only organization administrators can change member roles.'], 403);
+        }
         $validated = $request->validate(['role' => ['required', Rule::in(['admin', 'member'])]]);
         $target = $this->targetMember($tenant, $user);
         $targetRole = $target->pivot->role;
@@ -63,6 +71,7 @@ class TenantMemberController extends Controller
                 'old_role' => $targetRole,
                 'new_role' => $validated['role'],
             ]);
+            $this->notifications->teamMembershipChanged($target->id, $tenant->id, "Your organization role changed from {$targetRole} to {$validated['role']}.", "role-changed:{$tenant->id}:{$target->id}:{$validated['role']}");
         });
 
         return response()->json(['message' => 'Member role updated.']);
@@ -87,6 +96,7 @@ class TenantMemberController extends Controller
             DB::table('tenant_users')->where('tenant_id', $tenant->id)->where('user_id', $target->id)->lockForUpdate()->first();
             $tenant->users()->detach($target->id);
             $this->logChange('team.member.removed', $request, $tenant, $target->id);
+            $this->notifications->teamMembershipChanged($target->id, $tenant->id, "Your access to {$tenant->name} was removed.", "member-removed:{$tenant->id}:{$target->id}");
         });
 
         return response()->json(['message' => 'Member removed from the organization.']);

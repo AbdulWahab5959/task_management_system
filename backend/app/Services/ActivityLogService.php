@@ -42,6 +42,7 @@ class ActivityLogService
             userId: $request->user()?->id,
             ipAddress: $request->ip(),
             userAgent: $request->userAgent(),
+            tenantId: $request->attributes->get('tenant')?->id,
         );
     }
 }
