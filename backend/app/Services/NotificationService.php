@@ -192,6 +192,7 @@ class NotificationService
     {
         return Notification::forUser($userId)
             ->unread()
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->latest()
             ->limit($limit)
             ->get();
@@ -249,6 +250,7 @@ class NotificationService
     {
         return Notification::forUser($userId)
             ->unread()
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->update(['read_at' => now()]);
     }
 }

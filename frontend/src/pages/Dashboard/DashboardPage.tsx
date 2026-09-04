@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Building2,
-  Check,
   CircleAlert,
   CreditCard,
   MailPlus,
@@ -16,6 +15,8 @@ import PageHeader from '../../components/dashboard/PageHeader';
 import StatsCard from '../../components/dashboard/StatsCard';
 import TenantOnboarding from '../../components/dashboard/TenantOnboarding';
 import PendingInvitationsOnboarding from '../../components/dashboard/PendingInvitationsOnboarding';
+import EmptyState from '../../components/dashboard/EmptyState';
+import SetupChecklist from '../../components/dashboard/SetupChecklist';
 import { useAuth } from '../../hooks/useAuth';
 import { useTenant } from '../../hooks/useTenant';
 import { getCurrentBilling, type CurrentBillingResponse } from '../../services/billing.service';
@@ -251,9 +252,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader><CardTitle>Setup checklist</CardTitle><CardDescription>Recommended steps for this workspace.</CardDescription></CardHeader>
-          <CardContent className="space-y-3">
-            {setupChecklist.map((item) => <div key={item.key} className="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-3"><span className={`flex h-7 w-7 items-center justify-center rounded-full ${item.completed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>{item.completed ? <Check className="h-4 w-4" aria-hidden="true" /> : <span className="h-2 w-2 rounded-full bg-current" />}</span><span className={`text-sm ${item.completed ? 'text-slate-500 line-through' : 'font-semibold text-slate-800'}`}>{item.label}</span></div>)}
-          </CardContent>
+          <CardContent><SetupChecklist items={setupChecklist} /></CardContent>
         </Card>
       </div>
 
@@ -268,7 +267,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <Card className="mt-6"><CardHeader><CardTitle>Recent activity</CardTitle><CardDescription>Only safe tenant activity will appear here when tenant-keyed logging is available.</CardDescription></CardHeader><CardContent>{summary.activity_available && summary.activity.length ? <div className="space-y-3">{summary.activity.map((item) => <div key={item.id} className="flex items-center justify-between"><div><p className="text-sm font-semibold text-slate-800">{item.action}</p><p className="text-xs text-slate-500">{item.description}</p></div><time className="text-xs text-slate-400">{formatDate(item.created_at)}</time></div>)}</div> : <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500"><ShieldCheck className="h-5 w-5 text-slate-400" aria-hidden="true" /> No recent activity yet.</div>}</CardContent></Card>
+      <Card className="mt-6"><CardHeader><CardTitle>Recent activity</CardTitle><CardDescription>Only safe tenant activity will appear here when tenant-keyed logging is available.</CardDescription></CardHeader><CardContent>{summary.activity_available && summary.activity.length ? <div className="space-y-3">{summary.activity.map((item) => <div key={item.id} className="flex items-center justify-between"><div><p className="text-sm font-semibold text-slate-800">{item.action}</p><p className="text-xs text-slate-500">{item.description}</p></div><time className="text-xs text-slate-400">{formatDate(item.created_at)}</time></div>)}</div> : <EmptyState icon={<ShieldCheck className="h-6 w-6" aria-hidden="true" />} eyebrow="Workspace timeline" title="Your activity feed is ready for its first event" description={summary.activity_note ?? 'Actions from your team will appear here as you complete setup and start working.'} action={<Link to="/dashboard/team" className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Go to team</Link>} />}</CardContent></Card>
     </>
   );
 }

@@ -225,6 +225,9 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
                           <span className="shrink-0 text-[11px] text-slate-400">{formatTimeAgo(notification.created_at)}</span>
                         </div>
                         <p className="mt-0.5 text-xs leading-5 text-slate-500 line-clamp-2">{notification.message}</p>
+                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400" aria-label={`Category ${notification.category}, severity ${severityLabel(notification.severity)}`}>
+                          {notification.category} · {severityLabel(notification.severity)}{notification.mandatory ? ' · Required' : ''}
+                        </p>
                         <div className="mt-1.5 flex items-center gap-2">
                           {link ? (
                             <Link
@@ -270,4 +273,8 @@ function getNotificationAction(notification: NotificationItem): string {
   if (notification.type.includes('invitation')) return 'Review invitation';
   if (notification.type.includes('support')) return 'Open support';
   return 'View details';
+}
+
+function severityLabel(severity: NotificationItem['severity']): string {
+  return severity.charAt(0).toUpperCase() + severity.slice(1);
 }
