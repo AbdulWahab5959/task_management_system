@@ -17,6 +17,7 @@ class TenantInvitation extends Model
         'tenant_id',
         'email',
         'role',
+        'permissions',
         'token_hash',
         'invited_by',
         'status',
@@ -31,6 +32,7 @@ class TenantInvitation extends Model
         'accepted_at' => 'datetime',
         'rejected_at' => 'datetime',
         'revoked_at' => 'datetime',
+        'permissions' => 'array',
     ];
 
     public function tenant(): BelongsTo

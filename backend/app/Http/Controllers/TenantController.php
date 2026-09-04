@@ -9,6 +9,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Exceptions\OrganizationCreationException;
 use App\Services\ActivityLogService;
+use App\Services\TenantPermissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
@@ -21,6 +22,7 @@ class TenantController extends Controller
     public function __construct(
         TenantService $tenantService,
         private readonly ActivityLogService $activityLogService,
+        private readonly TenantPermissionService $tenantPermissionService,
     )
     {
         $this->tenantService = $tenantService;
@@ -146,6 +148,7 @@ class TenantController extends Controller
             'role' => $user->role === User::ROLE_SUPER_ADMIN
                 ? User::ROLE_SUPER_ADMIN
                 : ($tenant->pivot?->role ?? $user->getRoleInTenant($tenant)),
+            'permissions' => $this->tenantPermissionService->permissionsFor($user, $tenant)->values(),
             'owner_id' => $tenant->owner_id,
             'trial_ends_at' => $tenant->trial_ends_at?->toISOString(),
             'created_at' => $tenant->created_at?->toISOString(),

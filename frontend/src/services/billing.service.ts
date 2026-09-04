@@ -76,6 +76,30 @@ export interface CurrentBillingResponse {
   subscription: CurrentSubscription | null;
   current_plan: BillingPlan | null;
   payment_history: PaymentRecord[];
+  payment_attention?: string | null;
+}
+
+export type InvoiceStatus = 'paid' | 'pending' | 'failed';
+
+export interface InvoiceRecord {
+  id: number;
+  invoice_number: string;
+  plan: string | null;
+  amount: string;
+  currency: string;
+  status: InvoiceStatus;
+  invoice_date: string;
+  billing_period_start?: string | null;
+  billing_period_end?: string | null;
+  paid_at?: string | null;
+  payment_reference?: string | null;
+  invoice_url?: string | null;
+  invoice_pdf_available: boolean;
+}
+
+export interface InvoicePage {
+  data: InvoiceRecord[];
+  meta: { current_page: number; last_page: number; per_page: number; total: number };
 }
 
 export interface CheckoutResponse {
@@ -132,5 +156,20 @@ export async function cancelNowUserSubscription(): Promise<{ message: string; su
 
 export async function getPaymentHistory(): Promise<{ data: PaymentRecord[]; links: Record<string, string>; meta: Record<string, unknown> }> {
   const response = await api.get('/billing/payments');
+  return response.data;
+}
+
+export async function getInvoices(params: { status?: InvoiceStatus | ''; from?: string; to?: string; page?: number } = {}): Promise<InvoicePage> {
+  const response = await api.get<InvoicePage>('/billing/invoices', { params });
+  return response.data;
+}
+
+export async function getInvoice(id: number): Promise<InvoiceRecord> {
+  const response = await api.get<{ data: InvoiceRecord } | InvoiceRecord>(`/billing/invoices/${id}`);
+  return 'data' in response.data ? response.data.data : response.data;
+}
+
+export async function downloadInvoice(id: number): Promise<Blob> {
+  const response = await api.get<Blob>(`/billing/invoices/${id}/download`, { responseType: 'blob' });
   return response.data;
 }

@@ -76,7 +76,7 @@ export default function SupportComposer({
             type="submit"
             disabled={!canSend}
             className={cn(
-              'inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold transition-all duration-150',
+              'inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold transition-[transform,background-color,box-shadow,color,opacity] duration-150',
               'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2',
               canSend
                 ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25 hover:bg-indigo-500 active:scale-[0.98]'

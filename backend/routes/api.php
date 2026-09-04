@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Admin\SubscriptionController as AdminSubscriptionController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\BillingController;
+use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\TenantDashboardController;
 use App\Http\Controllers\Api\TenantSubscriptionAccessController;
@@ -14,10 +15,12 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PlanController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\TenantSettingsController;
 use App\Http\Controllers\TenantInvitationController;
 use App\Http\Controllers\TenantMemberController;
+use App\Http\Controllers\TenantPermissionController;
 use App\Http\Controllers\UserSettingsController;
 use Illuminate\Support\Facades\Route;
 
@@ -49,24 +52,31 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tenants', [TenantController::class, 'index']);
     Route::post('/tenants', [TenantController::class, 'store']);
     Route::get('/tenants/{tenant}', [TenantController::class, 'show'])
-        ->middleware('tenant.identify');
+        ->middleware(['tenant.identify', 'permission:organization.view']);
     Route::delete('/tenants/{tenant}', [TenantController::class, 'destroy'])
         ->middleware('tenant.identify');
 
     Route::prefix('tenant')->middleware('tenant.identify')->group(function () {
-        Route::get('/dashboard/summary', [TenantDashboardController::class, 'summary']);
+        Route::get('/dashboard/summary', [TenantDashboardController::class, 'summary'])->middleware('permission:organization.view');
         Route::get('/subscription/access', TenantSubscriptionAccessController::class);
-        Route::get('/settings', [TenantSettingsController::class, 'show']);
-        Route::put('/settings', [TenantSettingsController::class, 'update']);
-        Route::get('/members', [TenantMemberController::class, 'index']);
-        Route::put('/members/{user}/role', [TenantMemberController::class, 'updateRole']);
-        Route::delete('/members/{user}', [TenantMemberController::class, 'destroy']);
-        Route::get('/invitations', [TenantInvitationController::class, 'index']);
+        Route::get('/settings', [TenantSettingsController::class, 'show'])->middleware('permission:organization.settings.view');
+        Route::put('/settings', [TenantSettingsController::class, 'update'])->middleware('permission:organization.settings.update');
+        Route::get('/members', [TenantMemberController::class, 'index'])->middleware('permission:members.view');
+        Route::put('/members/{user}/role', [TenantMemberController::class, 'updateRole'])->middleware('permission:members.update_role');
+        Route::delete('/members/{user}', [TenantMemberController::class, 'destroy'])->middleware('permission:members.remove');
+        Route::get('/invitations', [TenantInvitationController::class, 'index'])->middleware('permission:invitations.view');
         Route::post('/invitations', [TenantInvitationController::class, 'store'])
+            ->middleware('permission:invitations.create')
             ->middleware('throttle:team-invitation-send');
         Route::post('/invitations/{invitation}/resend', [TenantInvitationController::class, 'resend'])
+            ->middleware('permission:invitations.resend')
             ->middleware('throttle:team-invitation-resend');
-        Route::delete('/invitations/{invitation}', [TenantInvitationController::class, 'revoke']);
+        Route::delete('/invitations/{invitation}', [TenantInvitationController::class, 'revoke'])->middleware('permission:invitations.revoke');
+        Route::get('/permissions', [TenantPermissionController::class, 'index'])->middleware('permission:members.update_role');
+        Route::get('/roles', [TenantPermissionController::class, 'roles'])->middleware('permission:members.view');
+        Route::get('/members/{user}/permissions', [TenantPermissionController::class, 'show'])->middleware('permission:members.view');
+        Route::put('/members/{user}/permissions', [TenantPermissionController::class, 'update'])->middleware('permission:members.update_role');
+        Route::post('/members/{user}/permissions/reset', [TenantPermissionController::class, 'reset'])->middleware('permission:members.update_role');
     });
 
     Route::post('/invitations/{token}/accept', [TenantInvitationController::class, 'accept']);
@@ -80,6 +90,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Billing routes for authenticated users
     Route::prefix('billing')->group(function () {
+        Route::get('/invoices', [InvoiceController::class, 'index']);
+        Route::get('/invoices/{invoice}', [InvoiceController::class, 'show']);
+        Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download']);
         Route::get('/current', [BillingController::class, 'getCurrentSubscription']);
         Route::get('/plans', [BillingController::class, 'getPlans']);
         Route::post('/checkout', [BillingController::class, 'checkout']);
@@ -158,6 +171,8 @@ Route::prefix('auth')->group(function () {
 
     Route::post('/login', [AuthController::class, 'login'])
         ->middleware('throttle:auth-login');
+    Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])
+        ->middleware('throttle:auth-2fa-challenge');
 
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
         ->middleware('throttle:auth-forgot-password');
@@ -173,6 +188,12 @@ Route::prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/email/verification-notification', [AuthController::class, 'sendVerificationNotification'])
             ->middleware('throttle:auth-email-verification-notification');
+        Route::prefix('2fa')->group(function () {
+            Route::post('/setup', [TwoFactorController::class, 'setup']);
+            Route::post('/confirm', [TwoFactorController::class, 'confirm'])->middleware('throttle:auth-2fa-confirm');
+            Route::post('/disable', [TwoFactorController::class, 'disable'])->middleware('throttle:auth-2fa-confirm');
+            Route::post('/recovery-codes', [TwoFactorController::class, 'recoveryCodes'])->middleware('throttle:auth-2fa-confirm');
+        });
     });
 
     Route::get('/verify-email/{id}/{hash}', [AuthController::class, 'verifyEmail'])

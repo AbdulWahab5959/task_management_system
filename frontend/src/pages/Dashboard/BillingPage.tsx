@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
 import EmptyState from '../../components/dashboard/EmptyState';
+import InvoiceHistory from '../../components/billing/InvoiceHistory';
 import PageHeader from '../../components/dashboard/PageHeader';
 import {
   cancelNowUserSubscription,
@@ -420,7 +421,8 @@ export default function BillingPage() {
   const hasBillingActions = paymentHistory.length > 0 || hasActiveSubscription;
   const canManageBilling = billing?.can_manage_billing !== false;
   const periodEnd = periodEndFor(activeSubscription);
-  const identity = getSubscriptionIdentity(activeSubscription, activeCurrentPlan);
+  const identity = getSubscriptionIdentity(subscription, currentPlan);
+  const paymentNeedsAttention = Boolean(subscription && ['past_due', 'unpaid', 'pending'].includes(subscription.status));
   const isCancelScheduled = isCancellingAtPeriodEnd(activeSubscription);
   const isImmediateCancel = wasCancelledImmediately(activeSubscription);
 
@@ -438,6 +440,13 @@ export default function BillingPage() {
           : 'Choose a plan to create your organizations.'}
       </div>
 
+      {paymentNeedsAttention ? (
+        <div role="alert" className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <div><p className="font-semibold">Payment attention needed</p><p className="mt-0.5 text-amber-800">Your latest payment needs attention. Update your payment method or retry checkout to keep your plan active.</p></div>
+        </div>
+      ) : null}
+
       <Card className="overflow-hidden">
         <CardHeader className="bg-slate-50/70">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -448,7 +457,7 @@ export default function BillingPage() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <CardTitle>Current plan</CardTitle>
-                  <SubscriptionBadge subscription={activeSubscription} currentPlan={activeCurrentPlan} />
+                  <SubscriptionBadge subscription={subscription} currentPlan={currentPlan} />
                 </div>
                 <CardDescription>{identity.description}</CardDescription>
               </div>
@@ -470,30 +479,30 @@ export default function BillingPage() {
         </CardHeader>
 
         <CardContent>
-          {activeSubscription && activeCurrentPlan ? (
+          {subscription && currentPlan ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Plan</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{activeCurrentPlan.name}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{currentPlan.name}</p>
               </div>
               <div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Amount</p>
                 <p className="mt-1 text-sm font-semibold text-slate-900">
-                  {formatAmount(activeCurrentPlan.amount || activeCurrentPlan.price, activeCurrentPlan.currency)}
+                  {formatAmount(currentPlan.amount || currentPlan.price, currentPlan.currency)}
                   <span className="ml-1 text-xs font-normal text-slate-500">
-                    / {activeCurrentPlan.interval === 'year' ? 'year' : 'month'}
+                    / {currentPlan.interval === 'year' ? 'year' : 'month'}
                   </span>
                 </p>
               </div>
               <div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Period start</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(activeSubscription.starts_at || activeSubscription.current_period_start)}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(subscription.starts_at || subscription.current_period_start)}</p>
               </div>
               <div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   {isImmediateCancel ? 'Access ended on' : isCancelScheduled ? 'Access ends on' : 'Period end'}
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(periodEnd)}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(periodEndFor(subscription))}</p>
               </div>
             </div>
           ) : (
@@ -507,7 +516,7 @@ export default function BillingPage() {
                   <p className="text-sm text-slate-500">Choose a plan when you are ready to unlock paid features.</p>
                 </div>
               </div>
-              <SubscriptionBadge subscription={activeSubscription} currentPlan={activeCurrentPlan} />
+              <SubscriptionBadge subscription={subscription} currentPlan={currentPlan} />
             </div>
           )}
 
@@ -669,6 +678,8 @@ export default function BillingPage() {
           </CardContent>
         </Card>
       </div>
+
+      <InvoiceHistory />
 
       <div id="payment-history" className="mt-8 scroll-mt-24">
         <Card>

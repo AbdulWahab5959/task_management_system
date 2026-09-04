@@ -69,12 +69,6 @@ class TenantSettingsController extends Controller
     public function update(Request $request): JsonResponse
     {
         $tenant = $this->resolvedTenant($request);
-        $role = $request->user()->getRoleInTenant($tenant);
-
-        if (!$request->user()->isAdminInTenant($tenant)) {
-            return response()->json(['message' => 'Only tenant owners and admins can update organization settings.'], 403);
-        }
-
         $request->merge([
             'currency' => $request->input('currency') !== null
                 ? strtoupper((string) $request->input('currency'))

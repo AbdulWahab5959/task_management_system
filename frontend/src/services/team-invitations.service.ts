@@ -9,8 +9,8 @@ export const teamInvitationsService = {
     return api.get<TenantInvitationsResponse>('/tenant/invitations', { tenantScoped: true });
   },
 
-  create(email: string, role: 'admin' | 'member') {
-    return api.post('/tenant/invitations', { email, role }, { tenantScoped: true });
+  create(email: string, role: 'admin' | 'member', permissions: string[] = []) {
+    return api.post('/tenant/invitations', { email, role, permissions }, { tenantScoped: true });
   },
 
   resend(id: number) {

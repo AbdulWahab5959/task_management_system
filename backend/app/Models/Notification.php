@@ -12,16 +12,28 @@ class Notification extends Model
 
     protected $fillable = [
         'user_id',
+        'tenant_id',
         'type',
+        'category',
+        'severity',
         'title',
         'message',
+        'action_key',
+        'action_url',
         'data',
+        'mandatory',
+        'dedupe_key',
         'read_at',
+        'delivered_at',
+        'expires_at',
     ];
 
     protected $casts = [
         'data' => 'array',
         'read_at' => 'datetime',
+        'delivered_at' => 'datetime',
+        'expires_at' => 'datetime',
+        'mandatory' => 'boolean',
     ];
 
     public function user(): BelongsTo
@@ -42,6 +54,11 @@ class Notification extends Model
     public function scopeByType($query, string $type)
     {
         return $query->where('type', $type);
+    }
+
+    public function scopeByCategory($query, string $category)
+    {
+        return $query->where('category', $category);
     }
 
     public function markAsRead(): void

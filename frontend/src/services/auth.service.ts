@@ -22,6 +22,26 @@ export const authService = {
     return api.post<AuthResponse>('/auth/login', payload);
   },
 
+  challenge(payload: { challenge_token: string; code: string }) {
+    return api.post<AuthResponse>('/auth/2fa/challenge', payload);
+  },
+
+  twoFactorSetup(password: string) {
+    return api.post<{ secret: string; otpauth_uri: string; message: string }>('/auth/2fa/setup', { password });
+  },
+
+  twoFactorConfirm(code: string) {
+    return api.post<{ message: string; recovery_codes: string[] }>('/auth/2fa/confirm', { code });
+  },
+
+  twoFactorDisable(password: string, code: string) {
+    return api.post<{ message: string }>('/auth/2fa/disable', { password, code });
+  },
+
+  twoFactorRecoveryCodes(password: string, code: string) {
+    return api.post<{ message: string; recovery_codes: string[] }>('/auth/2fa/recovery-codes', { password, code });
+  },
+
   me() {
     return api.get<User>('/auth/me');
   },

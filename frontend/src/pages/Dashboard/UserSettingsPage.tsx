@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/dashboard/PageHeader';
 import { userSettingsService } from '../../services/user-settings.service';
+import { authService } from '../../services/auth.service';
 import type {
   UserNotificationPreferences,
   UserPreferences,
@@ -78,6 +79,7 @@ function Toggle({ id, checked, disabled = false, onChange }: ToggleProps) {
       type="button"
       role="switch"
       id={id}
+      aria-label={`${id.replaceAll('_', ' ')} ${checked ? 'enabled' : 'disabled'}`}
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
@@ -105,14 +107,17 @@ interface ToggleRowProps {
 
 function ToggleRow({ id, title, description, checked, disabled, onChange }: ToggleRowProps) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <div>
+    <div className={`flex items-center justify-between gap-5 rounded-xl border px-4 py-3.5 transition-colors ${disabled ? 'border-transparent bg-white/50' : 'border-slate-100 bg-white hover:border-indigo-100 hover:bg-indigo-50/30'}`}>
+      <div className="min-w-0">
         <label htmlFor={id} className="text-sm font-semibold text-slate-900">
           {title}
         </label>
         <p className="mt-0.5 text-xs leading-5 text-slate-500">{description}</p>
       </div>
-      <Toggle id={id} checked={checked} disabled={disabled} onChange={onChange} />
+      <div className="flex shrink-0 items-center gap-3">
+        <span className={`hidden text-[11px] font-bold uppercase tracking-[0.12em] sm:inline ${checked ? 'text-indigo-600' : 'text-slate-400'}`}>{disabled ? 'Required' : checked ? 'On' : 'Off'}</span>
+        <Toggle id={id} checked={checked} disabled={disabled} onChange={onChange} />
+      </div>
     </div>
   );
 }
@@ -135,6 +140,12 @@ export default function UserSettingsPage() {
   const [fieldErrors, setFieldErrors] = useState<ApiErrors>({});
   const [savedMessage, setSavedMessage] = useState('');
   const [securityStatus, setSecurityStatus] = useState<string>('coming_soon');
+  const [twoFactorPassword, setTwoFactorPassword] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [twoFactorSecret, setTwoFactorSecret] = useState('');
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [twoFactorError, setTwoFactorError] = useState('');
+  const [twoFactorBusy, setTwoFactorBusy] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -202,12 +213,34 @@ export default function UserSettingsPage() {
     }
   };
 
+  const startTwoFactorSetup = async () => {
+    setTwoFactorBusy(true); setTwoFactorError('');
+    try { const response = await authService.twoFactorSetup(twoFactorPassword); setTwoFactorSecret(response.data.secret); setSecurityStatus('setup'); }
+    catch { setTwoFactorError('We could not start setup. Check your password and try again.'); }
+    finally { setTwoFactorBusy(false); }
+  };
+
+  const confirmTwoFactor = async () => {
+    setTwoFactorBusy(true); setTwoFactorError('');
+    try { const response = await authService.twoFactorConfirm(twoFactorCode); setRecoveryCodes(response.data.recovery_codes); setSecurityStatus('enabled'); setTwoFactorSecret(''); setTwoFactorCode(''); setTwoFactorPassword(''); }
+    catch { setTwoFactorError('That authenticator code is invalid or expired.'); }
+    finally { setTwoFactorBusy(false); }
+  };
+
+  const disableTwoFactor = async () => {
+    setTwoFactorBusy(true); setTwoFactorError('');
+    try { await authService.twoFactorDisable(twoFactorPassword, twoFactorCode); setSecurityStatus('disabled'); setTwoFactorPassword(''); setTwoFactorCode(''); }
+    catch { setTwoFactorError('The password or authentication code is invalid.'); }
+    finally { setTwoFactorBusy(false); }
+  };
+
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-4xl">
       <PageHeader
         eyebrow="Account"
         title="Account settings"
         description="Personal notification preferences and security controls for your LaunchStack account."
+        action={<Link to="/dashboard" className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50/40">Back to dashboard</Link>}
       />
 
       {loading ? (
@@ -228,19 +261,17 @@ export default function UserSettingsPage() {
       ) : (
         <form className="space-y-6" onSubmit={submit}>
           {/* Notifications */}
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100">
                   <Bell className="h-5 w-5" aria-hidden="true" />
                 </span>
-                <div>
-                  <CardTitle>Notifications</CardTitle>
-                  <CardDescription>Choose which account notifications reach you.</CardDescription>
-                </div>
+                <div><CardTitle>Notifications</CardTitle><CardDescription>Choose which account notifications reach you.</CardDescription></div>
+                <span className="ml-auto hidden rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 sm:inline-flex">Account-level</span>
               </div>
             </CardHeader>
-            <CardContent className="space-y-5">
+            <CardContent className="space-y-3 bg-slate-50/40">
               <ToggleRow
                 id="email_notifications_enabled"
                 title="Email notifications"
@@ -263,8 +294,8 @@ export default function UserSettingsPage() {
                 onChange={(value) => setField('marketing_emails_enabled', value)}
               />
 
-              <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Always on</p>
+              <div className="rounded-2xl border border-amber-200/80 bg-amber-50/80 px-3 py-3 sm:px-4">
+                <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-700">Always on</p><p className="mt-1 text-xs leading-5 text-amber-800">Required alerts protect your account and cannot be switched off.</p></div><Shield className="mt-1 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" /></div>
                 <div className="mt-3 space-y-3">
                   <ToggleRow
                     id="billing_notifications_enabled"
@@ -282,14 +313,14 @@ export default function UserSettingsPage() {
                     disabled
                     onChange={() => undefined}
                   />
-                  <InfoNote>Critical billing and security alerts cannot be disabled.</InfoNote>
+                  <InfoNote>Billing and security alerts remain enabled.</InfoNote>
                 </div>
               </div>
             </CardContent>
           </Card>
 
 {/* Preferences */}
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700 ring-1 ring-violet-100">
@@ -346,7 +377,7 @@ export default function UserSettingsPage() {
           </Card>
 
           {/* Security */}
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
@@ -359,7 +390,7 @@ export default function UserSettingsPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4">
+              <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <KeyRound className="h-5 w-5 text-slate-500" aria-hidden="true" />
                   <div>
@@ -369,15 +400,16 @@ export default function UserSettingsPage() {
                 </div>
                 <Link
                   to="/dashboard/profile"
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50/40"
                 >
                   <UserCog className="h-4 w-4" aria-hidden="true" />
                   Manage
                 </Link>
               </div>
 
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4">
-                <div className="flex items-center gap-3">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
                   <Smartphone className="h-5 w-5 text-slate-500" aria-hidden="true" />
                   <div>
                     <p className="text-sm font-semibold text-slate-900">Two-factor authentication</p>
@@ -390,9 +422,15 @@ export default function UserSettingsPage() {
                     </p>
                   </div>
                 </div>
-                <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold capitalize text-slate-600">
-                  {securityStatus === 'coming_soon' ? 'Coming soon' : securityStatus}
-                </span>
+                {securityStatus === 'enabled' ? <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Enabled</span> : null}
+                </div>
+                <div className="mt-4 space-y-3">
+                  {securityStatus !== 'enabled' && !twoFactorSecret ? <><input type="password" value={twoFactorPassword} onChange={(event) => setTwoFactorPassword(event.target.value)} placeholder="Confirm your password" className="dashboard-control" /><Button type="button" size="sm" isLoading={twoFactorBusy} onClick={() => void startTwoFactorSetup()}>Set up authenticator</Button></> : null}
+                  {twoFactorSecret ? <div className="space-y-3 rounded-lg bg-slate-50 p-3 text-sm"><p>Enter this secret in your authenticator app:</p><code className="block break-all font-mono text-xs text-slate-700">{twoFactorSecret}</code><input inputMode="numeric" value={twoFactorCode} onChange={(event) => setTwoFactorCode(event.target.value)} placeholder="6-digit code" className="dashboard-control" /><Button type="button" size="sm" isLoading={twoFactorBusy} onClick={() => void confirmTwoFactor()}>Confirm and enable</Button></div> : null}
+                  {securityStatus === 'enabled' ? <><div className="grid gap-3 sm:grid-cols-2"><input type="password" value={twoFactorPassword} onChange={(event) => setTwoFactorPassword(event.target.value)} placeholder="Password" className="dashboard-control" /><input value={twoFactorCode} onChange={(event) => setTwoFactorCode(event.target.value)} placeholder="Authenticator or recovery code" className="dashboard-control" /></div><Button type="button" size="sm" variant="danger" isLoading={twoFactorBusy} onClick={() => void disableTwoFactor()}>Disable 2FA</Button></> : null}
+                  {recoveryCodes.length > 0 ? <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><p className="font-semibold">Save these recovery codes somewhere safe. Each works once.</p><code className="mt-2 block whitespace-pre-wrap font-mono">{recoveryCodes.join('\n')}</code></div> : null}
+                  {twoFactorError ? <p className="text-xs font-medium text-rose-600" role="alert">{twoFactorError}</p> : null}
+                </div>
               </div>
 
               <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4">

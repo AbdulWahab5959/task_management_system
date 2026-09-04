@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'super.admin' => \App\Http\Middleware\EnsureSuperAdminRole::class,
             'tenant.identify' => \App\Http\Middleware\IdentifyTenant::class,
             'tenant.subscription' => \App\Http\Middleware\CheckSubscription::class,
+            'permission' => \App\Http\Middleware\RequireTenantPermission::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

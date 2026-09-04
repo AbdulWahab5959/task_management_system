@@ -38,8 +38,8 @@ export default function Button({
       type={type}
       disabled={disabled || isLoading}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
-        'active:scale-[0.98]',
+        'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg font-semibold transition-[transform,background-color,border-color,box-shadow,color,opacity] duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
+        'active:scale-[0.96]',
         variantClasses[variant],
         sizeClasses[size],
         className,

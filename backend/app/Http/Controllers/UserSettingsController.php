@@ -142,8 +142,8 @@ class UserSettingsController extends Controller
                 'locale' => $settings->locale,
             ],
             'security' => [
-                'two_factor_enabled' => false,
-                'two_factor_status' => 'coming_soon',
+                'two_factor_enabled' => (bool) $settings->user?->two_factor_confirmed_at,
+                'two_factor_status' => $settings->user?->two_factor_confirmed_at ? 'enabled' : 'available',
             ],
         ];
     }

@@ -98,9 +98,7 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
   const pageTitle = getPageTitle(location.pathname);
 
   useEffect(() => {
-    if (isSuperAdmin) {
-      return;
-    }
+    if (isSuperAdmin || !organizationOpen || billing) return;
 
     let mounted = true;
     void Promise.all([getCurrentBilling(), getBillingPlans()])
@@ -113,7 +111,7 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
         // Organization switching remains available if billing is temporarily unavailable.
       });
     return () => { mounted = false; };
-  }, [isSuperAdmin]);
+  }, [billing, isSuperAdmin, organizationOpen]);
 
   // Close dropdown on outside click
   useEffect(() => {

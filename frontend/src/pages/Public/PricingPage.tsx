@@ -66,27 +66,27 @@ function getPlanDisplayName(name: string): string {
 const faqItems = [
   {
     question: 'Can I upgrade or downgrade my plan at any time?',
-    answer: 'Yes, you can change your plan at any time. When upgrading, you\'ll get immediate access to new features. Downgrades take effect at the end of your billing cycle.',
+    answer: 'You can choose a different plan from the billing page. A paid plan change is applied after the checkout flow and provider confirmation; organization limits follow the active plan.',
   },
   {
     question: 'Is there a free trial available?',
-    answer: 'Yes, we offer a 14-day free trial on all paid plans. No credit card required. You can explore all Pro features risk-free.',
+    answer: 'LaunchStack includes the plans currently shown on this page. Whether a plan is free or paid, its price, interval, features, and organization limit are shown before activation or checkout.',
   },
   {
     question: 'What payment methods do you accept?',
-    answer: 'We accept all major credit cards, PayPal, and bank transfers for annual plans. Enterprise customers can also request invoice-based billing.',
+    answer: 'Paid checkout is handled through the payment provider configured for LaunchStack. The available payment methods are shown in checkout.',
   },
   {
     question: 'Can I cancel my subscription anytime?',
-    answer: 'Absolutely. You can cancel your subscription at any time from your dashboard. Your access will continue until the end of your billing period.',
+    answer: 'You can cancel from your dashboard. Depending on the cancellation action, access may continue through the current billing period or end immediately.',
   },
   {
     question: 'Is my data secure?',
-    answer: 'Security is our top priority. We use 256-bit encryption, SOC 2 compliance, and regular security audits. Enterprise plans include dedicated security features.',
+    answer: 'LaunchStack uses authenticated access, organization membership checks, role and permission controls, throttling, and verified payment webhooks. No online service can guarantee absolute security.',
   },
   {
     question: 'Do you offer custom enterprise pricing?',
-    answer: 'Yes, for organizations with specific needs, we offer custom pricing. Contact our sales team and we\'ll create a tailored solution for you.',
+    answer: 'If the plans shown here do not fit your organization, use the Contact page to ask about available options. Any custom commercial terms must be confirmed separately.',
   },
 ];
 
@@ -172,7 +172,7 @@ export default function PricingPage() {
               </span>
             </h1>
             <p className="mt-6 text-lg leading-8 text-slate-400">
-              Start free, scale with confidence. No hidden fees, no surprises — just the tools you need to build and grow.
+                Choose the plan and organization capacity that fit your next release.
             </p>
           </div>
         </div>

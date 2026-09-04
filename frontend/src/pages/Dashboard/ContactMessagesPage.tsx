@@ -1,10 +1,9 @@
-import { ChevronLeft, ChevronRight, Eye, Inbox, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, Inbox, Loader2, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import Button from '../../components/common/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/common/Card';
 import Input from '../../components/common/Input';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/dashboard/EmptyState';
 import PageHeader from '../../components/dashboard/PageHeader';
 import { adminContactMessagesService } from '../../services/admin-contact-messages.service';
@@ -48,6 +47,34 @@ function StatusBadge({ status }: { status: ContactMessageStatus }) {
     <span className={cn('dashboard-badge', statusBadgeClasses[status])}>
       {formatStatus(status)}
     </span>
+  );
+}
+
+function ContactMessagesLoadingState() {
+  return (
+    <div className="min-h-64" role="status" aria-label="Loading contact messages">
+      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-6 py-3">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin text-indigo-500" aria-hidden="true" />
+          Syncing inbox
+        </div>
+        <span className="text-xs text-slate-400">Please wait</span>
+      </div>
+      <div className="hidden divide-y divide-slate-100 md:block">
+        {[1, 2, 3, 4].map((item) => (
+          <div key={item} className="grid grid-cols-[1.1fr_1.8fr_1fr_.8fr_1fr] items-center gap-6 px-6 py-5">
+            <div className="space-y-2"><div className="h-3.5 w-32 animate-pulse rounded bg-slate-200" /><div className="h-3 w-44 animate-pulse rounded bg-slate-100" /></div>
+            <div className="space-y-2"><div className="h-3.5 w-48 animate-pulse rounded bg-slate-200" /><div className="h-3 w-64 animate-pulse rounded bg-slate-100" /></div>
+            <div className="h-7 w-20 animate-pulse rounded-lg bg-slate-100" />
+            <div className="h-3.5 w-24 animate-pulse rounded bg-slate-100" />
+            <div className="ml-auto h-9 w-28 animate-pulse rounded-lg bg-slate-100" />
+          </div>
+        ))}
+      </div>
+      <div className="space-y-3 px-4 py-4 md:hidden">
+        {[1, 2, 3].map((item) => <div key={item} className="space-y-3 rounded-xl border border-slate-100 p-4"><div className="h-4 w-40 animate-pulse rounded bg-slate-200" /><div className="h-3 w-56 animate-pulse rounded bg-slate-100" /><div className="h-9 w-full animate-pulse rounded-lg bg-slate-100" /></div>)}
+      </div>
+    </div>
   );
 }
 
@@ -245,9 +272,7 @@ export default function ContactMessagesPage() {
           ) : null}
 
           {loading ? (
-            <div className="flex min-h-64 items-center justify-center">
-              <LoadingSpinner label="Loading contact messages" />
-            </div>
+            <ContactMessagesLoadingState />
           ) : error ? (
             <div className="flex min-h-64 flex-col items-center justify-center gap-4 px-6 py-10 text-center">
               <p className="text-sm font-medium text-slate-700">{error}</p>

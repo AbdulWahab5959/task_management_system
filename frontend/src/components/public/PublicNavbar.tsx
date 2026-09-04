@@ -8,6 +8,7 @@ const navLinks = [
   { to: '/about', label: 'About' },
   { to: '/pricing', label: 'Pricing' },
   { to: '/contact', label: 'Contact' },
+  { to: '/chatbots', label: 'Chatbots' },
 ];
 
 export default function PublicNavbar() {

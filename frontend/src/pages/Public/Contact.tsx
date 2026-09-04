@@ -64,7 +64,7 @@ export default function Contact() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold text-white sm:text-4xl">Message sent!</h1>
+            <h1 className="text-3xl font-bold text-white sm:text-4xl">Message sent</h1>
             <p className="mt-4 text-lg text-slate-300">
               {successMessage || 'Thank you for reaching out. We will get back to you as soon as possible.'}
             </p>

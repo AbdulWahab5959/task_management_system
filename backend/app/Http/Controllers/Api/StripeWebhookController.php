@@ -11,6 +11,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Services\NotificationService;
+use App\Services\InvoiceService;
 use App\Services\StripeBackfillService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,6 +32,10 @@ class StripeWebhookController extends Controller
 {
     private ?array $paymentColumns = null;
 
+    public function __construct(private readonly InvoiceService $invoices)
+    {
+    }
+
     private const REPROCESSABLE_EVENT_TYPES = [
         'checkout.session.completed',
         'customer.subscription.created',
@@ -38,6 +43,8 @@ class StripeWebhookController extends Controller
         'customer.subscription.deleted',
         'invoice.payment_succeeded',
         'invoice.paid',
+        'invoice.created',
+        'invoice.finalized',
         'invoice_payment.paid',
         'invoice.payment_failed',
         'charge.refunded',
@@ -153,6 +160,7 @@ class StripeWebhookController extends Controller
             'invoice.paid' => $this->handleInvoicePaid($object),
             'invoice_payment.paid' => $this->handleInvoicePaymentPaid($object),
             'invoice.payment_failed' => $this->handleInvoicePaymentFailed($object),
+            'invoice.created', 'invoice.finalized' => $this->handleInvoicePending($object),
             'customer.subscription.created' => $this->handleCustomerSubscriptionCreated($object),
             'customer.subscription.updated' => $this->handleCustomerSubscriptionUpdated($object),
             'customer.subscription.deleted' => $this->handleCustomerSubscriptionDeleted($object),
@@ -458,11 +466,23 @@ class StripeWebhookController extends Controller
             $subscription->update([
                 'status' => 'past_due',
             ]);
+            $this->invoices->upsertFromStripe($this->stripeObjectToArray($invoice), $subscription, 'failed');
         } else {
             Log::warning('Stripe invoice.payment_failed could not find a local subscription.', [
                 'stripe_subscription_id' => $subscriptionId,
                 'invoice_id' => $this->stringValue($invoice, 'id'),
             ]);
+        }
+    }
+
+    private function handleInvoicePending(StripeObject $invoice): void
+    {
+        $subscriptionId = $this->stringValue($invoice, 'subscription');
+        if (! $subscriptionId) return;
+
+        $subscription = $this->findLocalSubscriptionByStripeSubscriptionId($subscriptionId);
+        if ($subscription) {
+            $this->invoices->upsertFromStripe($this->stripeObjectToArray($invoice), $subscription, 'pending');
         }
     }
 
@@ -1323,6 +1343,9 @@ class StripeWebhookController extends Controller
         string $eventType,
         ?Payment $matchedPayment = null,
     ): void {
+        if ($subscription) {
+            $this->invoices->upsertFromStripe($this->stripeObjectToArray($invoice), $subscription, 'paid');
+        }
         $amount = (($this->floatValue($invoice, 'amount_paid') ?? 0.0) / 100);
 
         if ($amount <= 0) {
@@ -1396,6 +1419,11 @@ class StripeWebhookController extends Controller
         }
 
         Payment::updateOrCreate(['reference' => $reference], $updateData);
+    }
+
+    private function stripeObjectToArray(StripeObject $object): array
+    {
+        return json_decode($object->toJSON(), true) ?: [];
     }
 
     private function localSubscriptionStatus(?string $stripeStatus, Subscription $localSubscription): string

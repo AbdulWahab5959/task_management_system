@@ -363,7 +363,7 @@ return (
           aria-label="Support chat"
           aria-hidden={!open}
           className={cn(
-            'support-chat-panel fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.22)]',
+            'support-chat-panel fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] relative',
             open ? 'support-panel-in' : 'support-panel-out',
           )}
         >
