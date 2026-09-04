@@ -38,6 +38,10 @@ export interface BillingSummary {
   organizations_remaining: number | string;
   plan_features: string[];
   current_subscription: UserSubscriptionSummary | null;
+  organization_over_limit?: boolean;
+  entitlements?: string[];
+  limits?: Record<string, number | string>;
+  usage?: Record<string, { used: number; limit: number | string | null; remaining: number | string }>;
 }
 
 export interface SetupChecklistItem {

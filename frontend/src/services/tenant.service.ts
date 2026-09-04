@@ -18,4 +18,12 @@ export const tenantService = {
   destroy(id: number) {
     return api.delete<{ message: string }>(`/tenants/${id}`, { tenantScoped: true });
   },
+
+  setPrimary(id: number) {
+    return api.post<{ message: string }>(`/tenants/${id}/primary`, {}, { tenantScoped: true });
+  },
+
+  scheduleDeletion(id: number, organizationName: string) {
+    return api.post<{ message: string; deletes_at?: string }>(`/tenants/${id}/schedule-deletion`, { organization_name: organizationName }, { tenantScoped: true });
+  },
 };

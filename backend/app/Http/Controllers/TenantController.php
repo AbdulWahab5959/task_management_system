@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Throwable;
+use App\Services\PlanEntitlementService;
 
 class TenantController extends Controller
 {
@@ -23,6 +24,7 @@ class TenantController extends Controller
         TenantService $tenantService,
         private readonly ActivityLogService $activityLogService,
         private readonly TenantPermissionService $tenantPermissionService,
+        private readonly PlanEntitlementService $entitlements,
     )
     {
         $this->tenantService = $tenantService;
@@ -138,6 +140,39 @@ class TenantController extends Controller
         return response()->json(['message' => 'Organization successfully deleted.']);
     }
 
+    public function setPrimary(Request $request, string $id): JsonResponse
+    {
+        $tenant = $request->attributes->get('tenant') ?? Tenant::findOrFail($id);
+        abort_unless($request->user()->isOwnerOfTenant($tenant), 403, 'Only the organization owner can select the primary organization.');
+        $this->tenantService->setPrimary($tenant, $request->user());
+        $this->activityLogService->logFromRequest('tenant.organization.primary_selected', 'Primary organization selected.', [], $request);
+        return response()->json(['message' => 'Primary organization selected.']);
+    }
+
+    public function schedulePermanentDeletion(Request $request, string $id): JsonResponse
+    {
+        $tenant = $request->attributes->get('tenant') ?? Tenant::findOrFail($id);
+        abort_unless($request->user()->isOwnerOfTenant($tenant), 403, 'Only the organization owner can schedule deletion.');
+        $validated = $request->validate(['organization_name' => ['required', 'string']]);
+        abort_unless(hash_equals($tenant->name, $validated['organization_name']), 422, 'Organization name confirmation does not match.');
+        $this->tenantService->schedulePermanentDeletion($tenant);
+        $this->activityLogService->logFromRequest('tenant.organization.deletion_scheduled', 'Organization permanent deletion scheduled.', [], $request);
+        return response()->json(['message' => 'Organization deletion scheduled after the 30-day grace period.', 'deletes_at' => $tenant->fresh()->permanent_deletion_scheduled_at?->toISOString()]);
+    }
+
+    public function permanentlyDelete(Request $request, string $id): JsonResponse
+    {
+        $tenant = $request->attributes->get('tenant') ?? Tenant::findOrFail($id);
+        abort_unless($request->user()->isOwnerOfTenant($tenant), 403, 'Only the organization owner can permanently delete this organization.');
+        $validated = $request->validate(['organization_name' => ['required', 'string']]);
+        abort_unless(hash_equals($tenant->name, $validated['organization_name']), 422, 'Organization name confirmation does not match.');
+        abort_unless($tenant->permanent_deletion_scheduled_at && $tenant->permanent_deletion_scheduled_at->isPast(), 409, 'The deletion grace period has not ended.');
+        $tenantId = $tenant->id;
+        $this->tenantService->permanentlyDelete($tenant);
+        $this->activityLogService->logFromRequest('tenant.organization.deleted_permanently', "Organization {$tenantId} permanently deleted.", [], $request);
+        return response()->json(['message' => 'Organization permanently deleted.']);
+    }
+
     private function serializeTenant(Tenant $tenant, $user): array
     {
         return [
@@ -150,6 +185,9 @@ class TenantController extends Controller
                 : ($tenant->pivot?->role ?? $user->getRoleInTenant($tenant)),
             'permissions' => $this->tenantPermissionService->permissionsFor($user, $tenant)->values(),
             'owner_id' => $tenant->owner_id,
+            'is_primary' => (bool) $tenant->is_primary,
+            'archived_at' => $tenant->archived_at?->toISOString(),
+            'permanent_deletion_scheduled_at' => $tenant->permanent_deletion_scheduled_at?->toISOString(),
             'trial_ends_at' => $tenant->trial_ends_at?->toISOString(),
             'created_at' => $tenant->created_at?->toISOString(),
         ];

@@ -15,9 +15,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Stripe\Stripe;
 use Throwable;
+use App\Services\PlanEntitlementService;
 
 class BillingController extends Controller
 {
+    public function __construct(private readonly PlanEntitlementService $entitlements) {}
+
     public function getCurrentSubscription(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -43,6 +46,7 @@ class BillingController extends Controller
             ->where('status', Tenant::STATUS_ACTIVE)
             ->count();
         $organizationLimit = $subscription?->plan?->getLimit('organizations', 0);
+        $organizationStatus = $this->entitlements->organizationSummary($user);
 
         return response()->json([
             'subscription_scope' => 'user',
@@ -54,6 +58,11 @@ class BillingController extends Controller
             'organizations_remaining' => $organizationLimit === 'unlimited'
                 ? 'unlimited'
                 : max(0, (int) $organizationLimit - $organizationsUsed),
+            'organization_over_limit' => $organizationStatus['over_limit'],
+            'organization_grace_ends_at' => null,
+            'limits' => $subscription?->plan?->limits ?? [],
+            'entitlements' => $subscription?->plan?->entitlements() ?? [],
+            'usage' => $this->entitlements->usageSummary($user),
             'subscription' => $subscription ? $this->serializeSubscription($subscription) : null,
             'current_plan' => $this->serializePlan($subscription?->plan),
             'payment_history' => $paymentHistory->map(fn (Payment $payment) => $this->serializePayment($payment)),

@@ -53,8 +53,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tenants', [TenantController::class, 'store']);
     Route::get('/tenants/{tenant}', [TenantController::class, 'show'])
         ->middleware(['tenant.identify', 'permission:organization.view']);
-    Route::delete('/tenants/{tenant}', [TenantController::class, 'destroy'])
+        Route::delete('/tenants/{tenant}', [TenantController::class, 'destroy'])
         ->middleware('tenant.identify');
+    Route::post('/tenants/{tenant}/primary', [TenantController::class, 'setPrimary'])
+        ->middleware('tenant.identify');
+    Route::post('/tenants/{tenant}/schedule-deletion', [TenantController::class, 'schedulePermanentDeletion'])
+        ->middleware('tenant.identify');
+    Route::delete('/tenants/{tenant}/permanent', [TenantController::class, 'permanentlyDelete']);
 
     Route::prefix('tenant')->middleware('tenant.identify')->group(function () {
         Route::get('/dashboard/summary', [TenantDashboardController::class, 'summary'])->middleware('permission:organization.view');

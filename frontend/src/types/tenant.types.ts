@@ -7,6 +7,9 @@ export interface Tenant {
   status: 'active' | 'suspended' | 'cancelled' | string;
   role: TenantRole | string | null;
   owner_id?: number;
+  is_primary?: boolean;
+  archived_at?: string | null;
+  permanent_deletion_scheduled_at?: string | null;
   trial_ends_at?: string | null;
   created_at?: string;
   permissions?: string[];
