@@ -21,10 +21,16 @@ class Tenant extends Model
         'owner_id',
         'status',
         'trial_ends_at',
+        'is_primary',
+        'archived_at',
+        'permanent_deletion_scheduled_at',
     ];
 
     protected $casts = [
         'trial_ends_at' => 'datetime',
+        'is_primary' => 'boolean',
+        'archived_at' => 'datetime',
+        'permanent_deletion_scheduled_at' => 'datetime',
     ];
 
     // Relationships

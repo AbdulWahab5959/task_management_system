@@ -77,6 +77,11 @@ export interface CurrentBillingResponse {
   current_plan: BillingPlan | null;
   payment_history: PaymentRecord[];
   payment_attention?: string | null;
+  organization_over_limit?: boolean;
+  organization_grace_ends_at?: string | null;
+  limits?: Record<string, number | string>;
+  entitlements?: string[];
+  usage?: Record<string, { used: number; limit: number | string | null; remaining: number | string }>;
 }
 
 export type InvoiceStatus = 'paid' | 'pending' | 'failed';

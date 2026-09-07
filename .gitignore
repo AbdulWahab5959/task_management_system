@@ -19,3 +19,13 @@ output/
 tmp/pdfs/
 .clinerules
 .github/copilot-instructions.md
+
+# Shared engineering policy and task history; other local Markdown stays ignored.
+!/AGENTS.md
+!/backend/AGENTS.md
+!/frontend/AGENTS.md
+!/.github/copilot-instructions.md
+!/README.md
+!/ROADMAP.md
+!/PROGRESS.md
+!/docs/agentic/**/*.md

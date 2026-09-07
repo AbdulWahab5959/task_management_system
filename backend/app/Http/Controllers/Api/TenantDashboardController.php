@@ -11,9 +11,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Throwable;
+use App\Services\PlanEntitlementService;
 
 class TenantDashboardController extends Controller
 {
+    public function __construct(private readonly PlanEntitlementService $entitlements) {}
     private const PROFILE_FIELDS = [
         'name',
         'industry',
@@ -80,15 +82,20 @@ class TenantDashboardController extends Controller
             ->where('status', Tenant::STATUS_ACTIVE)
             ->count();
         $organizationLimit = $subscription?->plan?->getLimit('organizations', 0);
+        $organizationSummary = $this->entitlements->organizationSummary($user->role === 'super_admin' ? $user : $tenant->owner);
 
         $billing = [
             'subscription_scope' => 'user',
             'organizations_used' => $organizationsUsed,
             'organization_limit' => $organizationLimit,
+            'organization_over_limit' => $organizationSummary['over_limit'],
             'organizations_remaining' => $organizationLimit === 'unlimited'
                 ? 'unlimited'
                 : max(0, (int) $organizationLimit - $organizationsUsed),
             'plan_features' => $subscription?->plan?->features ?? [],
+            'entitlements' => $subscription?->plan?->entitlements() ?? [],
+            'limits' => $subscription?->plan?->limits ?? [],
+            'usage' => $this->entitlements->usageSummary($tenant->owner, $tenant),
             'current_subscription' => $subscription ? [
                 'id' => $subscription->id,
                 'plan_name' => $subscription->plan?->name,

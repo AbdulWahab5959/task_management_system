@@ -34,6 +34,7 @@ class TenantService
                     'database_name' => $this->generateDatabaseName($slug),
                     'owner_id' => $owner->id,
                     'status' => 'active',
+                    'is_primary' => ! Tenant::query()->where('owner_id', $owner->id)->where('status', Tenant::STATUS_ACTIVE)->exists(),
                     'trial_ends_at' => now()->addDays(14),
                 ]);
 
@@ -253,7 +254,54 @@ class TenantService
         // DDL can implicitly commit on MySQL. Archive the central record
         // instead of mixing DROP DATABASE with a central transaction. This
         // removes it from active organization lists while retaining audit data.
-        return (bool) $tenant->update(['status' => Tenant::STATUS_CANCELLED]);
+        return (bool) $tenant->update([
+            'status' => Tenant::STATUS_CANCELLED,
+            'is_primary' => false,
+            'archived_at' => now(),
+        ]);
+    }
+
+    public function setPrimary(Tenant $tenant, User $owner): void
+    {
+        DB::transaction(function () use ($tenant, $owner): void {
+            Tenant::query()->where('owner_id', $owner->id)->where('status', Tenant::STATUS_ACTIVE)->lockForUpdate()->get();
+            $tenant->update(['is_primary' => true]);
+            Tenant::query()->where('owner_id', $owner->id)->where('id', '<>', $tenant->id)->update(['is_primary' => false]);
+        });
+    }
+
+    public function schedulePermanentDeletion(Tenant $tenant): void
+    {
+        $tenant->update([
+            'status' => Tenant::STATUS_CANCELLED,
+            'is_primary' => false,
+            'archived_at' => $tenant->archived_at ?? now(),
+            'permanent_deletion_scheduled_at' => now()->addDays(30),
+        ]);
+    }
+
+    public function permanentlyDelete(Tenant $tenant): void
+    {
+        $databaseName = $tenant->database_name;
+        $driver = config('database.default');
+
+        DB::transaction(function () use ($tenant): void {
+            $tenant->activityLogs()->delete();
+            $tenant->users()->detach();
+            $tenant->delete();
+        });
+
+        if ($driver === 'sqlite') {
+            $path = database_path($databaseName . '.sqlite');
+            if (file_exists($path)) {
+                @unlink($path);
+            }
+        } else {
+            if (! preg_match('/^tenant_[a-z0-9_]+$/', $databaseName)) {
+                throw new \RuntimeException('Invalid tenant database name.');
+            }
+            DB::statement("DROP DATABASE IF EXISTS `{$databaseName}`");
+        }
     }
 
     public function switchTenant(?Tenant $tenant): void

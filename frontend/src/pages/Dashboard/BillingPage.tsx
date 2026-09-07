@@ -115,6 +115,22 @@ function numericAmount(plan?: Pick<BillingPlan, 'amount' | 'price'> | null): num
   return Number.isNaN(value) ? 0 : value;
 }
 
+function formatCapacityValue(value: number | string | undefined, unit: 'storage' | 'count'): string {
+  if (value === 'unlimited') return 'Unlimited';
+  if (value === undefined || value === null) return 'Not included';
+
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return 'Not included';
+  if (unit === 'storage') {
+    const gigabytes = numericValue / (1024 ** 3);
+    return gigabytes >= 1
+      ? `${gigabytes.toFixed(gigabytes % 1 ? 1 : 0)} GB`
+      : `${Math.round(numericValue / (1024 ** 2))} MB`;
+  }
+
+  return numericValue.toLocaleString();
+}
+
 function periodEndFor(subscription?: CurrentSubscription | null): string | undefined {
   return subscription?.ends_at || subscription?.current_period_end;
 }
@@ -434,11 +450,25 @@ export default function BillingPage() {
         description="Manage your plan, payments, and cancellation settings."
       />
 
-      <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
-        {currentPlan
-          ? `Your account plan: ${currentPlan.name}. Organizations: ${billing?.organizations_used ?? 0} of ${billing?.organization_limit ?? 0}.`
-          : 'Choose a plan to create your organizations.'}
-      </div>
+      {!hasActiveSubscription ? (
+        <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+          Choose a plan before creating your first organization.
+        </div>
+      ) : null}
+
+      {billing?.organization_over_limit ? (
+        <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">Your account is above its organization allowance.</p>
+          <p className="mt-1">Your existing organizations are preserved. Upgrade your plan or archive extra organizations before creating another one.</p>
+        </div>
+      ) : null}
+
+      {billing?.subscription && billing.current_plan && billing?.usage && Object.keys(billing.usage).length > 0 ? (
+        <Card className="mb-6">
+          <CardHeader><CardTitle>Plan usage</CardTitle><CardDescription>Usage is measured and enforced by the server for your current account plan.</CardDescription></CardHeader>
+          <CardContent><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{Object.entries(billing.usage).map(([metric, value]) => <div key={metric} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{metric.replaceAll('_', ' ')}</p><p className="mt-1 text-lg font-bold text-slate-950">{value.used.toLocaleString()} <span className="text-xs font-medium text-slate-500">/ {value.limit === 'unlimited' || value.limit === null ? 'unlimited' : Number(value.limit).toLocaleString()}</span></p></div>)}</div></CardContent>
+        </Card>
+      ) : null}
 
       {paymentNeedsAttention ? (
         <div role="alert" className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -576,16 +606,23 @@ export default function BillingPage() {
                   const actionLabel = getPlanActionLabel(plan, activeCurrentPlan);
                   const isDowngrade = actionLabel === 'Downgrade';
                   const isUpgrade = actionLabel === 'Upgrade';
+                  const displayFeatures = (plan.features ?? [])
+                    .filter((feature) => !/\borganizations?\b/i.test(feature))
+                    .slice(0, 4);
+                  const organizationLimit = formatCapacityValue(plan.limits?.organizations, 'count');
+                  const includedPoints = [
+                    ...displayFeatures,
+                    `${organizationLimit} organization${organizationLimit === '1' ? '' : 's'}`,
+                    `${formatCapacityValue(plan.limits?.storage_bytes, 'storage')} storage`,
+                    `${formatCapacityValue(plan.limits?.chatbot_messages_monthly, 'count')} chatbot messages / month`,
+                    `${formatCapacityValue(plan.limits?.team_members, 'count')} team members`,
+                  ];
 
                   return (
-                    <button
+                    <article
                       key={plan.id}
-                      type="button"
-                      onClick={() => !isCurrentPlan && handleSelectPlan(plan)}
-                      disabled={!plan.is_active || isCurrentPlan || !canManageBilling}
-                      aria-pressed={isCurrentPlan}
                       className={cn(
-                        'group relative flex h-full min-h-[24rem] flex-col overflow-hidden rounded-2xl border p-6 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2',
+                        'group relative flex h-full min-h-[24rem] flex-col overflow-hidden rounded-2xl border p-6 text-left transition-all duration-200',
                         isCurrentPlan
                           ? 'cursor-default border-emerald-300 bg-gradient-to-b from-emerald-50/80 to-white shadow-lg shadow-emerald-100/60 ring-2 ring-emerald-200/70'
                           : 'border-slate-200 bg-white hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-200/60',
@@ -633,9 +670,10 @@ export default function BillingPage() {
                       </div>
 
                       <div className="mt-6 flex-1">
-                        {plan.features && plan.features.length > 0 ? (
+                        <p className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Includes</p>
+                        {includedPoints.length > 0 ? (
                           <ul className="space-y-2.5">
-                            {plan.features.slice(0, 4).map((feature) => (
+                            {includedPoints.map((feature) => (
                               <li key={feature} className="flex items-start gap-2.5 text-sm text-slate-600">
                                 <span
                                   className={cn(
@@ -652,12 +690,16 @@ export default function BillingPage() {
                         ) : (
                           <p className="text-sm text-slate-400">No features listed.</p>
                         )}
+
                       </div>
 
                       <div className="mt-6 pt-2">
-                        <span
+                        <button
+                          type="button"
+                          onClick={() => !isCurrentPlan && handleSelectPlan(plan)}
+                          disabled={!plan.is_active || isCurrentPlan || !canManageBilling}
                           className={cn(
-                            'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition',
+                            'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2',
                             isCurrentPlan
                               ? 'border border-emerald-300 bg-emerald-50 text-emerald-700'
                               : isDowngrade
@@ -668,9 +710,9 @@ export default function BillingPage() {
                           )}
                         >
                           {actionLabel}
-                        </span>
+                        </button>
                       </div>
-                    </button>
+                    </article>
                   );
                 })}
               </div>

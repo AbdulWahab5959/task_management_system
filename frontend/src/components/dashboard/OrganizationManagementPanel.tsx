@@ -42,6 +42,7 @@ export default function OrganizationManagementPanel() {
   const [error, setError] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [settingPrimary, setSettingPrimary] = useState(false);
   const activeTenantId = activeTenant?.id;
   const activeTenantName = activeTenant?.name ?? '';
 
@@ -128,6 +129,18 @@ export default function OrganizationManagementPanel() {
     } finally { setDeleting(false); }
   };
 
+  const setPrimary = async () => {
+    if (!activeTenant || settingPrimary || activeTenant.is_primary) return;
+    setSettingPrimary(true); setError('');
+    try {
+      await tenantService.setPrimary(activeTenant.id);
+      await refreshTenants();
+      setMessage('Primary organization updated.');
+    } catch {
+      setError('Unable to select the primary organization.');
+    } finally { setSettingPrimary(false); }
+  };
+
   if (!activeTenant) return null;
 
   return (
@@ -164,7 +177,7 @@ export default function OrganizationManagementPanel() {
           <Input label="Country" value={form.country ?? ''} onChange={(event) => update('country', event.target.value)} />
           <div><label className="mb-1.5 block text-sm font-medium text-slate-700" htmlFor="dashboard-timezone">Timezone</label><select id="dashboard-timezone" value={form.timezone} onChange={(event) => update('timezone', event.target.value)} className="dashboard-control">{timezones.map((timezone) => <option key={timezone}>{timezone}</option>)}</select></div>
           <Input label="Currency" value={form.currency} onChange={(event) => update('currency', event.target.value.toUpperCase())} maxLength={3} />
-          <div className="flex flex-wrap items-center justify-between gap-3 md:col-span-2"><div aria-live="polite" className="text-sm">{message ? <span className="inline-flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-4 w-4" aria-hidden="true" />{message}</span> : null}{error ? <span className="text-rose-600">{error}</span> : null}</div><div className="flex flex-wrap gap-2">{(activeTenant.role === 'owner' || isSuperAdmin) ? <Button type="button" variant="danger" onClick={() => setDeleteOpen(true)} icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}>Delete organization</Button> : null}<Button type="submit" isLoading={saving} disabled={loading} icon={<Save className="h-4 w-4" aria-hidden="true" />}>Save organization</Button></div></div>
+           <div className="flex flex-wrap items-center justify-between gap-3 md:col-span-2"><div aria-live="polite" className="text-sm">{message ? <span className="inline-flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-4 w-4" aria-hidden="true" />{message}</span> : null}{error ? <span className="text-rose-600">{error}</span> : null}</div><div className="flex flex-wrap gap-2">{activeTenant.role === 'owner' && !activeTenant.is_primary ? <Button type="button" variant="secondary" onClick={() => void setPrimary()} disabled={settingPrimary}>Make primary</Button> : null}{(activeTenant.role === 'owner' || isSuperAdmin) ? <Button type="button" variant="danger" onClick={() => setDeleteOpen(true)} icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}>Archive organization</Button> : null}<Button type="submit" isLoading={saving} disabled={loading} icon={<Save className="h-4 w-4" aria-hidden="true" />}>Save organization</Button></div></div>
         </form>
       </CardContent>
       {createOpen ? <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-5 py-8 backdrop-blur-sm"><div role="dialog" aria-modal="true" aria-labelledby="create-organization-title" className="my-auto w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">New workspace</p><h2 id="create-organization-title" className="mt-1 text-xl font-semibold text-slate-950">Create an organization</h2><p className="mt-2 text-sm text-slate-500">These details are required to configure your organization workspace.</p></div><button type="button" aria-label="Close create organization dialog" onClick={() => setCreateOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" aria-hidden="true" /></button></div><div className="mt-5"><TenantCreationForm onCreated={() => { setCreateOpen(false); setMessage('Organization created and selected.'); }} /></div></div></div> : null}
