@@ -9,7 +9,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
 import PageHeader from '../../components/dashboard/PageHeader';
 import StatsCard from '../../components/dashboard/StatsCard';
@@ -122,7 +122,7 @@ export default function DashboardPage() {
 
   if (!activeTenant) {
     if (tenantsLoading) {
-      return <div className="space-y-5" role="status" aria-label="Loading organizations"><div className="h-10 w-2/5 animate-pulse rounded-lg bg-slate-100" /><div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">{[1, 2, 3, 4].map((item) => <div key={item} className="h-28 animate-pulse rounded-xl bg-slate-100" />)}</div><div className="h-72 animate-pulse rounded-xl bg-slate-100" /></div>;
+      return <ProfessionalLoader label="Loading organizations" detail="Preparing your workspace list" />;
     }
 
     if (user?.role === 'admin' || user?.role === 'super_admin') {
@@ -141,7 +141,7 @@ export default function DashboardPage() {
     }
 
     if (pendingInvitationsLoading) {
-      return <div className="flex min-h-96 items-center justify-center"><LoadingSpinner label="Checking your invitations" /></div>;
+      return <ProfessionalLoader label="Checking your invitations" detail="Preparing your workspace" />;
     }
 
     if (pendingInvitations.length > 0) {
@@ -149,7 +149,7 @@ export default function DashboardPage() {
     }
 
     if (billingLoading) {
-      return <div className="flex min-h-96 items-center justify-center"><LoadingSpinner label="Checking your workspace plan" /></div>;
+      return <ProfessionalLoader label="Checking your workspace plan" detail="Confirming your account access" />;
     }
 
     const hasActiveSubscription = Boolean(
@@ -175,7 +175,7 @@ export default function DashboardPage() {
   }
 
   if (loading && !summary) {
-    return <div className="flex min-h-96 items-center justify-center"><LoadingSpinner label="Loading organization overview" /></div>;
+    return <ProfessionalLoader label="Loading organization overview" detail="Preparing your workspace dashboard" />;
   }
 
   if (error && !summary) {

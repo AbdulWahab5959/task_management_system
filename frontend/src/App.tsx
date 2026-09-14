@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import { TenantProvider } from './context/TenantContext';
 import DashboardLayout from './layouts/DashboardLayout';
 import PublicLayout from './components/public/PublicLayout';
+import ProfessionalLoader from './components/common/ProfessionalLoader';
 const HealthCheckPage = lazy(() => import('./pages/HealthCheckPage'));
 const LoginPage = lazy(() => import('./pages/Auth/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/Auth/RegisterPage'));
@@ -48,7 +49,7 @@ function App() {
   return (
     <AuthProvider>
       <TenantProvider>
-        <Suspense fallback={<div className="min-h-[40vh] animate-pulse bg-slate-50" aria-label="Loading page" role="status" />}>
+        <Suspense fallback={<ProfessionalLoader label="Loading page" detail="Preparing the selected workspace" className="min-h-[40vh] rounded-none border-0 bg-slate-50" />}>
         <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/" element={<HomePage />} />

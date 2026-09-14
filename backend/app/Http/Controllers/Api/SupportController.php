@@ -43,7 +43,16 @@ class SupportController extends Controller
     public function messages(Request $request): array
     {
         $conversation = $this->ownedConversation($request);
-        return ['data' => $this->support->messages($conversation)->get()->reverse()->values()];
+        $validated = $request->validate([
+            'cursor' => ['nullable', 'string', 'max:255'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        return $this->support->messagePage(
+            $conversation,
+            $validated['cursor'] ?? null,
+            (int) ($validated['limit'] ?? SupportService::SUPPORT_MESSAGES_PAGE_SIZE),
+        );
     }
 
     public function send(SupportMessageRequest $request): array
@@ -84,7 +93,16 @@ class SupportController extends Controller
 
     public function adminMessages(Request $request, SupportConversation $conversation): array
     {
-        return ['data' => $this->support->messages($conversation)->get()->reverse()->values()];
+        $validated = $request->validate([
+            'cursor' => ['nullable', 'string', 'max:255'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        return $this->support->messagePage(
+            $conversation,
+            $validated['cursor'] ?? null,
+            (int) ($validated['limit'] ?? SupportService::SUPPORT_MESSAGES_PAGE_SIZE),
+        );
     }
 
     public function adminSend(SupportMessageRequest $request, SupportConversation $conversation): array

@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
+import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/dashboard/PageHeader';
 import PendingInvitationsOnboarding from '../../components/dashboard/PendingInvitationsOnboarding';
@@ -243,7 +244,7 @@ export default function TeamPage() {
   };
 
   if (!activeTenant || tenants.length === 0) {
-    if (pendingInvitationsLoading) return <div className="flex min-h-64 items-center justify-center"><LoadingSpinner label="Checking your invitations" /></div>;
+    if (pendingInvitationsLoading) return <ProfessionalLoader label="Checking your invitations" detail="Preparing your team workspace" />;
     if (pendingInvitations.length > 0) return <PendingInvitationsOnboarding invitations={pendingInvitations} />;
     return <Card className="mx-auto max-w-2xl"><CardContent className="py-16 text-center"><Users className="mx-auto h-10 w-10 text-indigo-500" aria-hidden="true" /><h1 className="mt-4 text-xl font-semibold text-slate-950">Create or select an organization first.</h1><p className="mt-2 text-sm text-slate-500">Team management becomes available once a workspace is active.</p></CardContent></Card>;
   }

@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { SupportConversation, SupportFaqCategory, SupportMessage, SupportStatus } from '../types/support.types';
+import type { SupportConversation, SupportFaqCategory, SupportMessage, SupportMessagePage, SupportStatus } from '../types/support.types';
 
 const tenantConfig = (tenantId?: number) => ({ tenantScoped: true, ...(tenantId ? { tenantId } : {}) });
 
@@ -16,8 +16,8 @@ export const supportService = {
   async conversation(tenantId?: number) {
     return api.get<{ data: SupportConversation }>('/support/conversation', tenantConfig(tenantId));
   },
-  async messages(tenantId?: number) {
-    return api.get<{ data: SupportMessage[] }>('/support/conversation/messages', tenantConfig(tenantId));
+  async messages(tenantId?: number, params?: { cursor?: string; limit?: number }) {
+    return api.get<SupportMessagePage>('/support/conversation/messages', { ...tenantConfig(tenantId), params });
   },
   async send(message: string, tenantId?: number) {
     return api.post<{ data: SupportMessage }>('/support/conversation/messages', { message }, tenantConfig(tenantId));
@@ -37,8 +37,8 @@ export const adminSupportService = {
   async conversation(id: number) {
     return api.get<{ data: SupportConversation }>(`/admin/support/conversations/${id}`);
   },
-  async messages(id: number) {
-    return api.get<{ data: SupportMessage[] }>(`/admin/support/conversations/${id}/messages`);
+  async messages(id: number, params?: { cursor?: string; limit?: number }) {
+    return api.get<SupportMessagePage>(`/admin/support/conversations/${id}/messages`, { params });
   },
   async send(id: number, message: string) {
     return api.post<{ data: SupportMessage }>(`/admin/support/conversations/${id}/messages`, { message });

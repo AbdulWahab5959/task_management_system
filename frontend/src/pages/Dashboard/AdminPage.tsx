@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/commo
 import PageHeader from '../../components/dashboard/PageHeader';
 import StatsCard from '../../components/dashboard/StatsCard';
 import EmptyState from '../../components/dashboard/EmptyState';
+import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import { adminAnalyticsService } from '../../services/admin-analytics.service';
 import type { AdminAnalyticsResponse } from '../../types/admin-analytics.types';
 
@@ -64,19 +65,7 @@ export default function AdminPage() {
     return (
       <>
         <PageHeader eyebrow="Admin" title="Analytics" description="Loading platform analytics..." />
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="flex items-center gap-4">
-                <div className="h-12 w-12 animate-pulse rounded-xl bg-slate-200" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-6 w-16 animate-pulse rounded bg-slate-200" />
-                  <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <ProfessionalLoader label="Loading platform analytics" detail="Preparing the latest account and billing metrics" />
       </>
     );
   }

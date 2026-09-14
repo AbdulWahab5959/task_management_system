@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 class SupportService
 {
+    public const SUPPORT_MESSAGES_PAGE_SIZE = 50;
+
     public function conversationFor(User $user, ?Tenant $organization = null): SupportConversation
     {
         $organization ??= $user->tenants()
@@ -42,6 +44,55 @@ class SupportService
     public function messages(SupportConversation $conversation): HasMany
     {
         return $conversation->messages()->with('sender')->latest('id');
+    }
+
+    /**
+     * Return a bounded, chronological page of messages older than the cursor.
+     * The cursor is opaque to callers and scoped by the conversation query.
+     */
+    public function messagePage(SupportConversation $conversation, ?string $cursor, int $limit = self::SUPPORT_MESSAGES_PAGE_SIZE): array
+    {
+        $beforeId = $cursor === null ? null : $this->decodeMessageCursor($cursor);
+        $limit = min(max($limit, 1), self::SUPPORT_MESSAGES_PAGE_SIZE);
+
+        $messages = $this->messages($conversation)
+            ->when($beforeId !== null, static fn ($query) => $query->where('support_messages.id', '<', $beforeId))
+            ->limit($limit + 1)
+            ->get();
+
+        $hasMore = $messages->count() > $limit;
+        $messages = $messages->take($limit)->reverse()->values();
+
+        return [
+            'data' => $messages,
+            'next_cursor' => $hasMore && $messages->isNotEmpty()
+                ? $this->encodeMessageCursor((int) $messages->first()->id)
+                : null,
+            'has_more' => $hasMore,
+        ];
+    }
+
+    private function encodeMessageCursor(int $messageId): string
+    {
+        return rtrim(strtr(base64_encode(json_encode(['id' => $messageId], JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
+    }
+
+    private function decodeMessageCursor(string $cursor): int
+    {
+        $normalized = strtr($cursor, '-_', '+/');
+        $normalized .= str_repeat('=', (4 - strlen($normalized) % 4) % 4);
+        $decoded = base64_decode($normalized, true);
+        if ($decoded === false) {
+            abort(422, 'Invalid support message cursor.');
+        }
+
+        $payload = json_decode($decoded, true);
+        $messageId = is_array($payload) ? ($payload['id'] ?? null) : null;
+        if (! is_int($messageId) && ! (is_string($messageId) && ctype_digit($messageId))) {
+            abort(422, 'Invalid support message cursor.');
+        }
+
+        return (int) $messageId;
     }
 
     public function senderRole(User $user, SupportConversation $conversation): string

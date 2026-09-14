@@ -1,7 +1,7 @@
 import { Check, HelpCircle, Shield, Sparkles, Star, Users, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import { plansService } from '../../services/plans.service';
 import type { Plan } from '../../types/plan.types';
 
@@ -215,9 +215,7 @@ export default function PricingPage() {
 
         {/* Loading State */}
         {loading ? (
-          <div className="flex min-h-64 items-center justify-center">
-            <LoadingSpinner label="Loading plans" size="lg" />
-          </div>
+          <ProfessionalLoader label="Loading plans" detail="Preparing available plans" />
         ) : error ? (
           <div className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
             <p className="text-sm font-medium text-slate-300">{error}</p>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import LoadingSpinner from '../components/common/LoadingSpinner';
+import ProfessionalLoader from '../components/common/ProfessionalLoader';
 import PlanCard, { type Plan as CheckoutPlan } from '../components/pricing/PlanCard';
 import { plansService } from '../services/plans.service';
 import type { Plan as ApiPlan } from '../types/plan.types';
@@ -83,9 +83,7 @@ export default function Pricing() {
       </div>
 
       {loading ? (
-        <div className="flex min-h-64 items-center justify-center">
-          <LoadingSpinner label="Loading plans" size="lg" />
-        </div>
+        <ProfessionalLoader label="Loading plans" detail="Preparing available plans" />
       ) : error ? (
         <div
           role="alert"

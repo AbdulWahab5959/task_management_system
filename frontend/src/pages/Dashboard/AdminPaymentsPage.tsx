@@ -22,6 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import EmptyState from '../../components/dashboard/EmptyState';
 import PageHeader from '../../components/dashboard/PageHeader';
 import StatsCard from '../../components/dashboard/StatsCard';
+import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import { api } from '../../services/api';
 import { refundPayment } from '../../services/admin-subscriptions.service';
 
@@ -422,11 +423,7 @@ export default function AdminPaymentsPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="space-y-3">
-                {[0, 1, 2, 3, 4].map((item) => (
-                  <div key={item} className="h-14 animate-pulse rounded-xl bg-slate-100" />
-                ))}
-              </div>
+              <ProfessionalLoader variant="table" label="Loading payments" detail="Syncing payment records" columns={8} />
             ) : error ? (
               <div className="flex flex-col items-center py-8 text-center">
                 <AlertCircle className="h-8 w-8 text-rose-400" aria-hidden="true" />

@@ -23,6 +23,12 @@ export interface SupportMessage {
   sender?: SupportUser;
 }
 
+export interface SupportMessagePage {
+  data: SupportMessage[];
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
 export interface SupportConversation {
   id: number;
   user_id: number;

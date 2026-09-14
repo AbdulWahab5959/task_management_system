@@ -28,6 +28,75 @@ class SupportChatTest extends TestCase
         $this->assertDatabaseHas('support_messages', ['sender_id' => $customer->id, 'message' => 'I need help.']);
     }
 
+    public function test_customer_message_history_is_bounded_and_cursor_paginated(): void
+    {
+        [$customer, $organization] = $this->customerWithOrganization();
+        $conversation = SupportConversation::create([
+            'user_id' => $customer->id,
+            'organization_id' => $organization->id,
+            'status' => 'open',
+        ]);
+
+        for ($index = 1; $index <= 55; $index++) {
+            SupportMessage::create([
+                'conversation_id' => $conversation->id,
+                'sender_id' => $customer->id,
+                'sender_role' => 'user',
+                'message' => 'Message '.$index,
+            ]);
+        }
+
+        $headers = [
+            'Authorization' => 'Bearer '.$customer->createToken('support')->plainTextToken,
+            'X-Tenant-ID' => (string) $organization->id,
+        ];
+        $firstPage = $this->withHeaders($headers)
+            ->getJson('/api/support/conversation/messages?limit=50')
+            ->assertOk()
+            ->assertJsonCount(50, 'data')
+            ->assertJsonPath('data.0.message', 'Message 6')
+            ->assertJsonPath('data.49.message', 'Message 55')
+            ->assertJsonPath('has_more', true);
+
+        $cursor = $firstPage->json('next_cursor');
+        $this->assertIsString($cursor);
+        $this->withHeaders($headers)
+            ->getJson('/api/support/conversation/messages?cursor='.urlencode($cursor))
+            ->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('data.0.message', 'Message 1')
+            ->assertJsonPath('data.4.message', 'Message 5')
+            ->assertJsonPath('has_more', false)
+            ->assertJsonPath('next_cursor', null);
+    }
+
+    public function test_admin_message_history_uses_the_same_bounded_contract(): void
+    {
+        [$customer, $organization] = $this->customerWithOrganization();
+        $conversation = SupportConversation::create([
+            'user_id' => $customer->id,
+            'organization_id' => $organization->id,
+            'status' => 'open',
+        ]);
+        for ($index = 1; $index <= 3; $index++) {
+            SupportMessage::create([
+                'conversation_id' => $conversation->id,
+                'sender_id' => $customer->id,
+                'sender_role' => 'user',
+                'message' => 'Admin view '.$index,
+            ]);
+        }
+
+        $admin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
+        $this->withHeader('Authorization', 'Bearer '.$admin->createToken('support-admin')->plainTextToken)
+            ->getJson('/api/admin/support/conversations/'.$conversation->id.'/messages?limit=2')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.message', 'Admin view 2')
+            ->assertJsonPath('data.1.message', 'Admin view 3')
+            ->assertJsonPath('has_more', true);
+    }
+
     public function test_super_admin_can_list_view_and_reply_to_conversations(): void
     {
         [$customer] = $this->customerWithOrganization();

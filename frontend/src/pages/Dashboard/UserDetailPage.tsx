@@ -5,7 +5,7 @@ import { Link, useParams } from 'react-router-dom';
 import Button from '../../components/common/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
 import Input from '../../components/common/Input';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import EmptyState from '../../components/dashboard/EmptyState';
 import PageHeader from '../../components/dashboard/PageHeader';
 import { EmailVerificationBadge, RoleBadge, UserStatusBadge } from '../../components/dashboard/UserBadges';
@@ -209,9 +209,7 @@ export default function UserDetailPage() {
       {loading ? (
         <Card>
           <CardContent>
-            <div className="flex min-h-64 items-center justify-center">
-              <LoadingSpinner label="Loading user" />
-            </div>
+            <ProfessionalLoader label="Loading user" detail="Preparing account details" />
           </CardContent>
         </Card>
       ) : error ? (

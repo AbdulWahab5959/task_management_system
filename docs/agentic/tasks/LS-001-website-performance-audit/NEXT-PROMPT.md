@@ -6,89 +6,53 @@ LS-001 Website Performance Audit
 
 ## Current Status
 
-The authenticated production-preview dashboard Lighthouse test is complete for `http://localhost:4173/dashboard`.
+Phase 1 is committed and the production-preview dashboard evidence is complete.
 
-- Lighthouse warnings: none.
-- FCP: 0.5 s; LCP: 1.6 s; Speed Index: 2.0 s; TBT: 0 ms; Interactive: 1.6 s.
-- `/api/auth/me`, `/api/tenants`, and `/api/tenant/dashboard/summary` each show one XHR `200` plus one CORS preflight `204`; these are not duplicate application requests.
+- Commit: `8ad9a05 Implement Phase 1 frontend performance improvements`.
+- The commit contains the three reviewed frontend changes and LS-001 documentation artifacts.
+- The authenticated production-preview Lighthouse test for `http://localhost:4173/dashboard` had no warnings: FCP 0.5 s, LCP 1.6 s, Speed Index 2.0 s, TBT 0 ms, Interactive 1.6 s.
+- `/api/auth/me`, `/api/tenants`, and `/api/tenant/dashboard/summary` each showed one XHR `200` plus one CORS preflight `204`; no duplicate application requests were observed.
 - No support API requests were observed while the support widget was closed.
 - Frontend lint and production build previously passed.
-- QA passes for production performance/startup-request checks, while broader UI regression checks remain incomplete.
-- No application code has been changed in this documentation follow-up. The existing Phase 1 frontend edits remain uncommitted.
+- Broader UI regression checks remain incomplete, but the measured performance/request objective passed.
+- The working tree was clean when the commit was verified; no push was performed by Codex.
 
 ## Recommended Next Action
 
-**E. Commit current Phase 1**
+**F. Start separate backend performance task**
 
 ## Why This Is The Next Action
 
-The required production dashboard evidence is now successful and does not show duplicate application requests. No further performance fix is justified. The remaining action is a controlled commit of the already-reviewed Phase 1 frontend changes, but the commit must be explicitly authorized and limited to the intended files.
+Phase 1 is complete and should not be reopened for additional frontend fixes based on the current evidence. Any remaining backend/API/database performance work is outside this task’s committed frontend scope and should begin as a separately scoped task with its own investigation, measurements, authorization, and risk review.
 
 ## Ready-To-Copy Codex Prompt
 
 ```text
-Continue task:
+Start a separate backend performance task related to LS-001.
 
-docs/agentic/tasks/LS-001-website-performance-audit/
+Do not modify the LS-001 Phase 1 frontend implementation. Read the LS-001 artifacts first, especially 01-investigation.md, 02-spec.md, 03-plan.md, 06-qa.md, 07-evidence.md, and 08-lighthouse-followup.md, plus AGENTS.md, backend/AGENTS.md, and docs/agentic/README.md.
 
-The authenticated production-preview Lighthouse test has passed for http://localhost:4173/dashboard:
+Create a new Level 2 task artifact folder with a new task ID. Investigate backend/API/database performance candidates only through safe, read-only measurements and source inspection. Prioritize /api/tenant/dashboard/summary, /api/tenants, billing summary overlap, and unbounded support history. Do not implement fixes in this task. Do not change application code, backend code, database code, migrations, routes, API contracts, configuration, or infrastructure. Do not run migrations, destructive commands, commit, or push.
 
-- No Lighthouse warnings.
-- FCP 0.5 s, LCP 1.6 s, Speed Index 2.0 s, TBT 0 ms, Interactive 1.6 s.
-- Each of /api/auth/me, /api/tenants, and /api/tenant/dashboard/summary has one XHR 200 and one CORS Preflight 204. Treat the 204 entries as expected preflight traffic, not duplicate application calls.
-- No support API requests were observed while the support widget was closed.
+Document FACT, INFERENCE, RECOMMENDATION, and REQUIRES APPROVAL separately. Do not expose secrets, credentials, SQL dumps, raw provider responses, stack traces, or private data. Any query rewrite, cache, pagination contract, index, schema, or authorization-related change requires measured evidence and explicit approval before implementation.
 
-Read first:
-
-- docs/agentic/tasks/LS-001-website-performance-audit/00-requirement.md
-- docs/agentic/tasks/LS-001-website-performance-audit/01-investigation.md
-- docs/agentic/tasks/LS-001-website-performance-audit/02-spec.md
-- docs/agentic/tasks/LS-001-website-performance-audit/03-plan.md
-- docs/agentic/tasks/LS-001-website-performance-audit/04-baseline.md
-- docs/agentic/tasks/LS-001-website-performance-audit/05-review.md
-- docs/agentic/tasks/LS-001-website-performance-audit/06-qa.md
-- docs/agentic/tasks/LS-001-website-performance-audit/07-evidence.md
-- docs/agentic/tasks/LS-001-website-performance-audit/08-lighthouse-followup.md
-- docs/agentic/tasks/LS-001-website-performance-audit/NEXT-PROMPT.md
-- AGENTS.md
-- frontend/AGENTS.md
-- backend/AGENTS.md
-- docs/agentic/README.md
-
-I explicitly authorize the next action: commit the current reviewed Phase 1 frontend changes.
-
-Before committing:
-
-1. Inspect git status, git diff, git diff --cached, and the complete contents of the task artifacts.
-2. Confirm the intended application files are only:
-   - frontend/src/context/AuthContext.tsx
-   - frontend/src/context/TenantContext.tsx
-   - frontend/src/components/support/SupportWidget.tsx
-3. Confirm no backend, database, migration, environment, generated, or unrelated files are included.
-4. Run git diff --check.
-5. Do not rewrite, reset, discard, or modify the application changes.
-
-Commit only the reviewed Phase 1 frontend changes and the LS-001 documentation artifacts that are intentionally part of this task. Do not push. Do not implement any additional performance fixes. Do not change backend code, database code, migrations, routes, API contracts, configuration, or infrastructure. Do not expose secrets, tokens, raw provider responses, or stack traces.
-
-If the diff contains unexpected files, if the intended scope is ambiguous, or if a required check fails, stop before committing and report the blocker. Ask for approval again if the commit scope must expand or any code change is proposed.
-
-After the commit attempt, update only the relevant LS-001 documentation artifacts, including NEXT-PROMPT.md, with the actual result. Do not claim a commit succeeded without the actual commit output and final git status.
+Stop and ask for approval before expanding scope, changing LS-001 artifacts, or implementing any fix.
 
 Final response format:
 
 1. Summary
-2. Files committed
-3. Commit hash and exact result
-4. Checks run and results
-5. Remaining UI regression limitations
+2. New task folder and artifacts
+3. Measurements and findings
+4. Risks and unknowns
+5. Recommended next action
 6. Git status summary
 7. Safety confirmation
 ```
 
 ## Stop Conditions
 
-Codex must stop before committing if the working-tree diff includes unexpected application, backend, database, migration, environment, generated, or unrelated files; if the intended commit scope is ambiguous; if `git diff --check` fails; or if any required verification fails. Codex must stop and ask for approval before making any code fix, expanding commit scope, pushing, or changing backend/database/authentication/tenant-isolation behavior.
+Codex must stop before starting the separate backend task if a new task ID/folder is ambiguous, if measurements require destructive or production-data operations, or if implementation scope expands beyond read-only investigation and documentation. Codex must ask for approval before changing LS-001 artifacts, modifying code, adding migrations/indexes, changing API contracts, or touching authentication, billing, or tenant isolation.
 
 ## After Codex Finishes
 
-Check the reported commit hash, inspect the final Git status, confirm no unintended files were committed, and verify that no push occurred. Then copy the next prompt from the updated `## Ready-To-Copy Codex Prompt` section in `NEXT-PROMPT.md`.
+Confirm the new task is separate from LS-001, review its investigation measurements and risk classification, and verify that no application or database files changed. Then copy the next prompt from the updated `## Ready-To-Copy Codex Prompt` section in `NEXT-PROMPT.md`.

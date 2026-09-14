@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
 import EmptyState from '../../components/dashboard/EmptyState';
+import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import InvoiceHistory from '../../components/billing/InvoiceHistory';
 import PageHeader from '../../components/dashboard/PageHeader';
 import {
@@ -396,16 +397,7 @@ export default function BillingPage() {
   };
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-24 animate-pulse rounded-xl bg-slate-100" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[0, 1, 2, 3].map((item) => (
-            <div key={item} className="h-28 animate-pulse rounded-xl bg-slate-100" />
-          ))}
-        </div>
-      </div>
-    );
+    return <ProfessionalLoader label="Loading billing" detail="Preparing your plan and payment details" />;
   }
 
   if (error) {

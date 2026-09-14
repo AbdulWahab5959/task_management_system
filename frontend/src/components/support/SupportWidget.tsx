@@ -3,7 +3,7 @@ import { CheckCircle2, ChevronDown, LifeBuoy, MessageCircle, RefreshCw, WifiOff,
 import { getRealtimeStatus, leaveSupportChannel, onRealtimeStatusChange, subscribeToSupportChannel } from '../../services/realtime';
 import type { RealtimeStatus } from '../../services/realtime';
 import { supportService } from '../../services/support.service';
-import type { SupportConversation, SupportFaqCategory, SupportMessage } from '../../types/support.types';
+import type { SupportConversation, SupportFaqCategory, SupportMessage, SupportMessagePage } from '../../types/support.types';
 import { cn } from '../../utils/cn';
 import { useTenant } from '../../hooks/useTenant';
 import { classifyMessage, formatDayLabel, isNewDay, mergeMessages } from './formatting';
@@ -22,6 +22,18 @@ function readSupportMessages(payload: unknown): SupportMessage[] {
   return [];
 }
 
+function readSupportPage(payload: unknown): SupportMessagePage {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    const page = payload as Partial<SupportMessagePage>;
+    return {
+      data: Array.isArray(page.data) ? page.data as SupportMessage[] : [],
+      next_cursor: typeof page.next_cursor === 'string' ? page.next_cursor : null,
+      has_more: page.has_more === true,
+    };
+  }
+  return { data: readSupportMessages(payload), next_cursor: null, has_more: false };
+}
+
 export default function SupportWidget() {
   const { activeTenant, loading: tenantsLoading, tenants } = useTenant();
   const activeTenantId = activeTenant?.id ?? tenants.find((tenant) => tenant.status === 'active')?.id ?? null;
@@ -38,6 +50,9 @@ export default function SupportWidget() {
   const [draft, setDraft] = useState('');
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>(getRealtimeStatus());
   const [newMessages, setNewMessages] = useState(false);
+  const [olderCursor, setOlderCursor] = useState<string | null>(null);
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
@@ -73,7 +88,10 @@ export default function SupportWidget() {
       try {
         const messagesResponse = await supportService.messages(requestedTenantId);
         if (activeTenantId !== requestedTenantId) return null;
-        setMessages((current) => mergeMessages(current, readSupportMessages(messagesResponse.data.data)));
+        const page = readSupportPage(messagesResponse.data);
+        setMessages((current) => mergeMessages(current, page.data));
+        setOlderCursor((current) => current ?? page.next_cursor);
+        setHasOlderMessages((current) => current || page.has_more);
         setMessageError('');
       } catch {
         setMessageError('Conversation history could not be loaded.');
@@ -90,7 +108,10 @@ export default function SupportWidget() {
   const refreshMessages = useCallback(async () => {
     try {
       const response = await supportService.messages(activeTenantId ?? undefined);
-      setMessages((current) => mergeMessages(current, readSupportMessages(response.data.data)));
+      const page = readSupportPage(response.data);
+      setMessages((current) => mergeMessages(current, page.data));
+      setOlderCursor((current) => current ?? page.next_cursor);
+      setHasOlderMessages((current) => current || page.has_more);
       setMessageError('');
     } catch {
       setMessageError('Conversation history could not be loaded.');
@@ -117,6 +138,9 @@ export default function SupportWidget() {
     queueMicrotask(() => {
       setConversation(null);
       setMessages([]);
+      setOlderCursor(null);
+      setHasOlderMessages(false);
+      setLoadingOlderMessages(false);
       setInitialError('');
       setMessageError('');
       setNewMessages(false);
@@ -230,6 +254,31 @@ export default function SupportWidget() {
       setNewMessages(false);
     }
   }, []);
+
+  const loadOlderMessages = useCallback(async () => {
+    if (!olderCursor || loadingOlderMessages || !activeTenantId || !threadRef.current) return;
+    const thread = threadRef.current;
+    const previousHeight = thread.scrollHeight;
+    const previousTop = thread.scrollTop;
+    setLoadingOlderMessages(true);
+    try {
+      const response = await supportService.messages(activeTenantId, { cursor: olderCursor });
+      const page = readSupportPage(response.data);
+      setMessages((current) => mergeMessages(current, page.data));
+      setOlderCursor(page.next_cursor);
+      setHasOlderMessages(page.has_more);
+      requestAnimationFrame(() => {
+        if (threadRef.current) {
+          threadRef.current.scrollTop = threadRef.current.scrollHeight - previousHeight + previousTop;
+        }
+      });
+      setMessageError('');
+    } catch {
+      setMessageError('Older conversation history could not be loaded.');
+    } finally {
+      setLoadingOlderMessages(false);
+    }
+  }, [activeTenantId, loadingOlderMessages, olderCursor]);
 
   useEffect(() => {
     const count = messages.length;
@@ -407,6 +456,11 @@ return (
                 ) : null}
 
                 <div ref={threadRef} onScroll={handleThreadScroll} className="support-scroll min-h-[180px] min-w-0 flex-1 overflow-y-auto px-2 py-3" role="log" aria-live="polite" aria-label="Conversation messages">
+                  {hasOlderMessages ? (
+                    <button type="button" onClick={() => void loadOlderMessages()} disabled={loadingOlderMessages} className="mx-auto mb-2 block rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-indigo-200 hover:text-indigo-700 disabled:cursor-wait disabled:opacity-60">
+                      {loadingOlderMessages ? 'Loading older messages…' : 'Load older messages'}
+                    </button>
+                  ) : null}
                   {messageError ? (
                     <div className="mx-2 mb-2 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                       <span>{messageError}</span>

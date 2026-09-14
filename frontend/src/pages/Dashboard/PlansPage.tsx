@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import Button from '../../components/common/Button';
 import { Card, CardContent, CardHeader } from '../../components/common/Card';
 import Input from '../../components/common/Input';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import EmptyState from '../../components/dashboard/EmptyState';
 import PageHeader from '../../components/dashboard/PageHeader';
 import { adminPlansService } from '../../services/admin-plans.service';
@@ -470,9 +470,7 @@ export default function PlansPage() {
           ) : null}
 
           {loading ? (
-            <div className="flex min-h-64 items-center justify-center">
-              <LoadingSpinner label="Loading plans" />
-            </div>
+            <ProfessionalLoader label="Loading plans" detail="Preparing available workspace plans" />
           ) : error ? (
             <div className="flex min-h-64 flex-col items-center justify-center gap-4 px-6 py-10 text-center">
               <p className="text-sm font-medium text-slate-700">{error}</p>

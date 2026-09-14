@@ -2,6 +2,7 @@ import { AlertCircle, CreditCard, Crown, Loader2, ShieldCheck } from 'lucide-rea
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
+import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import { createCheckoutSession, createStripeCheckoutSession, getBillingPlans, type BillingPlan } from '../../services/billing.service';
 import {
   getPaymentErrorMessage,
@@ -89,14 +90,7 @@ export default function CheckoutPage() {
   }, [plan, navigate]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-96 items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin text-indigo-500" />
-          <p className="mt-3 text-sm text-slate-500">Loading plan details...</p>
-        </div>
-      </div>
-    );
+    return <ProfessionalLoader label="Loading plan details" detail="Preparing your secure checkout" />;
   }
 
   if (error && !plan) {

@@ -1,6 +1,7 @@
 import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Download, ExternalLink, FileText, X, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import EmptyState from '../dashboard/EmptyState';
+import ProfessionalLoader from '../common/ProfessionalLoader';
 import { downloadInvoice, getInvoice, getInvoices, type InvoiceRecord, type InvoiceStatus } from '../../services/billing.service';
 import { cn } from '../../utils/cn';
 
@@ -19,7 +20,7 @@ function Status({ status }: { status: InvoiceStatus }) {
 }
 
 function Skeleton() {
-  return <div className="space-y-3" aria-label="Loading invoice history" role="status">{[1, 2, 3].map((item) => <div key={item} className="grid h-16 animate-pulse grid-cols-5 gap-4 rounded-xl bg-slate-100 px-4 py-3" />)}</div>;
+  return <ProfessionalLoader variant="table" label="Loading invoice history" detail="Syncing account invoices" columns={6} rows={3} />;
 }
 
 export default function InvoiceHistory() {

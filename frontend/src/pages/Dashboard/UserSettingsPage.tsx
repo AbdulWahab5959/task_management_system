@@ -15,7 +15,7 @@ import type { FormEvent, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/common/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import PageHeader from '../../components/dashboard/PageHeader';
 import { userSettingsService } from '../../services/user-settings.service';
 import { authService } from '../../services/auth.service';
@@ -245,9 +245,7 @@ export default function UserSettingsPage() {
 
       {loading ? (
         <Card>
-          <CardContent className="flex min-h-64 items-center justify-center">
-            <LoadingSpinner label="Loading your account settings" />
-          </CardContent>
+          <CardContent><ProfessionalLoader label="Loading your account settings" detail="Preparing your profile and security settings" /></CardContent>
         </Card>
       ) : loadError ? (
         <Card>

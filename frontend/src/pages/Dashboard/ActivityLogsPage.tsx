@@ -2,7 +2,7 @@ import { Activity, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from '../../components/common/Button';
 import { Card, CardContent, CardHeader } from '../../components/common/Card';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import EmptyState from '../../components/dashboard/EmptyState';
 import PageHeader from '../../components/dashboard/PageHeader';
 import { adminActivityLogsService } from '../../services/admin-activity-logs.service';
@@ -245,9 +245,7 @@ export default function ActivityLogsPage() {
           ) : null}
 
           {loading ? (
-            <div className="flex min-h-64 items-center justify-center">
-              <LoadingSpinner label="Loading activity logs" />
-            </div>
+            <ProfessionalLoader variant="table" label="Loading activity logs" detail="Syncing platform activity" columns={5} />
           ) : error ? (
             <div className="flex min-h-64 flex-col items-center justify-center gap-4 px-6 py-10 text-center">
               <p className="text-sm font-medium text-slate-700">{error}</p>

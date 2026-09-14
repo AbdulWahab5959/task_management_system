@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import Button from '../../components/common/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
 import Input from '../../components/common/Input';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import PageHeader from '../../components/dashboard/PageHeader';
 import { useTenant } from '../../hooks/useTenant';
 import { tenantSettingsService } from '../../services/tenant-settings.service';
@@ -177,9 +177,7 @@ export default function SettingsPage() {
 
       {loading ? (
         <Card>
-          <CardContent className="flex min-h-64 items-center justify-center">
-            <LoadingSpinner label="Loading organization settings" />
-          </CardContent>
+          <CardContent><ProfessionalLoader label="Loading organization settings" detail="Preparing workspace preferences" /></CardContent>
         </Card>
       ) : loadError ? (
         <Card>
