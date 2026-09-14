@@ -3,6 +3,26 @@ import { authService } from '../services/auth.service';
 import { AuthContext } from './auth.context';
 import type { LoginCredentials, RegisterData, User } from '../types/auth.types';
 
+let authMeRequest: { token: string; promise: ReturnType<typeof authService.me> } | null = null;
+
+function requestCurrentUser(token: string) {
+  if (authMeRequest?.token === token) {
+    return authMeRequest.promise;
+  }
+
+  const promise = authService.me();
+  authMeRequest = { token, promise };
+  void promise.then(
+    () => {
+      if (authMeRequest?.promise === promise) authMeRequest = null;
+    },
+    () => {
+      if (authMeRequest?.promise === promise) authMeRequest = null;
+    },
+  );
+  return promise;
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -17,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        const response = await authService.me();
+        const response = await requestCurrentUser(token);
         setUser(response.data);
       } catch {
         localStorage.removeItem('auth_token');
@@ -56,7 +76,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refreshUser = async () => {
-    const response = await authService.me();
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      setUser(null);
+      return;
+    }
+    const response = await requestCurrentUser(token);
     setUser(response.data);
   };
 

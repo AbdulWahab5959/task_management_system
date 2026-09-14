@@ -7,6 +7,27 @@ import { teamInvitationsService } from '../services/team-invitations.service';
 import type { TenantInvitation } from '../types/team-invitation.types';
 
 const ACTIVE_TENANT_KEY = 'active_tenant_id';
+let tenantsRequest: { token: string; promise: ReturnType<typeof tenantService.list> } | null = null;
+
+function requestTenants() {
+  const token = localStorage.getItem('auth_token') ?? '';
+  if (tenantsRequest?.token === token) {
+    return tenantsRequest.promise;
+  }
+
+  const promise = tenantService.list();
+  tenantsRequest = { token, promise };
+  void promise.then(
+    () => {
+      if (tenantsRequest?.promise === promise) tenantsRequest = null;
+    },
+    () => {
+      if (tenantsRequest?.promise === promise) tenantsRequest = null;
+    },
+  );
+  return promise;
+}
+
 const activeTenantPreferenceKey = (userId: number) => `${ACTIVE_TENANT_KEY}:user:${userId}`;
 
 function selectInitialTenant(tenants: Tenant[], userId?: number): Tenant | null {
@@ -53,7 +74,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setError('');
 
     try {
-      const response = await tenantService.list();
+      const response = await requestTenants();
       const nextTenants = response.data.data ?? [];
       applyTenants(nextTenants);
       return nextTenants;

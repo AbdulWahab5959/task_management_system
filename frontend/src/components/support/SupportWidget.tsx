@@ -114,16 +114,14 @@ export default function SupportWidget() {
 
   useEffect(() => {
     if (tenantsLoading) return;
-    // The support widget must still load as soon as the user has any active tenant,
-    // even if the stored tenant selection is not yet set or has been cleared.
     queueMicrotask(() => {
       setConversation(null);
       setMessages([]);
       setInitialError('');
       setMessageError('');
       setNewMessages(false);
-      if (activeTenantId) {
-        void load({ silent: true });
+      if (openRef.current && activeTenantId) {
+        void load();
       }
     });
   }, [activeTenantId, load, tenantsLoading]);
