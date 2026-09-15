@@ -50,6 +50,9 @@ Screenshots can be added here after capturing the local UI.
 - Settings page with account, notification, and security placeholder sections for future modules
 - Organization/workspace management with plan-limit enforcement
 - Team members and invitations
+- Tenant-scoped project and task management with role-aware actions
+- Project progress, due dates, task priorities, assignment validation, filtering, search, and pagination
+- Projects, Project Details, and My Tasks dashboard pages with loading, empty, and error states
 - Manual support chat with FAQ answers, human replies, unread state, realtime updates, and API fallback
 
 ### Billing and administration
@@ -67,6 +70,7 @@ Screenshots can be added here after capturing the local UI.
 - Password update endpoint requiring the current password
 - Email-change flow that marks the account unverified and sends a new verification email
 - Feature tests for auth, email verification, password reset, and profile updates
+- Tenant-isolation and role-boundary feature tests for projects and tasks
 
 ### Frontend UI
 
@@ -228,6 +232,17 @@ POST   /api/auth/reset-password
 PUT    /api/auth/profile
 PUT    /api/auth/password
 GET    /api/auth/verified-only
+
+GET    /api/tenant/projects
+POST   /api/tenant/projects
+GET    /api/tenant/projects/{project}
+PUT    /api/tenant/projects/{project}
+DELETE /api/tenant/projects/{project}
+GET    /api/tenant/tasks
+POST   /api/tenant/tasks
+GET    /api/tenant/tasks/{task}
+PUT    /api/tenant/tasks/{task}
+DELETE /api/tenant/tasks/{task}
 
 Additional organization, team, billing, administration, and support endpoints are defined in `API_ENDPOINTS.md` and `docs/API-REFERENCE.md`.
 ```

@@ -21,6 +21,8 @@ use App\Http\Controllers\TenantSettingsController;
 use App\Http\Controllers\TenantInvitationController;
 use App\Http\Controllers\TenantMemberController;
 use App\Http\Controllers\TenantPermissionController;
+use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserSettingsController;
 use Illuminate\Support\Facades\Route;
 
@@ -59,7 +61,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('tenant.identify');
     Route::post('/tenants/{tenant}/schedule-deletion', [TenantController::class, 'schedulePermanentDeletion'])
         ->middleware('tenant.identify');
-    Route::delete('/tenants/{tenant}/permanent', [TenantController::class, 'permanentlyDelete']);
+    Route::delete('/tenants/{tenant}/permanent', [TenantController::class, 'permanentlyDelete'])
+        ->middleware('tenant.identify');
 
     Route::prefix('tenant')->middleware('tenant.identify')->group(function () {
         Route::get('/dashboard/summary', [TenantDashboardController::class, 'summary'])->middleware('permission:organization.view');
@@ -82,6 +85,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/members/{user}/permissions', [TenantPermissionController::class, 'show'])->middleware('permission:members.view');
         Route::put('/members/{user}/permissions', [TenantPermissionController::class, 'update'])->middleware('permission:members.update_role');
         Route::post('/members/{user}/permissions/reset', [TenantPermissionController::class, 'reset'])->middleware('permission:members.update_role');
+        Route::get('/projects', [ProjectController::class, 'index'])->middleware('permission:projects.view');
+        Route::post('/projects', [ProjectController::class, 'store'])->middleware('permission:projects.create');
+        Route::get('/projects/{project}', [ProjectController::class, 'show'])->middleware('permission:projects.view');
+        Route::put('/projects/{project}', [ProjectController::class, 'update'])->middleware('permission:projects.update');
+        Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->middleware('permission:projects.delete');
+        Route::get('/tasks', [TaskController::class, 'index'])->middleware('permission:tasks.view');
+        Route::post('/tasks', [TaskController::class, 'store'])->middleware('permission:tasks.create');
+        Route::get('/tasks/{task}', [TaskController::class, 'show'])->middleware('permission:tasks.view');
+        Route::put('/tasks/{task}', [TaskController::class, 'update'])->middleware('permission:tasks.update');
+        Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])->middleware('permission:tasks.delete');
     });
 
     Route::post('/invitations/{token}/accept', [TenantInvitationController::class, 'accept']);

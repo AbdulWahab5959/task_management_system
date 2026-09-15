@@ -68,6 +68,18 @@ export interface TenantDashboardSummary {
   };
   organization_profile: OrganizationProfileSummary;
   team: TeamSummary;
+  projects: {
+    total: number;
+    active: number;
+    completed: number;
+    tasks_total: number;
+    tasks_completed: number;
+    tasks_overdue: number;
+    recent_projects: Array<{ id: number; name: string; status: string; due_date: string | null }>;
+    recent_tasks: Array<{ id: number; title: string; status: string; priority: string; project_id: number; project_name: string | null; due_date: string | null }>;
+    my_tasks: Array<{ id: number; title: string; status: string; priority: string; project_id: number; project_name: string | null; due_date: string | null }>;
+    upcoming_deadlines: Array<{ id: number; title: string; project_name: string | null; due_date: string | null }>;
+  };
   billing: BillingSummary;
   activity: RecentActivityItem[];
   activity_available: boolean;

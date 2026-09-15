@@ -1,4 +1,4 @@
-import { LoaderCircle } from 'lucide-react';
+import { Activity, ArrowUpRight, Rocket } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 type ProfessionalLoaderProps = {
@@ -10,6 +10,8 @@ type ProfessionalLoaderProps = {
   className?: string;
 };
 
+const lineWidths = ['88%', '68%', '76%', '54%', '82%', '63%'];
+
 export default function ProfessionalLoader({
   label,
   detail = 'Gathering the latest information',
@@ -20,19 +22,19 @@ export default function ProfessionalLoader({
 }: ProfessionalLoaderProps) {
   if (variant === 'table') {
     return (
-      <div className={cn('professional-loader-table', className)} role="status" aria-label={label} aria-busy="true">
-        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-5 py-3">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-            <LoaderCircle className="h-4 w-4 animate-spin text-indigo-500" aria-hidden="true" />
-            {label}
+      <div className={cn('professional-loader-table', className)} role="status" aria-live="polite" aria-label={label} aria-busy="true">
+        <div className="professional-loader-table__header">
+          <div className="professional-loader-table__title">
+            <span className="professional-loader-table__pulse" aria-hidden="true"><Activity size={14} /></span>
+            <span>{label}</span>
           </div>
-          <span className="hidden text-xs text-slate-400 sm:inline">Please wait</span>
+          <span className="professional-loader-table__detail">{detail}</span>
         </div>
-        <div className="space-y-2 p-4 sm:p-5">
+        <div className="professional-loader-table__body">
           {Array.from({ length: rows }, (_, row) => (
-            <div key={row} className="professional-loader-row grid gap-3 rounded-xl border border-slate-100 bg-white px-4 py-4" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+            <div key={row} className="professional-loader-row" style={{ gridTemplateColumns: `minmax(9rem, 1.5fr) repeat(${Math.max(columns - 1, 1)}, minmax(4rem, 1fr))` }} aria-hidden="true">
               {Array.from({ length: columns }, (_, column) => (
-                <span key={column} className={cn('professional-loader-line', column === 0 && 'professional-loader-line--strong')} />
+                <span key={column} className={cn('professional-loader-line', column === 0 && 'professional-loader-line--strong')} style={{ width: column === 0 ? lineWidths[(row + 1) % lineWidths.length] : undefined }} />
               ))}
             </div>
           ))}
@@ -43,14 +45,31 @@ export default function ProfessionalLoader({
   }
 
   return (
-    <div className={cn('professional-loader-screen', className)} role="status" aria-label={label} aria-busy="true">
-      <div className="professional-loader-mark" aria-hidden="true">
-        <span className="professional-loader-mark__halo" />
-        <LoaderCircle className="relative z-10 h-8 w-8 animate-spin text-indigo-600" strokeWidth={1.8} />
+    <div className={cn('professional-loader-screen', className)} role="status" aria-live="polite" aria-label={label} aria-busy="true">
+      <div className="professional-loader-screen__grid" aria-hidden="true" />
+      <div className="professional-loader-screen__glow professional-loader-screen__glow--left" aria-hidden="true" />
+      <div className="professional-loader-screen__glow professional-loader-screen__glow--right" aria-hidden="true" />
+      <div className="professional-loader-screen__panel">
+        <div className="professional-loader-screen__topline">
+          <span className="professional-loader-screen__brand"><Rocket size={14} aria-hidden="true" /> LaunchStack</span>
+          <span className="professional-loader-screen__signal"><span aria-hidden="true" /> Secure workspace</span>
+        </div>
+        <div className="professional-loader-mark" aria-hidden="true">
+          <span className="professional-loader-mark__orbit professional-loader-mark__orbit--outer" />
+          <span className="professional-loader-mark__orbit professional-loader-mark__orbit--inner" />
+          <span className="professional-loader-mark__core"><Rocket size={25} /></span>
+        </div>
+        <div className="professional-loader-screen__copy">
+          <p className="professional-loader-screen__eyebrow">Workspace sync</p>
+          <p className="professional-loader-screen__label">{label}</p>
+          <p className="professional-loader-screen__detail">{detail}</p>
+        </div>
+        <div className="professional-loader-progress" aria-hidden="true"><span /></div>
+        <div className="professional-loader-screen__footer">
+          <span>Establishing a live connection</span>
+          <ArrowUpRight size={14} aria-hidden="true" />
+        </div>
       </div>
-      <p className="mt-5 text-sm font-bold tracking-tight text-slate-800">{label}</p>
-      <p className="mt-1 text-xs text-slate-500">{detail}</p>
-      <div className="professional-loader-progress mt-5" aria-hidden="true"><span /></div>
       <span className="sr-only">Loading in progress</span>
     </div>
   );

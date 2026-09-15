@@ -42,6 +42,9 @@ const Pricing = lazy(() => import('./pages/Pricing'));
 const CheckoutSuccess = lazy(() => import('./pages/CheckoutSuccess'));
 const CheckoutCancel = lazy(() => import('./pages/CheckoutCancel'));
 const TeamPage = lazy(() => import('./pages/Dashboard/TeamPage'));
+const ProjectsPage = lazy(() => import('./pages/Dashboard/ProjectsPage'));
+const ProjectDetailPage = lazy(() => import('./pages/Dashboard/ProjectDetailPage'));
+const MyTasksPage = lazy(() => import('./pages/Dashboard/MyTasksPage'));
 const InvitationAcceptPage = lazy(() => import('./pages/InvitationAcceptPage'));
 const SupportInboxPage = lazy(() => import('./pages/Dashboard/SupportInboxPage'));
 
@@ -49,7 +52,7 @@ function App() {
   return (
     <AuthProvider>
       <TenantProvider>
-        <Suspense fallback={<ProfessionalLoader label="Loading page" detail="Preparing the selected workspace" className="min-h-[40vh] rounded-none border-0 bg-slate-50" />}>
+        <Suspense fallback={<ProfessionalLoader label="Loading page" detail="Preparing the selected workspace" />}>
         <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/" element={<HomePage />} />
@@ -162,6 +165,9 @@ function App() {
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/account" element={<UserSettingsPage />} />
           <Route path="team" element={<TeamPage />} />
+          <Route path="projects" element={<ProjectsPage />} />
+          <Route path="projects/:id" element={<ProjectDetailPage />} />
+          <Route path="tasks" element={<MyTasksPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

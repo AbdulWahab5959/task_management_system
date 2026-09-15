@@ -2,8 +2,8 @@
 
 return [
     'roles' => [
-        'admin' => ['organization.view', 'organization.settings.view', 'organization.settings.update', 'members.view', 'members.invite', 'members.update_role', 'members.remove', 'invitations.view', 'invitations.create', 'invitations.resend', 'invitations.revoke', 'support.view'],
-        'member' => ['organization.view', 'organization.settings.view', 'members.view', 'support.view'],
+        'admin' => ['organization.view', 'organization.settings.view', 'organization.settings.update', 'members.view', 'members.invite', 'members.update_role', 'members.remove', 'invitations.view', 'invitations.create', 'invitations.resend', 'invitations.revoke', 'projects.view', 'projects.create', 'projects.update', 'projects.delete', 'tasks.view', 'tasks.create', 'tasks.update', 'tasks.delete', 'support.view'],
+        'member' => ['organization.view', 'organization.settings.view', 'members.view', 'projects.view', 'tasks.view', 'tasks.create', 'tasks.update', 'support.view'],
     ],
     'registry' => [
     'organization.view' => ['name' => 'View organization', 'description' => 'View the organization workspace.', 'group' => 'Organization'],
@@ -21,5 +21,13 @@ return [
     'support.view' => ['name' => 'View support', 'description' => 'View organization support conversations.', 'group' => 'Support'],
     'support.manage' => ['name' => 'Manage support', 'description' => 'Send and manage organization support conversations.', 'group' => 'Support'],
     'analytics.view' => ['name' => 'View analytics', 'description' => 'View organization analytics where available.', 'group' => 'Analytics'],
+    'projects.view' => ['name' => 'View projects', 'description' => 'View projects in the organization.', 'group' => 'Projects and tasks'],
+    'projects.create' => ['name' => 'Create projects', 'description' => 'Create projects in the organization.', 'group' => 'Projects and tasks'],
+    'projects.update' => ['name' => 'Update projects', 'description' => 'Update project details and status.', 'group' => 'Projects and tasks'],
+    'projects.delete' => ['name' => 'Delete projects', 'description' => 'Archive or delete projects and their tasks.', 'group' => 'Projects and tasks'],
+    'tasks.view' => ['name' => 'View tasks', 'description' => 'View organization tasks.', 'group' => 'Projects and tasks'],
+    'tasks.create' => ['name' => 'Create tasks', 'description' => 'Create tasks in organization projects.', 'group' => 'Projects and tasks'],
+    'tasks.update' => ['name' => 'Update tasks', 'description' => 'Update task details and status.', 'group' => 'Projects and tasks'],
+    'tasks.delete' => ['name' => 'Delete tasks', 'description' => 'Delete organization tasks.', 'group' => 'Projects and tasks'],
     ],
 ];

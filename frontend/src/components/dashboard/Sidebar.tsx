@@ -4,6 +4,8 @@ import {
   Building2,
   BarChart3,
   CreditCard,
+  CheckSquare,
+  FolderKanban,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -16,7 +18,6 @@ import {
   UserCog,
   Users,
   X,
-  FlaskConical,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -42,6 +43,8 @@ interface NavigationItem {
 const mainNavItems: NavigationItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, end: true },
   { label: 'Organizations', to: '/dashboard/organizations', icon: Building2 },
+  { label: 'Projects', to: '/dashboard/projects', icon: FolderKanban, nested: true },
+  { label: 'My Tasks', to: '/dashboard/tasks', icon: CheckSquare },
   { label: 'Billing', to: '/dashboard/billing', icon: CreditCard, nested: true, roles: ['user', 'admin'] },
   {
     label: 'Analytics',
@@ -65,7 +68,6 @@ const accountNavItems: NavigationItem[] = [
   { label: 'Personal settings', to: '/dashboard/settings/account', icon: UserCog },
 
   { label: 'Profile', to: '/dashboard/profile', icon: UserCircle },
-  { label: 'WebMCP Test', to: '/dashboard/webmcp-test', icon: FlaskConical, roles: ['super_admin'] },
 
 ];
 
