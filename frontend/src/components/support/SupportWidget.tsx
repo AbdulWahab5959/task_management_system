@@ -429,7 +429,7 @@ return (
           aria-hidden={!open}
           className={cn(
             'support-chat-panel z-50 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.22)]',
-            pageMode ? 'support-chat-panel--page relative w-full' : 'fixed relative',
+            pageMode ? 'support-chat-panel--page relative w-full' : 'fixed',
             open ? 'support-panel-in' : 'support-panel-out',
           )}
         >
