@@ -40,6 +40,25 @@ function formatIndustry(industry?: string | null) {
   return industry ? industry.replace(/-/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : 'Not configured';
 }
 
+function DashboardSummarySkeleton() {
+  return (
+    <div className="space-y-6" role="status" aria-label="Loading organization overview" aria-busy="true">
+      <div className="space-y-3">
+        <div className="item-skeleton h-3 w-32 rounded" />
+        <div className="item-skeleton h-8 w-72 rounded" />
+        <div className="item-skeleton h-4 w-96 max-w-full rounded" />
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => <div key={index} className="item-skeleton h-32 rounded-xl" />)}
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {Array.from({ length: 2 }, (_, index) => <div key={index} className="item-skeleton h-64 rounded-xl" />)}
+      </div>
+      <span className="sr-only">Preparing your workspace dashboard</span>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const { activeTenant, loading: tenantsLoading, pendingInvitations, pendingInvitationsLoading } = useTenant();
@@ -175,7 +194,7 @@ export default function DashboardPage() {
   }
 
   if (loading && !summary) {
-    return <ProfessionalLoader label="Loading organization overview" detail="Preparing your workspace dashboard" />;
+    return <DashboardSummarySkeleton />;
   }
 
   if (error && !summary) {

@@ -12,6 +12,7 @@ import { tenantSettingsService } from '../../services/tenant-settings.service';
 import { tenantService } from '../../services/tenant.service';
 import type { TenantSettings } from '../../types/tenant-settings.types';
 import { getBillingPlans, getCurrentBilling, type BillingPlan, type CurrentBillingResponse } from '../../services/billing.service';
+import { showDashboardToast } from '../../utils/dashboardAlert';
 
 type OrganizationForm = Omit<TenantSettings, 'tenant_id'>;
 
@@ -45,6 +46,16 @@ export default function OrganizationManagementPanel() {
   const [settingPrimary, setSettingPrimary] = useState(false);
   const activeTenantId = activeTenant?.id;
   const activeTenantName = activeTenant?.name ?? '';
+
+  useEffect(() => {
+    if (!message) return;
+    void showDashboardToast('success', message);
+  }, [message]);
+
+  useEffect(() => {
+    if (!error) return;
+    void showDashboardToast('error', error);
+  }, [error]);
 
   useEffect(() => {
     let mounted = true;
@@ -144,7 +155,7 @@ export default function OrganizationManagementPanel() {
   if (!activeTenant) return null;
 
   return (
-    <Card className="mb-6 border-indigo-100 shadow-sm">
+    <Card className="organization-management-panel mb-6 border-indigo-100 shadow-sm">
       <CardHeader>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-center gap-3">

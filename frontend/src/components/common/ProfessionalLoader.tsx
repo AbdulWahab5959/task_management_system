@@ -1,4 +1,4 @@
-import { Activity, ArrowUpRight, Rocket } from 'lucide-react';
+import { Activity } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 type ProfessionalLoaderProps = {
@@ -46,29 +46,16 @@ export default function ProfessionalLoader({
 
   return (
     <div className={cn('professional-loader-screen', className)} role="status" aria-live="polite" aria-label={label} aria-busy="true">
-      <div className="professional-loader-screen__grid" aria-hidden="true" />
-      <div className="professional-loader-screen__glow professional-loader-screen__glow--left" aria-hidden="true" />
-      <div className="professional-loader-screen__glow professional-loader-screen__glow--right" aria-hidden="true" />
       <div className="professional-loader-screen__panel">
-        <div className="professional-loader-screen__topline">
-          <span className="professional-loader-screen__brand"><Rocket size={14} aria-hidden="true" /> LaunchStack</span>
-          <span className="professional-loader-screen__signal"><span aria-hidden="true" /> Secure workspace</span>
-        </div>
-        <div className="professional-loader-mark" aria-hidden="true">
-          <span className="professional-loader-mark__orbit professional-loader-mark__orbit--outer" />
-          <span className="professional-loader-mark__orbit professional-loader-mark__orbit--inner" />
-          <span className="professional-loader-mark__core"><Rocket size={25} /></span>
+        <div className="professional-loader-screen__status" aria-hidden="true">
+          <span className="professional-loader-screen__status-dot" />
+          <span>In progress</span>
         </div>
         <div className="professional-loader-screen__copy">
-          <p className="professional-loader-screen__eyebrow">Workspace sync</p>
           <p className="professional-loader-screen__label">{label}</p>
           <p className="professional-loader-screen__detail">{detail}</p>
         </div>
         <div className="professional-loader-progress" aria-hidden="true"><span /></div>
-        <div className="professional-loader-screen__footer">
-          <span>Establishing a live connection</span>
-          <ArrowUpRight size={14} aria-hidden="true" />
-        </div>
       </div>
       <span className="sr-only">Loading in progress</span>
     </div>

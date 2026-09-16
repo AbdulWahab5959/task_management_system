@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\TenantDashboardController;
+use App\Http\Controllers\Api\TenantAnalyticsController;
 use App\Http\Controllers\Api\TenantSubscriptionAccessController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PlanController;
@@ -43,12 +44,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('support')->middleware('throttle:30,1')->group(function () {
         Route::get('/faqs', [App\Http\Controllers\Api\SupportController::class, 'faqs'])->withoutMiddleware('throttle:30,1');
         Route::get('/faqs/{slug}', [App\Http\Controllers\Api\SupportController::class, 'faqAnswer'])->withoutMiddleware('throttle:30,1');
-        Route::post('/conversation/faqs/{slug}', [App\Http\Controllers\Api\SupportController::class, 'faqInteraction']);
-        Route::get('/conversation', [App\Http\Controllers\Api\SupportController::class, 'show']);
-        Route::get('/conversation/messages', [App\Http\Controllers\Api\SupportController::class, 'messages']);
-        Route::post('/conversation/messages', [App\Http\Controllers\Api\SupportController::class, 'send'])->middleware('throttle:support-messages');
-        Route::post('/conversation/read', [App\Http\Controllers\Api\SupportController::class, 'markRead']);
-        Route::post('/conversation/status/{status}', [App\Http\Controllers\Api\SupportController::class, 'updateStatus']);
+        Route::post('/conversation/faqs/{slug}', [App\Http\Controllers\Api\SupportController::class, 'faqInteraction'])
+            ->middleware(['tenant.identify', 'permission:support.manage']);
+        Route::get('/conversation', [App\Http\Controllers\Api\SupportController::class, 'show'])
+            ->middleware(['tenant.identify', 'permission:support.view']);
+        Route::get('/conversation/messages', [App\Http\Controllers\Api\SupportController::class, 'messages'])
+            ->middleware(['tenant.identify', 'permission:support.view']);
+        Route::post('/conversation/messages', [App\Http\Controllers\Api\SupportController::class, 'send'])
+            ->middleware(['tenant.identify', 'permission:support.manage', 'throttle:support-messages']);
+        Route::post('/conversation/read', [App\Http\Controllers\Api\SupportController::class, 'markRead'])
+            ->middleware(['tenant.identify', 'permission:support.view']);
+        Route::post('/conversation/status/{status}', [App\Http\Controllers\Api\SupportController::class, 'updateStatus'])
+            ->middleware(['tenant.identify', 'permission:support.manage']);
     });
     // Tenant membership and creation. Tenant deletion remains intentionally unrouted.
     Route::get('/tenants', [TenantController::class, 'index']);
@@ -66,6 +73,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::prefix('tenant')->middleware('tenant.identify')->group(function () {
         Route::get('/dashboard/summary', [TenantDashboardController::class, 'summary'])->middleware('permission:organization.view');
+        Route::get('/analytics', [TenantAnalyticsController::class, 'index'])->middleware('permission:analytics.view');
         Route::get('/subscription/access', TenantSubscriptionAccessController::class);
         Route::get('/settings', [TenantSettingsController::class, 'show'])->middleware('permission:organization.settings.view');
         Route::put('/settings', [TenantSettingsController::class, 'update'])->middleware('permission:organization.settings.update');

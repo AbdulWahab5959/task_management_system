@@ -28,8 +28,10 @@ const pageTitles: Record<string, string> = {
   '/dashboard/settings': 'Settings',
   '/dashboard/organizations': 'Organizations',
   '/dashboard/team': 'Team',
+  '/dashboard/analytics': 'Analytics',
   '/dashboard/activity-logs': 'Activity Logs',
   '/dashboard/support': 'Support inbox',
+  '/dashboard/support-center': 'Support',
 };
 
 function getPageTitle(pathname: string) {

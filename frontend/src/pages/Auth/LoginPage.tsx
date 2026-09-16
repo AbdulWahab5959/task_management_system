@@ -122,7 +122,7 @@ export default function LoginPage() {
       title="Login"
       subtitle={
         <>
-          Or{' '}
+          Manage your projects and team from one workspace. Or{' '}
           <Link to={`/register?redirect=${encodeURIComponent(searchParams.get('redirect') ?? '/dashboard')}&email=${encodeURIComponent(searchParams.get('email') ?? '')}`} className="text-cyan-300 hover:text-cyan-200">
             create an account
           </Link>

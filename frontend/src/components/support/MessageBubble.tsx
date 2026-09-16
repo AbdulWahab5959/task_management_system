@@ -1,4 +1,4 @@
-import { Check, CheckCheck, MessageSquareText, Sparkles, UserRound } from 'lucide-react';
+import { Check, CheckCheck, MessageSquareText, Sparkles } from 'lucide-react';
 import type { SupportMessage, SupportMessageKind } from '../../types/support.types';
 import { classifyMessage, formatMessageTime, getInitials } from './formatting';
 import { cn } from '../../utils/cn';
@@ -54,12 +54,18 @@ export default function MessageBubble({ message, viewer = 'customer', showSender
 
   return (
     <div className="flex animate-[support-message-in_180ms_ease-out] items-end gap-2 px-2 py-1.5" role="listitem">
-      {!alignRight ? (
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-700 ring-1 ring-indigo-200/60" aria-hidden="true">
-          {kind === 'support' ? <UserRound className="h-3.5 w-3.5" /> : getInitials(message.sender?.name)}
-        </span>
-      ) : null}
-      <div className={cn('flex max-w-[78%] flex-col', alignRight ? 'items-end' : 'items-start')}>
+      <span
+        className={cn(
+          'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ring-1',
+          alignRight
+            ? 'bg-indigo-600 text-white ring-indigo-500/30'
+            : 'bg-indigo-50 text-indigo-600 ring-indigo-100',
+        )}
+        aria-hidden="true"
+      >
+        {kind === 'support' ? 'LS' : getInitials(message.sender?.name, 'AW')}
+      </span>
+      <div className={cn('flex max-w-[76%] flex-col', alignRight ? 'items-end' : 'items-start')}>
         {showSenderLabel ? (
           <span className={cn('mb-1 px-1 text-[11px] font-semibold text-slate-500', alignRight ? 'text-right' : 'text-left')}>
             {viewer === 'customer' ? kindLabel[kind] : (isCustomerMessage ? (message.sender?.name ?? 'Customer') : 'You')}
@@ -67,10 +73,10 @@ export default function MessageBubble({ message, viewer = 'customer', showSender
         ) : null}
         <div
           className={cn(
-            'rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed transition-colors',
+            'support-message-bubble text-[13px] leading-[1.5] transition-colors',
             alignRight
-              ? 'rounded-br-md bg-indigo-600 text-white'
-              : 'rounded-bl-md border border-slate-200 bg-white text-slate-800',
+              ? 'support-message-bubble--out'
+              : 'support-message-bubble--in',
           )}
         >
           <p className="whitespace-pre-wrap break-words">{message.message}</p>

@@ -11,7 +11,11 @@ import MessageBubble from './MessageBubble';
 import QuickAnswers from './QuickAnswers';
 import SupportComposer from './SupportComposer';
 
-const SUPPORT_RESPONSE_TIME = 'Usually replies within a few hours';
+const SUPPORT_RESPONSE_TIME = 'Usually replies in a few hours';
+
+interface SupportWidgetProps {
+  mode?: 'floating' | 'page';
+}
 
 function readSupportMessages(payload: unknown): SupportMessage[] {
   if (Array.isArray(payload)) return payload as SupportMessage[];
@@ -34,11 +38,13 @@ function readSupportPage(payload: unknown): SupportMessagePage {
   return { data: readSupportMessages(payload), next_cursor: null, has_more: false };
 }
 
-export default function SupportWidget() {
+export default function SupportWidget({ mode = 'floating' }: SupportWidgetProps) {
+  const pageMode = mode === 'page';
   const { activeTenant, loading: tenantsLoading, tenants } = useTenant();
   const activeTenantId = activeTenant?.id ?? tenants.find((tenant) => tenant.status === 'active')?.id ?? null;
-  const [open, setOpen] = useState(false);
-  const [visible, setVisible] = useState(false);
+  const canManageSupport = activeTenant?.permissions?.includes('support.manage') ?? false;
+  const [open, setOpen] = useState(pageMode);
+  const [visible, setVisible] = useState(pageMode);
   const [conversation, setConversation] = useState<SupportConversation | null>(null);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [faqs, setFaqs] = useState<SupportFaqCategory[]>([]);
@@ -314,6 +320,10 @@ export default function SupportWidget() {
 // ------------------------------------------------------------------- actions
 
   const chooseFaq = useCallback(async (slug: string) => {
+    if (!canManageSupport) {
+      setSendError('You have view-only support access. Ask an organization admin to enable replies.');
+      return;
+    }
     setOpen(true);
     setSendError(null);
     let activeConversation = conversation;
@@ -328,11 +338,15 @@ export default function SupportWidget() {
     } catch {
       setInitialError('Could not load that quick answer. Please try again.');
     }
-  }, [activeTenantId, conversation, load, scrollToBottom]);
+  }, [activeTenantId, canManageSupport, conversation, load, scrollToBottom]);
 
   const send = useCallback(async () => {
     const message = draft.trim();
     if (!message || sending) return;
+    if (!canManageSupport) {
+      setSendError('You have view-only support access. Ask an organization admin to enable replies.');
+      return;
+    }
     let activeConversation = conversation;
     if (!activeConversation) {
       activeConversation = await load();
@@ -350,9 +364,13 @@ export default function SupportWidget() {
     } finally {
       setSending(false);
     }
-  }, [activeTenantId, conversation, draft, load, scrollToBottom, sending]);
+  }, [activeTenantId, canManageSupport, conversation, draft, load, scrollToBottom, sending]);
 
   const reopenConversation = useCallback(async () => {
+    if (!canManageSupport) {
+      setSendError('You have view-only support access. Ask an organization admin to enable replies.');
+      return;
+    }
     setSendError(null);
     try {
       const response = await supportService.status('open', activeTenantId ?? undefined);
@@ -360,7 +378,7 @@ export default function SupportWidget() {
     } catch {
       setSendError('The conversation could not be reopened. Try again.');
     }
-  }, [activeTenantId]);
+  }, [activeTenantId, canManageSupport]);
 
   // ------------------------------------------------------------------ derived
 
@@ -383,7 +401,7 @@ export default function SupportWidget() {
 return (
     <>
       {/* Floating launcher */}
-      {!open ? (
+      {!pageMode && !open ? (
         <button
           ref={launcherRef}
           type="button"
@@ -410,26 +428,31 @@ return (
           aria-label="Support chat"
           aria-hidden={!open}
           className={cn(
-            'support-chat-panel fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] relative',
+            'support-chat-panel z-50 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.22)]',
+            pageMode ? 'support-chat-panel--page relative w-full' : 'fixed relative',
             open ? 'support-panel-in' : 'support-panel-out',
           )}
         >
-          <header className="flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-950 px-4 py-4 text-white">
+          <header className={cn('flex items-center justify-between gap-3 border-b px-4 py-4', pageMode ? 'border-slate-200 bg-white px-5 text-slate-900' : 'border-slate-800 bg-slate-950 text-white')}>
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/10">
-                <MessageCircle className="h-5 w-5 text-indigo-300" aria-hidden="true" />
+              <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ring-1', pageMode ? 'bg-indigo-50 text-indigo-600 ring-indigo-100' : 'bg-white/10 text-indigo-300 ring-white/10')}>
+                LS
               </span>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold">LaunchStack support</p>
-                <p className="flex items-center gap-1.5 text-xs text-slate-400">
+                <p className={cn('truncate text-sm font-bold', pageMode ? 'text-slate-900' : 'text-white')}>LaunchStack support</p>
+                <p className={cn('flex items-center gap-1.5 text-xs', pageMode ? 'text-slate-500' : 'text-slate-400')}>
                   <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDotClass)} />
                   {conversation?.organization?.name ?? 'Your support team'} · {realtimeStatusLabel}
                 </p>
               </div>
             </div>
-            <button type="button" onClick={closeChat} aria-label="Close support chat" className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
+            {pageMode ? (
+              <span className="support-page-header-status">Workspace support</span>
+            ) : (
+              <button type="button" onClick={closeChat} aria-label="Close support chat" className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
           </header>
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-50">
@@ -439,7 +462,11 @@ return (
                 <p className="text-sm text-slate-600">Select an active organization to view support messages.</p>
               </div>
             ) : loading ? (
-              <div className="flex flex-1 items-center justify-center text-sm text-slate-500">Loading support chat…</div>
+              <div className="support-loading-state flex flex-1 flex-col items-center justify-center px-6 py-16 text-center" role="status" aria-label="Loading support conversation">
+                <span className="support-loading-dots" aria-hidden="true"><span /><span /><span /></span>
+                <p className="mt-5 text-sm font-semibold text-slate-800">Loading your conversation</p>
+                <p className="mt-1 text-xs text-slate-500">Fetching the latest support activity.</p>
+              </div>
             ) : initialError ? (
               <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
                 <p className="text-sm text-slate-600">{initialError}</p>
@@ -450,12 +477,12 @@ return (
             ) : (
               <>
                 {!conversation || conversation.status !== 'closed' ? (
-                  <div className="max-h-52 shrink-0 overflow-y-auto border-b border-slate-100 bg-white px-3 py-3">
-                    <QuickAnswers faqs={faqs} onSelect={(slug) => void chooseFaq(slug)} disabled={sending} />
+                  <div className="support-quick-answers-shell shrink-0 border-b border-slate-100 bg-white px-4 py-3">
+                    <QuickAnswers faqs={faqs} onSelect={(slug) => void chooseFaq(slug)} disabled={sending || !canManageSupport} />
                   </div>
                 ) : null}
 
-                <div ref={threadRef} onScroll={handleThreadScroll} className="support-scroll min-h-[180px] min-w-0 flex-1 overflow-y-auto px-2 py-3" role="log" aria-live="polite" aria-label="Conversation messages">
+                <div ref={threadRef} onScroll={handleThreadScroll} className="support-scroll min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-3" role="log" aria-live="polite" aria-label="Conversation messages">
                   {hasOlderMessages ? (
                     <button type="button" onClick={() => void loadOlderMessages()} disabled={loadingOlderMessages} className="mx-auto mb-2 block rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-indigo-200 hover:text-indigo-700 disabled:cursor-wait disabled:opacity-60">
                       {loadingOlderMessages ? 'Loading older messages…' : 'Load older messages'}
@@ -490,11 +517,13 @@ return (
                 ) : null}
 
                 {conversation?.status === 'closed' ? (
-                  <div className="border-t border-slate-100 bg-white px-4 py-3">
-                    <button type="button" onClick={() => void reopenConversation()} className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500">Reopen conversation</button>
+                  <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-3">
+                    <button type="button" onClick={() => void reopenConversation()} disabled={!canManageSupport} className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60">Reopen conversation</button>
                   </div>
                 ) : (
-                  <SupportComposer value={draft} onChange={setDraft} onSend={() => void send()} sending={sending} error={sendError ?? undefined} onRetry={() => void send()} hint={hasHandoff ? 'A support specialist will reply as soon as possible.' : SUPPORT_RESPONSE_TIME} />
+                  <div className="support-composer-shell">
+                    <SupportComposer value={draft} onChange={setDraft} onSend={() => void send()} sending={sending} disabled={!canManageSupport} error={sendError ?? undefined} onRetry={() => void send()} hint={canManageSupport ? (hasHandoff ? 'A support specialist will reply as soon as possible.' : SUPPORT_RESPONSE_TIME) : 'View-only access · ask an organization admin to enable replies.'} />
+                  </div>
                 )}
                 {!realtimeOnline ? <p className="flex items-center justify-center gap-1 bg-slate-50 pb-2 text-[10px] text-slate-400"><WifiOff className="h-3 w-3" aria-hidden="true" /> Messages sync through the API</p> : null}
               </>

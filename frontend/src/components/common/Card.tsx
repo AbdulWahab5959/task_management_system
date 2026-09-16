@@ -14,11 +14,11 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
 }
 
 export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('border-b border-slate-100/90 px-5 py-4 sm:px-6', className)} {...props} />;
+  return <div className={cn('card-header border-b border-slate-100/90 px-5 py-4 sm:px-6', className)} {...props} />;
 }
 
 export function CardContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('px-5 py-4 sm:px-6', className)} {...props} />;
+  return <div className={cn('card-content px-5 py-4 sm:px-6', className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {

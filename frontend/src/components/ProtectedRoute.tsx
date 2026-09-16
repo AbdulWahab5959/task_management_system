@@ -1,6 +1,5 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import ProfessionalLoader from './common/ProfessionalLoader';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,7 +10,12 @@ export default function ProtectedRoute({ children, requireVerified = false }: Pr
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-950 p-5"><ProfessionalLoader label="Loading your session" detail="Verifying your secure access" className="mx-auto max-w-xl" /></div>;
+    return (
+      <div className="session-loader-screen" role="status" aria-live="polite" aria-label="Loading your session" aria-busy="true">
+        <div className="session-loader-dots" aria-hidden="true"><span /><span /><span /></div>
+        <span className="sr-only">Verifying your secure access</span>
+      </div>
+    );
   }
 
   if (!user) {

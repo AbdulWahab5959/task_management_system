@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import ProfessionalLoader from '../components/common/ProfessionalLoader';
+import VisitorDotLoader from '../components/common/VisitorDotLoader';
 import PlanCard, { type Plan as CheckoutPlan } from '../components/pricing/PlanCard';
 import { plansService } from '../services/plans.service';
 import type { Plan as ApiPlan } from '../types/plan.types';
@@ -16,11 +16,29 @@ function toCheckoutPlan(plan: ApiPlan): CheckoutPlan {
   return {
     id: plan.id,
     name: plan.name,
-    description: plan.description ?? undefined,
+    description: workspacePlanDescription(plan),
     amount: paymentPlan.amount ?? plan.price,
     currency: paymentPlan.currency ?? 'USD',
     billing_interval: paymentPlan.billing_interval ?? plan.interval ?? null,
   };
+}
+
+function workspacePlanDescription(plan: ApiPlan): string {
+  const name = plan.name.toLowerCase();
+  if (name.includes('enterprise')) return 'For teams managing larger portfolios and structured delivery.';
+  if (name.includes('pro')) return 'For growing teams that need more room for projects and collaboration.';
+  return 'A focused starting point for organizing your team’s work.';
+}
+
+function managementPlanFeatures(plan: ApiPlan): string[] {
+  const name = plan.name.toLowerCase();
+  return [
+    'Project planning and status tracking',
+    'Task creation and assignment',
+    'Shared workspace dashboard',
+    'Team member access',
+    name.includes('business') || name.includes('enterprise') ? 'Advanced project management' : 'Email support',
+  ];
 }
 
 export default function Pricing() {
@@ -83,7 +101,7 @@ export default function Pricing() {
       </div>
 
       {loading ? (
-        <ProfessionalLoader label="Loading plans" detail="Preparing available plans" />
+        <VisitorDotLoader label="Loading plans" />
       ) : error ? (
         <div
           role="alert"
@@ -103,7 +121,7 @@ export default function Pricing() {
             <PlanCard
               key={plan.id}
               plan={toCheckoutPlan(plan)}
-              features={plan.features}
+              features={managementPlanFeatures(plan)}
               isPopular={plan.is_popular}
             />
           ))}

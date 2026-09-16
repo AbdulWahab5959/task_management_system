@@ -8,7 +8,6 @@ const navLinks = [
   { to: '/about', label: 'About' },
   { to: '/pricing', label: 'Pricing' },
   { to: '/contact', label: 'Contact' },
-  { to: '/chatbots', label: 'Chatbots' },
 ];
 
 export default function PublicNavbar() {
@@ -47,7 +46,7 @@ export default function PublicNavbar() {
         {!loading ? <div className="hidden items-center gap-3 md:flex">
           {isAuthenticated ? <Link to="/dashboard" className="public-button public-button--lime"><LayoutDashboard className="h-4 w-4" aria-hidden="true" /> Dashboard</Link> : <>
             <Link to="/login" className="public-button public-button--quiet">Log in</Link>
-            <Link to="/register" className="public-button public-button--lime">Start building <ArrowUpRight className="h-4 w-4" /></Link>
+            <Link to="/register" className="public-button public-button--lime">Get started <ArrowUpRight className="h-4 w-4" /></Link>
           </>}
         </div> : null}
 
@@ -84,7 +83,7 @@ export default function PublicNavbar() {
             <hr className="border-white/10" />
             {!loading ? (isAuthenticated ? <Link to="/dashboard" onClick={() => setMobileOpen(false)} className="public-button public-button--lime"><LayoutDashboard className="h-4 w-4" aria-hidden="true" /> Dashboard</Link> : <>
             <Link to="/login" onClick={() => setMobileOpen(false)} className="public-button public-button--quiet">Log in</Link>
-              <Link to="/register" onClick={() => setMobileOpen(false)} className="public-button public-button--lime">Start building <ArrowUpRight className="h-4 w-4" /></Link>
+              <Link to="/register" onClick={() => setMobileOpen(false)} className="public-button public-button--lime">Get started <ArrowUpRight className="h-4 w-4" /></Link>
             </> ) : null}
           </div>
         </div>

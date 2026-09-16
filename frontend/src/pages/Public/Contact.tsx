@@ -90,7 +90,7 @@ export default function Contact() {
       {/* Hero */}
       <section className="public-container px-5 pb-12 pt-24 sm:px-8 sm:pt-32">
         <div className="max-w-3xl">
-          <p className="public-kicker">Start a conversation</p>
+          <p className="public-kicker">Talk to our team</p>
           <h1 className="mt-5 text-5xl font-black tracking-[-.06em] text-white sm:text-7xl">Let’s make the<br /><span className="text-[#d7f36b]">next release real.</span></h1>
           <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">
             Have a question, feedback, or want to learn more? Send us a message and we will get back to you.

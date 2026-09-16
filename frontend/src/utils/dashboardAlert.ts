@@ -30,3 +30,18 @@ export function showDashboardError(title: string, text: string) {
     customClass: { popup: 'dashboard-alert-popup' },
   });
 }
+
+const dashboardToast = Swal.mixin({
+  toast: true,
+  position: 'top-end',
+  showConfirmButton: false,
+  timer: 3200,
+  timerProgressBar: true,
+  background: '#ffffff',
+  color: dashboardColors.text,
+  customClass: { popup: 'dashboard-alert-toast' },
+});
+
+export function showDashboardToast(icon: 'success' | 'error' | 'info' | 'warning', title: string, text?: string) {
+  return dashboardToast.fire({ icon, title, text });
+}

@@ -22,6 +22,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useTenant } from '../../hooks/useTenant';
 import type { UserRole } from '../../types/auth.types';
 import { cn } from '../../utils/cn';
 
@@ -38,6 +39,7 @@ interface NavigationItem {
   matchPaths?: string[];
   nested?: boolean;
   roles?: UserRole[];
+  permissions?: string[];
 }
 
 const mainNavItems: NavigationItem[] = [
@@ -45,6 +47,8 @@ const mainNavItems: NavigationItem[] = [
   { label: 'Organizations', to: '/dashboard/organizations', icon: Building2 },
   { label: 'Projects', to: '/dashboard/projects', icon: FolderKanban, nested: true },
   { label: 'My Tasks', to: '/dashboard/tasks', icon: CheckSquare },
+  { label: 'Analytics', to: '/dashboard/analytics', icon: BarChart3, permissions: ['analytics.view'], roles: ['user', 'admin'] },
+  { label: 'Support', to: '/dashboard/support-center', icon: MessageCircle, permissions: ['support.view'], roles: ['user', 'admin'] },
   { label: 'Billing', to: '/dashboard/billing', icon: CreditCard, nested: true, roles: ['user', 'admin'] },
   {
     label: 'Analytics',
@@ -115,6 +119,9 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, user } = useAuth();
+  const { activeTenant } = useTenant();
+  const tenantPermissions = activeTenant?.permissions ?? [];
+  const canSeeNavigationItem = (item: NavigationItem) => !item.permissions || item.permissions.every((permission) => tenantPermissions.includes(permission));
 
   const handleLogout = async () => {
     await logout();
@@ -166,7 +173,7 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
           <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Workspace</p>
           <div className="space-y-1">
             {mainNavItems
-              .filter((item) => !item.roles || item.roles.includes(user?.role ?? 'user'))
+              .filter((item) => (!item.roles || item.roles.includes(user?.role ?? 'user')) && canSeeNavigationItem(item))
               .map((item) => {
                 const Icon = item.icon;
                 const isActive = isNavigationItemActive(item, location.pathname);
@@ -201,7 +208,7 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
             <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Account</p>
             <div className="space-y-1">
               {accountNavItems
-                .filter((item) => !item.roles || item.roles.includes(user?.role ?? 'user'))
+                .filter((item) => (!item.roles || item.roles.includes(user?.role ?? 'user')) && canSeeNavigationItem(item))
                 .map((item) => {
                 const Icon = item.icon;
                 const isActive = isNavigationItemActive(item, location.pathname);

@@ -6,7 +6,6 @@ import { AuthProvider } from './context/AuthContext';
 import { TenantProvider } from './context/TenantContext';
 import DashboardLayout from './layouts/DashboardLayout';
 import PublicLayout from './components/public/PublicLayout';
-import ProfessionalLoader from './components/common/ProfessionalLoader';
 const HealthCheckPage = lazy(() => import('./pages/HealthCheckPage'));
 const LoginPage = lazy(() => import('./pages/Auth/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/Auth/RegisterPage'));
@@ -35,13 +34,15 @@ const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const HomePage = lazy(() => import('./pages/Public/Home'));
 const AboutPage = lazy(() => import('./pages/Public/About'));
 const ContactPage = lazy(() => import('./pages/Public/Contact'));
-const ChatbotsPage = lazy(() => import('./pages/Public/Chatbots'));
 const PrivacyPolicyPage = lazy(() => import('./pages/Public/PrivacyPolicy'));
 const TermsOfServicePage = lazy(() => import('./pages/Public/TermsOfService'));
 const Pricing = lazy(() => import('./pages/Pricing'));
 const CheckoutSuccess = lazy(() => import('./pages/CheckoutSuccess'));
 const CheckoutCancel = lazy(() => import('./pages/CheckoutCancel'));
 const TeamPage = lazy(() => import('./pages/Dashboard/TeamPage'));
+const OrganizationAnalyticsPage = lazy(() => import('./pages/Dashboard/OrganizationAnalyticsPage'));
+const OrganizationSupportPage = lazy(() => import('./pages/Dashboard/OrganizationSupportPage'));
+const MemberPermissionsPage = lazy(() => import('./pages/Dashboard/MemberPermissionsPage'));
 const ProjectsPage = lazy(() => import('./pages/Dashboard/ProjectsPage'));
 const ProjectDetailPage = lazy(() => import('./pages/Dashboard/ProjectDetailPage'));
 const MyTasksPage = lazy(() => import('./pages/Dashboard/MyTasksPage'));
@@ -52,7 +53,7 @@ function App() {
   return (
     <AuthProvider>
       <TenantProvider>
-        <Suspense fallback={<ProfessionalLoader label="Loading page" detail="Preparing the selected workspace" />}>
+        <Suspense fallback={null}>
         <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/" element={<HomePage />} />
@@ -61,7 +62,7 @@ function App() {
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
           <Route path="/checkout/cancel" element={<CheckoutCancel />} />
           <Route path="/contact" element={<ContactPage />} />
-          <Route path="/chatbots" element={<ChatbotsPage />} />
+          <Route path="/chatbots" element={<Navigate to="/" replace />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
         </Route>
@@ -165,6 +166,9 @@ function App() {
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/account" element={<UserSettingsPage />} />
           <Route path="team" element={<TeamPage />} />
+          <Route path="analytics" element={<OrganizationAnalyticsPage />} />
+          <Route path="support-center" element={<OrganizationSupportPage />} />
+          <Route path="team/members/:memberId/permissions" element={<MemberPermissionsPage />} />
           <Route path="projects" element={<ProjectsPage />} />
           <Route path="projects/:id" element={<ProjectDetailPage />} />
           <Route path="tasks" element={<MyTasksPage />} />
