@@ -29,6 +29,11 @@ class Project extends Model
         return $this->hasMany(Task::class);
     }
 
+    public function sections()
+    {
+        return $this->hasMany(ProjectSection::class)->orderBy('position');
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

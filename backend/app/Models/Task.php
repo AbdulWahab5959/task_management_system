@@ -12,10 +12,13 @@ class Task extends Model
 
     protected $fillable = [
         'project_id',
+        'section_id',
+        'parent_task_id',
         'title',
         'description',
         'status',
         'priority',
+        'start_date',
         'assigned_to',
         'due_date',
         'created_by',
@@ -23,6 +26,7 @@ class Task extends Model
     ];
 
     protected $casts = [
+        'start_date' => 'date',
         'due_date' => 'date',
         'completed_at' => 'datetime',
     ];
@@ -30,6 +34,21 @@ class Task extends Model
     public function project()
     {
         return $this->belongsTo(Project::class);
+    }
+
+    public function section()
+    {
+        return $this->belongsTo(ProjectSection::class, 'section_id');
+    }
+
+    public function parentTask()
+    {
+        return $this->belongsTo(self::class, 'parent_task_id');
+    }
+
+    public function subtasks()
+    {
+        return $this->hasMany(self::class, 'parent_task_id');
     }
 
     public function assignee()

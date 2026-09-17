@@ -4,6 +4,16 @@ export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface ProjectPerson { id: number; name: string; email: string; }
 
+export interface ProjectSection {
+  id: number;
+  project_id: number;
+  name: string;
+  position: number;
+  tasks_total: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
 export interface Project {
   id: number;
   name: string;
@@ -24,6 +34,9 @@ export interface Task {
   id: number;
   project_id: number;
   project_name: string | null;
+  section_id: number | null;
+  section_name: string | null;
+  parent_task_id: number | null;
   title: string;
   description: string | null;
   status: TaskStatus;
@@ -34,6 +47,7 @@ export interface Task {
   assignees: ProjectPerson[];
   created_by: number;
   creator: ProjectPerson | null;
+  start_date: string | null;
   due_date: string | null;
   completed_at: string | null;
   created_at: string | null;
@@ -42,4 +56,5 @@ export interface Task {
 
 export interface PaginatedProjects { data: Project[]; meta: { current_page: number; last_page: number; per_page: number; total: number }; }
 export interface PaginatedTasks { data: Task[]; meta: { current_page: number; last_page: number; per_page: number; total: number }; }
-export interface ProjectDetail extends Project { tasks: Task[]; }
+export interface TaskDetail extends Task { subtasks: Task[]; }
+export interface ProjectDetail extends Project { sections: ProjectSection[]; tasks: Task[]; }

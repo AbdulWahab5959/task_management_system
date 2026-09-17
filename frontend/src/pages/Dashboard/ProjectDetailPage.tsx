@@ -1,57 +1,115 @@
-import { ArrowLeft, CalendarDays, CheckCircle2, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
+import { Archive, CalendarDays, ChevronLeft, FolderPlus, Pencil, Plus, Users } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import Button from '../../components/common/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/common/Card';
 import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import EmptyState from '../../components/dashboard/EmptyState';
-import PageHeader from '../../components/dashboard/PageHeader';
+import ProjectSection from '../../components/projects/ProjectSection';
+import TaskDetailModal from '../../components/projects/TaskDetailModal';
+import type { QuickTaskInput } from '../../components/projects/TaskQuickAdd';
 import { useAuth } from '../../hooks/useAuth';
 import { useTenant } from '../../hooks/useTenant';
-import { tenantMembersService } from '../../services/tenant-members.service';
+import { projectSectionService } from '../../services/project-section.service';
 import { projectService } from '../../services/project.service';
 import { taskService } from '../../services/task.service';
+import { tenantMembersService } from '../../services/tenant-members.service';
 import type { TenantMember } from '../../types/tenant-member.types';
-import type { ProjectDetail, Task, TaskPriority, TaskStatus } from '../../types/project.types';
-import { showDashboardError, showDashboardSuccess } from '../../utils/dashboardAlert';
-import { cn } from '../../utils/cn';
+import type { Project, ProjectDetail, ProjectSection as ProjectSectionType, Task } from '../../types/project.types';
 
-const priorities: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
-const today = () => new Date().toISOString().slice(0, 10);
-const emptyTask = { title: '', description: '', priority: 'medium' as TaskPriority, due_date: '', assignee_ids: [] as number[] };
-const priorityClasses: Record<TaskPriority, string> = { low: 'task-priority-badge task-priority-badge--low', medium: 'task-priority-badge task-priority-badge--medium', high: 'task-priority-badge task-priority-badge--high', urgent: 'task-priority-badge task-priority-badge--urgent' };
-const prioritySelectClasses: Record<TaskPriority, string> = { low: 'task-priority-select task-priority-select--low', medium: 'task-priority-select task-priority-select--medium', high: 'task-priority-select task-priority-select--high', urgent: 'task-priority-select task-priority-select--urgent' };
-const statusClasses: Record<TaskStatus, string> = { todo: 'task-status-select task-status-select--todo', in_progress: 'task-status-select task-status-select--in_progress', done: 'task-status-select task-status-select--done' };
-const priorityClass = (priority: TaskPriority) => priorityClasses[String(priority).toLowerCase() as TaskPriority] ?? priorityClasses.medium;
-const prioritySelectClass = (priority: TaskPriority) => prioritySelectClasses[String(priority).toLowerCase() as TaskPriority] ?? prioritySelectClasses.medium;
-const statusClass = (status: TaskStatus) => statusClasses[status];
+const dateLabel = (value: string | null) => value ? new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${value}T00:00:00`)) : 'No due date';
+type TaskDialogState = { task: Task | null; sectionId: number | null } | null;
 
 export default function ProjectDetailPage() {
-  const { id } = useParams(); const navigate = useNavigate(); const { user } = useAuth(); const { activeTenant } = useTenant();
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { activeTenant } = useTenant();
   const projectId = Number(id);
-  const canManageProject = activeTenant?.role === 'owner' || activeTenant?.role === 'admin' || activeTenant?.permissions?.includes('projects.update');
-  const canCreateTask = activeTenant?.role === 'owner' || activeTenant?.role === 'admin' || activeTenant?.role === 'member' || activeTenant?.permissions?.includes('tasks.create');
-  const [project, setProject] = useState<ProjectDetail | null>(null); const [members, setMembers] = useState<TenantMember[]>([]); const [loading, setLoading] = useState(true); const [refreshing, setRefreshing] = useState(false); const [saving, setSaving] = useState(false); const [taskSaving, setTaskSaving] = useState(false); const [error, setError] = useState(''); const [editing, setEditing] = useState(false); const [editingTaskId, setEditingTaskId] = useState<number | null>(null); const [showTaskForm, setShowTaskForm] = useState(false); const [taskForm, setTaskForm] = useState(emptyTask);
+  const canManageProject = Boolean(activeTenant?.role === 'owner' || activeTenant?.role === 'admin' || activeTenant?.permissions?.includes('projects.update'));
+  const canCreateTask = Boolean(activeTenant?.role === 'owner' || activeTenant?.role === 'admin' || activeTenant?.role === 'member' || activeTenant?.permissions?.includes('tasks.create'));
+  const canDeleteTask = Boolean(activeTenant?.role === 'owner' || activeTenant?.role === 'admin' || activeTenant?.permissions?.includes('tasks.delete'));
+  const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [members, setMembers] = useState<TenantMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [projectForm, setProjectForm] = useState({ name: '', description: '', status: 'active', start_date: '', due_date: '' });
+  const [projectSaving, setProjectSaving] = useState(false);
+  const [sectionName, setSectionName] = useState('');
+  const [sectionSaving, setSectionSaving] = useState(false);
+  const [taskDialog, setTaskDialog] = useState<TaskDialogState>(null);
 
-  const loadProject = useCallback(async (showPageLoader = true) => { if (!Number.isInteger(projectId)) { setError('This project link is invalid.'); setLoading(false); return; } if (showPageLoader) setLoading(true); else setRefreshing(true); setError(''); try { const response = await projectService.show(projectId); setProject(response.data.data); } catch { setError('Unable to load this project.'); } finally { if (showPageLoader) setLoading(false); else setRefreshing(false); } }, [projectId]);
+  const loadProject = useCallback(async (withPageLoader = true) => {
+    if (!Number.isInteger(projectId)) { setError('This project link is invalid.'); setLoading(false); return; }
+    if (withPageLoader) setLoading(true); else setRefreshing(true);
+    setError('');
+    try {
+      const response = await projectService.show(projectId);
+      setProject(response.data.data);
+      setProjectForm({ name: response.data.data.name, description: response.data.data.description ?? '', status: response.data.data.status, start_date: response.data.data.start_date ?? '', due_date: response.data.data.due_date ?? '' });
+    } catch { setError('Unable to load this project. Please try again.'); }
+    finally { if (withPageLoader) setLoading(false); else setRefreshing(false); }
+  }, [projectId]);
+
   useEffect(() => { queueMicrotask(() => { void loadProject(); }); }, [loadProject]);
-  useEffect(() => { if (activeTenant) void tenantMembersService.list().then((response) => setMembers(response.data.data)).catch(() => setMembers([])); }, [activeTenant]);
+  useEffect(() => { if (!activeTenant) return; void projectService.list({ per_page: 50 }).then((response) => setProjects(response.data.data)).catch(() => setProjects([])); }, [activeTenant]);
+  useEffect(() => { if (!activeTenant) return; void tenantMembersService.list().then((response) => setMembers(response.data.data)).catch(() => setMembers([])); }, [activeTenant]);
 
-  const updateProject = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!project) return; setSaving(true); try { await projectService.update(project.id, { name: project.name, description: project.description ?? '', status: project.status, start_date: project.start_date ?? undefined, due_date: project.due_date ?? undefined }); await loadProject(false); setEditing(false); void showDashboardSuccess('Project updated', 'The project details are now up to date.'); } catch { setError('Unable to save project changes.'); void showDashboardError('Project was not updated', 'Check your project permissions and date values.'); } finally { setSaving(false); } };
+  const roots = useMemo(() => project?.tasks.filter((task) => task.parent_task_id === null) ?? [], [project]);
+  const canUpdateTask = (task: Task) => canManageProject || task.created_by === user?.id || task.assignee_ids.includes(user?.id ?? -1);
 
-  const openTaskForm = (task?: Task) => { setEditingTaskId(task?.id ?? null); setTaskForm(task ? { title: task.title, description: task.description ?? '', priority: task.priority, due_date: task.due_date ?? '', assignee_ids: task.assignee_ids ?? (task.assigned_to ? [task.assigned_to] : []) } : emptyTask); setShowTaskForm(true); };
-  const saveTask = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!project) return; setTaskSaving(true); try { if (editingTaskId) await taskService.update(editingTaskId, { project_id: project.id, title: taskForm.title, description: taskForm.description, priority: taskForm.priority, due_date: taskForm.due_date || null, assignee_ids: taskForm.assignee_ids }); else await taskService.create({ project_id: project.id, title: taskForm.title, description: taskForm.description, priority: taskForm.priority, due_date: taskForm.due_date || null, assignee_ids: taskForm.assignee_ids }); await loadProject(false); setTaskForm(emptyTask); setEditingTaskId(null); setShowTaskForm(false); void showDashboardSuccess(editingTaskId ? 'Task updated' : 'Task created', 'The task and its assignments were saved.'); } catch { setError('Unable to save this task. Check assignments and the project deadline.'); void showDashboardError('Task was not saved', 'Assignees must belong to this workspace and the due date must fit the project deadline.'); } finally { setTaskSaving(false); } };
-  const deleteTask = async (task: Task) => { try { await taskService.remove(task.id); await loadProject(false); void showDashboardSuccess('Task deleted'); } catch { void showDashboardError('Task was not deleted', 'You may not have permission to delete this task.'); } };
-  const updateTaskStatus = async (task: Task, status: TaskStatus) => { try { await taskService.update(task.id, { status }); await loadProject(false); void showDashboardSuccess('Task status updated'); } catch { void showDashboardError('Task status was not updated', 'You may not have permission to update this task.'); } };
-  const archiveProject = async () => { if (!project) return; try { await projectService.remove(project.id); void showDashboardSuccess('Project archived'); navigate('/dashboard/projects'); } catch { void showDashboardError('Project was not archived', 'You may not have permission to archive this project.'); } };
+  const updateProject = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!project) return;
+    setProjectSaving(true);
+    try {
+      await projectService.update(project.id, { ...projectForm, start_date: projectForm.start_date || undefined, due_date: projectForm.due_date || undefined });
+      await loadProject(false);
+      setEditing(false);
+    } catch { setError('We could not save the project. Check the dates and try again.'); }
+    finally { setProjectSaving(false); }
+  };
+
+  const createSection = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!project || !sectionName.trim()) return;
+    setSectionSaving(true);
+    try { await projectSectionService.create(project.id, sectionName.trim()); setSectionName(''); await loadProject(false); }
+    catch { setError('We could not create this section. Please try again.'); }
+    finally { setSectionSaving(false); }
+  };
+
+  const addTask = async (task: QuickTaskInput, sectionId: number | null) => {
+    if (!project) return;
+    await taskService.create({ project_id: project.id, section_id: sectionId, ...task });
+    await loadProject(false);
+  };
+
+  const toggleTask = async (task: Task) => {
+    try { await taskService.update(task.id, { status: task.status === 'done' ? 'todo' : 'done' }); await loadProject(false); }
+    catch { setError('We could not update that task. Please try again.'); }
+  };
+
+  const renameSection = async (section: ProjectSectionType, name: string) => { if (!project) return; await projectSectionService.update(project.id, section.id, name); await loadProject(false); };
+  const moveSection = async (section: ProjectSectionType, direction: 'up' | 'down') => { if (!project) return; await projectSectionService.move(project.id, section.id, direction); await loadProject(false); };
+  const deleteSection = async (section: ProjectSectionType) => { if (!project) return; try { await projectSectionService.remove(project.id, section.id); await loadProject(false); } catch { setError('Only empty sections can be deleted. Move the tasks first, then try again.'); } };
+  const archiveProject = async () => { if (!project) return; try { await projectService.remove(project.id); navigate('/dashboard/projects'); } catch { setError('We could not archive this project. Please try again.'); } };
 
   if (loading) return <ProfessionalLoader label="Loading project" detail="Preparing project details and tasks" />;
-  if (!project) return <Card><CardContent><EmptyState title="Project unavailable" description={error || 'This project could not be found.'} action={<Link to="/dashboard/projects" className="font-semibold text-indigo-700">Back to projects</Link>} /></CardContent></Card>;
-  return <>
-    <PageHeader eyebrow="Project details" title={project.name} description={project.description || 'Keep project scope, deadlines, and tasks aligned.'} action={<Link to="/dashboard/projects" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"><ArrowLeft className="h-4 w-4" aria-hidden="true" />Projects</Link>} />
-    {error ? <div role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div> : null}
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(18rem,.7fr)]"><Card><CardHeader><div className="flex items-center justify-between gap-3"><CardTitle>Overview</CardTitle>{canManageProject ? <Button size="sm" variant="secondary" onClick={() => setEditing(!editing)} icon={<Save className="h-4 w-4" aria-hidden="true" />}>{editing ? 'Close editor' : 'Edit project'}</Button> : null}</div></CardHeader><CardContent>{editing ? <form className="space-y-4" onSubmit={updateProject}><input required value={project.name} onChange={(event) => setProject({ ...project, name: event.target.value })} className="dashboard-control" /><textarea value={project.description ?? ''} onChange={(event) => setProject({ ...project, description: event.target.value })} rows={3} className="dashboard-control py-3" /><div className="grid gap-4 sm:grid-cols-2"><input type="date" value={project.start_date ?? ''} onChange={(event) => setProject({ ...project, start_date: event.target.value })} className="dashboard-control" /><input type="date" value={project.due_date ?? ''} onChange={(event) => setProject({ ...project, due_date: event.target.value })} className="dashboard-control" /></div><select value={project.status} onChange={(event) => setProject({ ...project, status: event.target.value as ProjectDetail['status'] })} className="dashboard-control"><option value="active">Active</option><option value="completed">Completed</option><option value="archived">Archived</option></select><Button type="submit" isLoading={saving}>Save changes</Button></form> : <><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-semibold capitalize text-indigo-700">{project.status}</span><span className="inline-flex items-center gap-1.5 text-sm text-slate-500"><CalendarDays className="h-4 w-4" aria-hidden="true" />Due {project.due_date || 'not set'}</span></div><div className="mt-7"><div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-600"><span>Progress</span><span>{project.progress_percent}%</span></div><div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-500 transition-all duration-500" style={{ width: `${project.progress_percent}%` }} /></div></div></>}</CardContent></Card><Card><CardHeader><CardTitle>Project health</CardTitle></CardHeader><CardContent><div className="grid grid-cols-2 gap-3"><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Tasks</p><p className="mt-1 text-2xl font-bold text-slate-950">{project.tasks_total}</p></div><div className="rounded-xl bg-emerald-50 p-4"><p className="text-xs text-emerald-700">Completed</p><p className="mt-1 text-2xl font-bold text-emerald-950">{project.tasks_completed}</p></div></div>{canManageProject ? <Button variant="danger" size="sm" className="mt-5 w-full" onClick={() => void archiveProject()} icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}>Archive project</Button> : null}</CardContent></Card></div>
-    <Card className="relative mt-6"><CardHeader><div className="flex items-center justify-between gap-3"><div><CardTitle>Tasks</CardTitle><p className="mt-1 text-sm text-slate-500">Create, assign, update, and track work items.</p></div>{canCreateTask ? <Button size="sm" onClick={() => openTaskForm()} icon={<Plus className="h-4 w-4" aria-hidden="true" />}>New task</Button> : null}</div></CardHeader><CardContent>{refreshing ? <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/80 pt-20 backdrop-blur-[1px]"><ProfessionalLoader variant="table" label="Refreshing tasks" detail="Updating project progress" columns={4} /></div> : null}{showTaskForm && canCreateTask ? <form className="task-form mb-6" onSubmit={saveTask}><div className="task-form__header"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-indigo-600">Task details</p><p className="mt-1 font-semibold text-slate-900">{editingTaskId ? 'Edit task' : 'New task'}</p></div><button type="button" onClick={() => setShowTaskForm(false)} aria-label="Close task form" className="rounded-lg p-2 text-slate-500 hover:bg-white"><X className="h-4 w-4" /></button></div><div className="task-form__field"><label htmlFor="task-title">Task title</label><input id="task-title" required value={taskForm.title} onChange={(event) => setTaskForm({ ...taskForm, title: event.target.value })} placeholder="Give this task a clear name" className="dashboard-control" /></div><div className="task-form__field"><label htmlFor="task-description">Description <span>(optional)</span></label><textarea id="task-description" value={taskForm.description} onChange={(event) => setTaskForm({ ...taskForm, description: event.target.value })} placeholder="Add context or acceptance criteria" rows={3} className="dashboard-control py-3" /></div><div className="grid gap-3 md:grid-cols-3"><div className="task-form__field"><label htmlFor="task-priority">Priority</label><select id="task-priority" value={taskForm.priority} onChange={(event) => setTaskForm({ ...taskForm, priority: event.target.value as TaskPriority })} className={cn('dashboard-control', prioritySelectClass(taskForm.priority))}>{priorities.map((item) => <option key={item} value={item}>{item[0].toUpperCase() + item.slice(1)} priority</option>)}</select></div><div className="task-form__field"><label htmlFor="task-due-date">Due date <span>(optional)</span></label><input id="task-due-date" type="date" min={today()} max={project.due_date ?? undefined} value={taskForm.due_date} onChange={(event) => setTaskForm({ ...taskForm, due_date: event.target.value })} className="dashboard-control" /></div><div className="task-form__field"><label htmlFor="task-assignees">Assignees <span>(optional)</span></label><select id="task-assignees" multiple value={taskForm.assignee_ids.map(String)} onChange={(event) => setTaskForm({ ...taskForm, assignee_ids: Array.from(event.target.selectedOptions, (option) => Number(option.value)) })} aria-label="Assign task to workspace members" className="dashboard-control task-form__assignees">{members.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.role})</option>)}</select></div></div><p className="task-form__hint">Hold Ctrl/Cmd to select multiple members or admins. Leave empty for an unassigned task.</p><div className="task-form__actions"><Button type="submit" isLoading={taskSaving}>{editingTaskId ? 'Save task' : 'Add task'}</Button><Button type="button" variant="secondary" onClick={() => setShowTaskForm(false)}>Cancel</Button></div></form> : null}{project.tasks.length === 0 ? <EmptyState icon={<CheckCircle2 className="h-6 w-6" aria-hidden="true" />} title="No tasks yet" description="Add the first task to move this project forward." /> : <div className="divide-y divide-slate-100">{project.tasks.map((task) => { const canEdit = canManageProject || task.created_by === user?.id || task.assignee_ids.includes(user?.id ?? -1); return <div key={task.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="font-semibold text-slate-900">{task.title}</p><p className="mt-1 text-sm text-slate-500">{task.description || 'No description'} · {task.assignees.length ? task.assignees.map((person) => person.name).join(', ') : 'Unassigned'}</p></div><div className="task-controls flex flex-wrap items-center gap-2 sm:flex-nowrap"><span className={priorityClass(task.priority)}>{task.priority}</span><select aria-label={`Status for ${task.title}`} value={task.status} onChange={(event) => void updateTaskStatus(task, event.target.value as TaskStatus)} disabled={!canEdit} className={cn('dashboard-control h-9 w-auto min-w-32 px-2 text-xs', statusClass(task.status))}><option value="todo">To do</option><option value="in_progress">In progress</option><option value="done">Done</option></select>{canEdit ? <><button type="button" aria-label={`Edit ${task.title}`} onClick={() => openTaskForm(task)} className="rounded-lg p-2 text-slate-500 hover:bg-indigo-50 hover:text-indigo-700"><Pencil className="h-4 w-4" /></button><button type="button" aria-label={`Delete ${task.title}`} onClick={() => void deleteTask(task)} className="rounded-lg p-2 text-rose-500 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button></> : null}</div></div>; })}</div>}</CardContent></Card>
-  </>;
+  if (!project) return <section className="pm-empty-workspace"><EmptyState title="Project unavailable" description={error || 'This project could not be found.'} action={<Link to="/dashboard/projects" className="pm-text-link">Back to projects</Link>} /></section>;
+
+  return <div className="pm-workspace">
+    <aside className="pm-project-nav" aria-label="Project navigation"><div className="pm-project-nav__heading"><span>My Projects</span><Link to="/dashboard/projects" aria-label="All projects"><ChevronLeft aria-hidden="true" /></Link></div><nav>{projects.map((item) => <Link key={item.id} to={`/dashboard/projects/${item.id}`} className={item.id === project.id ? 'is-active' : ''}><span>{item.name}</span><small>{item.progress_percent}%</small></Link>)}</nav>{canManageProject ? <Link to="/dashboard/projects" className="pm-project-nav__new"><Plus aria-hidden="true" />New project</Link> : null}</aside>
+    <main className="pm-project-document">
+      <div className="pm-mobile-project-picker"><label htmlFor="project-picker">Project</label><select id="project-picker" value={project.id} onChange={(event) => navigate(`/dashboard/projects/${event.target.value}`)} className="dashboard-control">{projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
+      <header className="pm-project-header"><div className="pm-project-header__crumb"><Link to="/dashboard/projects">My Projects</Link><span>/</span><span>{project.name}</span></div>{editing ? <form className="pm-project-edit" onSubmit={updateProject}><label>Project name<input value={projectForm.name} onChange={(event) => setProjectForm({ ...projectForm, name: event.target.value })} className="dashboard-control" required /></label><label>Description<textarea value={projectForm.description} onChange={(event) => setProjectForm({ ...projectForm, description: event.target.value })} className="dashboard-control" rows={3} /></label><div><label>Status<select value={projectForm.status} onChange={(event) => setProjectForm({ ...projectForm, status: event.target.value })} className="dashboard-control"><option value="active">Active</option><option value="completed">Completed</option><option value="archived">Archived</option></select></label><label>Start date<input type="date" value={projectForm.start_date} onChange={(event) => setProjectForm({ ...projectForm, start_date: event.target.value })} className="dashboard-control" /></label><label>Due date<input type="date" min={projectForm.start_date || undefined} value={projectForm.due_date} onChange={(event) => setProjectForm({ ...projectForm, due_date: event.target.value })} className="dashboard-control" /></label></div><footer><button type="button" className="pm-button" onClick={() => setEditing(false)} disabled={projectSaving}>Cancel</button><button className="pm-button pm-button--primary" disabled={projectSaving}>{projectSaving ? 'Saving…' : 'Save project'}</button></footer></form> : <><div className="pm-project-header__title"><div><h1>{project.name}</h1><p>{project.description || 'Add a description to give this project a clear purpose.'}</p></div><div className="pm-project-header__actions">{canCreateTask ? <button type="button" className="pm-button pm-button--primary" onClick={() => setTaskDialog({ task: null, sectionId: null })}><Plus aria-hidden="true" />Add task</button> : null}{canManageProject ? <button type="button" className="pm-button" onClick={() => setEditing(true)}><Pencil aria-hidden="true" />Edit project</button> : null}{canManageProject ? <button type="button" className="pm-icon-button" onClick={() => void archiveProject()} aria-label="Archive project"><Archive aria-hidden="true" /></button> : null}</div></div><div className="pm-project-metadata"><span className={`pm-project-status pm-project-status--${project.status}`}>{project.status}</span><span><CalendarDays aria-hidden="true" />{dateLabel(project.due_date)}</span><span><i>{project.progress_percent}%</i> complete</span><span><Users aria-hidden="true" />{members.length || '—'} members</span></div><div className="pm-project-progress"><div role="progressbar" aria-valuenow={project.progress_percent} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${project.progress_percent}%` }} /></div><span>{project.tasks_completed} of {project.tasks_total} tasks complete</span></div></>}</header>
+      {error ? <div role="alert" className="pm-form-error pm-form-error--page">{error}</div> : null}
+      {refreshing ? <div className="pm-inline-loader">Updating project…</div> : null}
+      <div className="pm-section-list">{project.sections.map((section) => <ProjectSection key={section.id} section={section} title={section.name} tasks={roots.filter((task) => task.section_id === section.id)} canManage={canManageProject} canCreateTask={canCreateTask} canUpdateTasks={canUpdateTask} onOpenTask={(task) => setTaskDialog({ task, sectionId: task.section_id })} onToggleTask={(task) => void toggleTask(task)} onAddTask={addTask} onRename={renameSection} onMove={moveSection} onDelete={deleteSection} />)}{roots.some((task) => task.section_id === null) ? <ProjectSection section={null} title="Unsorted work" tasks={roots.filter((task) => task.section_id === null)} canManage={false} canCreateTask={canCreateTask} canUpdateTasks={canUpdateTask} onOpenTask={(task) => setTaskDialog({ task, sectionId: null })} onToggleTask={(task) => void toggleTask(task)} onAddTask={addTask} /> : null}</div>
+      {project.sections.length === 0 && roots.length === 0 ? <section className="pm-empty-workspace"><EmptyState icon={<FolderPlus aria-hidden="true" />} title="No sections or tasks yet" description="Start with a phase, then add the first clear action." action={canManageProject ? <button type="button" className="pm-button pm-button--primary" onClick={() => document.getElementById('new-section-name')?.focus()}><Plus aria-hidden="true" />Add section</button> : undefined} /></section> : null}
+      {canManageProject ? <form className="pm-new-section" onSubmit={createSection}><label htmlFor="new-section-name">New section</label><input id="new-section-name" value={sectionName} onChange={(event) => setSectionName(event.target.value)} placeholder="e.g. Phase 1 — Planning" className="dashboard-control" /><button className="pm-add-task-link" disabled={sectionSaving}><Plus aria-hidden="true" />{sectionSaving ? 'Adding…' : 'Add section'}</button></form> : null}
+    </main>
+    {taskDialog ? <TaskDetailModal task={taskDialog.task} project={{ id: project.id, name: project.name, due_date: project.due_date }} members={members} sections={project.sections} initialSectionId={taskDialog.sectionId} canEdit={taskDialog.task ? canUpdateTask(taskDialog.task) : canCreateTask} canDelete={canDeleteTask} onClose={() => setTaskDialog(null)} onSaved={() => loadProject(false)} /> : null}
+  </div>;
 }

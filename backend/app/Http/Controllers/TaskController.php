@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\ProjectSection;
 use App\Models\Task;
 use App\Models\Tenant;
 use App\Models\User;
@@ -18,7 +19,7 @@ class TaskController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Task::query()->with('project:id,name')->latest();
+        $query = Task::query()->with(['project:id,name', 'section:id,name'])->latest();
         $tenant = $this->tenant($request);
         $role = $request->user()->getRoleInTenant($tenant);
         if ($request->filled('project_id')) {
@@ -57,6 +58,9 @@ class TaskController extends Controller
     {
         $validated = $this->validated($request, true);
         $project = $this->project($validated['project_id']);
+        $this->assertSection($project, $validated['section_id'] ?? null);
+        $this->assertParentTask($project, $validated['parent_task_id'] ?? null);
+        $this->assertTaskDateRange($validated['start_date'] ?? null, $validated['due_date'] ?? null);
         $this->assertTaskDueDate($project, $validated['due_date'] ?? null);
         $assigneeIds = $this->requestedAssigneeIds($validated);
         $this->assertAssignees($request, $assigneeIds);
@@ -67,14 +71,25 @@ class TaskController extends Controller
             return $task;
         });
 
-        return response()->json(['data' => $this->serialize($task->load('project:id,name'), $this->usersFor([$task->created_by, ...$assigneeIds]), $assigneeIds)], 201);
+        return response()->json(['data' => $this->serialize($task->load(['project:id,name', 'section:id,name']), $this->usersFor([$task->created_by, ...$assigneeIds]), $assigneeIds)], 201);
     }
 
     public function show(Request $request, int $task): JsonResponse
     {
-        $record = Task::query()->with('project:id,name')->findOrFail($task);
+        $record = Task::query()->with(['project:id,name', 'section:id,name'])->findOrFail($task);
         $assignmentIds = $this->assignmentIdsFor(collect([$record]));
-        return response()->json(['data' => $this->serialize($record, $this->usersFor([$record->created_by, $record->assigned_to, ...($assignmentIds[$record->id] ?? [])]), $assignmentIds[$record->id] ?? null)]);
+        $subtasks = $record->subtasks()->with(['project:id,name', 'section:id,name'])->latest()->get();
+        $subtaskAssignmentIds = $this->assignmentIdsFor($subtasks);
+        $users = $this->usersFor([
+            $record->created_by,
+            $record->assigned_to,
+            ...($assignmentIds[$record->id] ?? []),
+            ...$subtasks->flatMap(fn (Task $subtask) => [$subtask->created_by, $subtask->assigned_to, ...($subtaskAssignmentIds[$subtask->id] ?? [])])->all(),
+        ]);
+        return response()->json(['data' => [
+            ...$this->serialize($record, $users, $assignmentIds[$record->id] ?? null),
+            'subtasks' => $subtasks->map(fn (Task $subtask) => $this->serialize($subtask, $users, $subtaskAssignmentIds[$subtask->id] ?? null))->values(),
+        ]]);
     }
 
     public function update(Request $request, int $task): JsonResponse
@@ -83,7 +98,12 @@ class TaskController extends Controller
         $this->assertMemberCanEdit($request, $record);
         $validated = $this->validated($request, false);
         $project = array_key_exists('project_id', $validated) ? $this->project($validated['project_id']) : $record->project;
-        $this->assertTaskDueDate($project, $validated['due_date'] ?? null);
+        $sectionId = array_key_exists('section_id', $validated) ? $validated['section_id'] : $record->section_id;
+        $parentTaskId = array_key_exists('parent_task_id', $validated) ? $validated['parent_task_id'] : $record->parent_task_id;
+        $this->assertSection($project, $sectionId);
+        $this->assertParentTask($project, $parentTaskId, $record->id);
+        $this->assertTaskDateRange($validated['start_date'] ?? $record->start_date?->toDateString(), $validated['due_date'] ?? $record->due_date?->toDateString());
+        $this->assertTaskDueDate($project, $validated['due_date'] ?? $record->due_date?->toDateString());
         $hasAssignments = array_key_exists('assignee_ids', $validated) || array_key_exists('assigned_to', $validated);
         $assigneeIds = $hasAssignments ? $this->requestedAssigneeIds($validated) : $this->taskAssigneeIds($record);
         $this->assertAssignees($request, $assigneeIds);
@@ -95,7 +115,7 @@ class TaskController extends Controller
         $record->save();
         if ($hasAssignments) $this->syncAssignees($record, $assigneeIds, $request->user()->id);
 
-        $fresh = $record->fresh()->load('project:id,name');
+        $fresh = $record->fresh()->load(['project:id,name', 'section:id,name']);
         return response()->json(['data' => $this->serialize($fresh, $this->usersFor([$fresh->created_by, ...$assigneeIds]), $assigneeIds)]);
     }
 
@@ -115,9 +135,12 @@ class TaskController extends Controller
             'description' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'status' => ['sometimes', 'string', 'in:'.implode(',', self::STATUSES)],
             'priority' => ['sometimes', 'string', 'in:'.implode(',', self::PRIORITIES)],
+            'section_id' => ['sometimes', 'nullable', 'integer'],
+            'parent_task_id' => ['sometimes', 'nullable', 'integer'],
             'assigned_to' => ['sometimes', 'nullable', 'integer'],
             'assignee_ids' => ['sometimes', 'array', 'max:25'],
             'assignee_ids.*' => ['integer', 'distinct'],
+            'start_date' => ['sometimes', 'nullable', 'date'],
             'due_date' => ['sometimes', 'nullable', 'date', ...($creating ? ['after_or_equal:today'] : [])],
         ]);
     }
@@ -134,6 +157,28 @@ class TaskController extends Controller
                 'due_date' => 'The task due date cannot be later than the project due date of '.$project->due_date->toDateString().'.',
             ]);
         }
+    }
+
+    private function assertTaskDateRange(?string $startDate, ?string $dueDate): void
+    {
+        if ($startDate !== null && $dueDate !== null && $startDate > $dueDate) {
+            throw ValidationException::withMessages(['due_date' => 'The due date cannot be before the task start date.']);
+        }
+    }
+
+    private function assertSection(Project $project, ?int $sectionId): void
+    {
+        if ($sectionId === null) return;
+        ProjectSection::query()->where('project_id', $project->id)->findOrFail($sectionId);
+    }
+
+    private function assertParentTask(Project $project, ?int $parentTaskId, ?int $taskId = null): void
+    {
+        if ($parentTaskId === null) return;
+        if ($taskId !== null && $parentTaskId === $taskId) {
+            throw ValidationException::withMessages(['parent_task_id' => 'A task cannot be its own parent.']);
+        }
+        Task::query()->where('project_id', $project->id)->findOrFail($parentTaskId);
     }
 
     private function tenant(Request $request): Tenant
@@ -208,6 +253,9 @@ class TaskController extends Controller
             'id' => $task->id,
             'project_id' => $task->project_id,
             'project_name' => $task->project?->name,
+            'section_id' => $task->section_id,
+            'section_name' => $task->section?->name,
+            'parent_task_id' => $task->parent_task_id,
             'title' => $task->title,
             'description' => $task->description,
             'status' => $task->status,
@@ -218,6 +266,7 @@ class TaskController extends Controller
             'assignees' => collect($assignmentIds)->map(fn (int $id) => $users[$id] ?? null)->filter()->values()->all(),
             'created_by' => $task->created_by,
             'creator' => $users[$task->created_by] ?? null,
+            'start_date' => $task->start_date?->toDateString(),
             'due_date' => $task->due_date?->toDateString(),
             'completed_at' => $task->completed_at?->toISOString(),
             'created_at' => $task->created_at?->toISOString(),

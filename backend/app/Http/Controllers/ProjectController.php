@@ -55,13 +55,22 @@ class ProjectController extends Controller
             'tasks as tasks_total',
             'tasks as tasks_completed' => fn ($tasks) => $tasks->where('status', 'done'),
         ])->findOrFail($project);
-        $tasks = $record->tasks()->with('project:id,name')->latest()->limit(100)->get();
+        $tasks = $record->tasks()->with(['project:id,name', 'section:id,name'])->latest()->limit(100)->get();
         $assignmentIds = $tasks->isEmpty() ? [] : DB::connection('tenant')->table('task_assignees')->whereIn('task_id', $tasks->pluck('id'))->get(['task_id', 'user_id'])->groupBy('task_id')->map(fn ($items) => $items->pluck('user_id')->map(fn ($id) => (int) $id)->all())->all();
         $users = $this->usersFor(array_merge([$record->created_by], $tasks->pluck('assigned_to')->filter()->all(), $tasks->pluck('created_by')->all(), collect($assignmentIds)->flatten()->all()));
 
         return response()->json([
             'data' => [
                 ...$this->serializeProject($record, $users),
+                'sections' => $record->sections()->withCount('tasks')->get()->map(fn ($section) => [
+                    'id' => $section->id,
+                    'project_id' => $section->project_id,
+                    'name' => $section->name,
+                    'position' => $section->position,
+                    'tasks_total' => (int) $section->tasks_count,
+                    'created_at' => $section->created_at?->toISOString(),
+                    'updated_at' => $section->updated_at?->toISOString(),
+                ])->values(),
                 'tasks' => $tasks->map(fn ($task) => $this->serializeTask($task, $users, $assignmentIds[$task->id] ?? null))->values(),
             ],
         ]);
@@ -133,6 +142,9 @@ class ProjectController extends Controller
             'id' => $task->id,
             'project_id' => $task->project_id,
             'project_name' => $task->project?->name,
+            'section_id' => $task->section_id,
+            'section_name' => $task->section?->name,
+            'parent_task_id' => $task->parent_task_id,
             'title' => $task->title,
             'description' => $task->description,
             'status' => $task->status,
@@ -143,6 +155,7 @@ class ProjectController extends Controller
             'assignees' => collect($assignmentIds)->map(fn (int $id) => $users[$id] ?? null)->filter()->values()->all(),
             'created_by' => $task->created_by,
             'creator' => $users[$task->created_by] ?? null,
+            'start_date' => $task->start_date?->toDateString(),
             'due_date' => $task->due_date?->toDateString(),
             'completed_at' => $task->completed_at?->toISOString(),
             'created_at' => $task->created_at?->toISOString(),

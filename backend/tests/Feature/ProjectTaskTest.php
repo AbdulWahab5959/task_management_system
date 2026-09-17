@@ -197,6 +197,78 @@ class ProjectTaskTest extends TestCase
             ->assertJsonPath('data.0.title', 'For this member');
     }
 
+    public function test_project_sections_and_subtasks_stay_scoped_to_their_project(): void
+    {
+        $owner = User::factory()->create();
+        $tenant = $this->createTenant($owner, 'owner');
+        $project = $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->postJson('/api/tenant/projects', ['name' => 'Website Redesign'])
+            ->assertCreated()->json('data');
+        $otherProject = $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->postJson('/api/tenant/projects', ['name' => 'Mobile App'])
+            ->assertCreated()->json('data');
+
+        $section = $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->postJson('/api/tenant/projects/'.$project['id'].'/sections', ['name' => 'Planning'])
+            ->assertCreated()->json('data');
+
+        $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->putJson('/api/tenant/projects/'.$project['id'].'/sections/'.$section['id'], ['name' => 'Discovery'])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Discovery');
+
+        $secondSection = $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->postJson('/api/tenant/projects/'.$project['id'].'/sections', ['name' => 'Build'])
+            ->assertCreated()->json('data');
+
+        $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->putJson('/api/tenant/projects/'.$project['id'].'/sections/'.$secondSection['id'].'/move', ['direction' => 'up'])
+            ->assertOk();
+        $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->getJson('/api/tenant/projects/'.$project['id'].'/sections')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $secondSection['id']);
+
+        $task = $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->postJson('/api/tenant/tasks', [
+                'project_id' => $project['id'],
+                'section_id' => $section['id'],
+                'title' => 'Confirm requirements',
+                'start_date' => '2026-10-01',
+                'due_date' => '2026-10-02',
+            ])->assertCreated()
+            ->assertJsonPath('data.section_name', 'Discovery')
+            ->json('data');
+
+        $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->postJson('/api/tenant/tasks', [
+                'project_id' => $project['id'],
+                'section_id' => $section['id'],
+                'parent_task_id' => $task['id'],
+                'title' => 'Review stakeholder notes',
+            ])->assertCreated()
+            ->assertJsonPath('data.parent_task_id', $task['id']);
+
+        $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->getJson('/api/tenant/tasks/'.$task['id'])
+            ->assertOk()
+            ->assertJsonPath('data.subtasks.0.title', 'Review stakeholder notes');
+
+        $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->getJson('/api/tenant/projects/'.$project['id'])
+            ->assertOk()
+            ->assertJsonPath('data.sections.1.name', 'Discovery')
+            ->assertJsonPath('data.tasks.0.section_id', $section['id']);
+
+        $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->deleteJson('/api/tenant/projects/'.$project['id'].'/sections/'.$section['id'])
+            ->assertStatus(422);
+
+        $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->postJson('/api/tenant/tasks', ['project_id' => $otherProject['id'], 'section_id' => $section['id'], 'title' => 'Cross-project section'])
+            ->assertNotFound();
+    }
+
     private function withTenant(Tenant $tenant): static
     {
         return $this->withHeader('X-Tenant-ID', (string) $tenant->id);

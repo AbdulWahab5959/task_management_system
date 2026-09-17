@@ -49,3 +49,28 @@ Run it once per tenant connection through the existing tenant provisioning workf
 ## Working Tree
 
 Changes remain unstaged and uncommitted. Pre-existing unrelated changes were preserved.
+
+## 2026-09-17 project workflow UX follow-up
+
+### Delivered evidence
+
+- `project_sections` is a tenant-local, project-owned ordered relation; the related migration adds no central tenant data.
+- `tasks.section_id`, `tasks.parent_task_id`, and `tasks.start_date` are additive tenant-local fields with reversible down paths.
+- Project detail serialization now returns ordered sections and task section/parent/start-date metadata. Task detail serialization returns subtasks.
+- Project list, Project Detail, and My Tasks use compact document-style task rows and one shared task-detail dialog.
+- The personal task page always requests `mine=true`; backend enforcement remains authoritative for every role.
+
+### Verification evidence
+
+- `php artisan test --filter=ProjectTaskTest` completed with 9 passing tests and 50 assertions.
+- `php artisan test` completed with 162 passing tests and 812 assertions.
+- `npm.cmd run lint` completed successfully.
+- `npm.cmd run build` completed successfully.
+
+### Deployment note
+
+Existing tenant databases need the normal tenant migration workflow before the new section/subtask fields are used. No migration was executed against a development or production tenant database during this task.
+
+### Remaining evidence gap
+
+No authenticated browser session was available for interactive responsive screenshots or end-to-end UI smoke testing. This remains the only identified release-verification gap.
