@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Subscription;
 use App\Models\Tenant;
 use App\Models\TenantInvitation;
@@ -17,6 +18,8 @@ use App\Services\PlanEntitlementService;
 
 class TenantDashboardController extends Controller
 {
+    private const ACTIVITY_PAGE_SIZE = 8;
+
     public function __construct(private readonly PlanEntitlementService $entitlements) {}
     private const PROFILE_FIELDS = [
         'name',
@@ -183,6 +186,44 @@ class TenantDashboardController extends Controller
                     ['key' => 'settings', 'label' => 'Configure organization settings', 'completed' => count($completedFields) > 1],
                 ],
             ],
+        ]);
+    }
+
+    public function activity(Request $request): JsonResponse
+    {
+        /** @var Tenant $tenant */
+        $tenant = $request->attributes->get('tenant') ?? abort(404, 'Tenant not found.');
+        $validated = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        $activity = ActivityLog::query()
+            ->where('tenant_id', $tenant->id)
+            ->with('user:id,name')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate((int) ($validated['per_page'] ?? self::ACTIVITY_PAGE_SIZE));
+
+        $items = $activity->getCollection()->map(fn (ActivityLog $log) => [
+            'id' => $log->id,
+            'action' => $log->action,
+            'description' => $log->description,
+            'created_at' => $log->created_at?->toISOString(),
+            'user' => $log->user ? [
+                'id' => $log->user->id,
+                'name' => $log->user->name,
+            ] : null,
+        ])->values()->all();
+
+        return response()->json([
+            'data' => $items,
+            'current_page' => $activity->currentPage(),
+            'from' => $activity->firstItem(),
+            'last_page' => $activity->lastPage(),
+            'per_page' => $activity->perPage(),
+            'to' => $activity->lastItem(),
+            'total' => $activity->total(),
         ]);
     }
 }

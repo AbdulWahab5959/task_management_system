@@ -57,6 +57,25 @@ export interface RecentActivityItem {
   created_at: string | null;
 }
 
+export interface TenantActivityUser {
+  id: number;
+  name: string;
+}
+
+export interface TenantActivityItem extends RecentActivityItem {
+  user: TenantActivityUser | null;
+}
+
+export interface PaginatedTenantActivity {
+  data: TenantActivityItem[];
+  current_page: number;
+  from: number | null;
+  last_page: number;
+  per_page: number;
+  to: number | null;
+  total: number;
+}
+
 export interface TenantDashboardSummary {
   tenant: {
     id: number;

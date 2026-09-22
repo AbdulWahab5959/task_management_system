@@ -4,16 +4,19 @@ import { projectSectionService } from '../../services/project-section.service';
 import { taskService } from '../../services/task.service';
 import type { TenantMember } from '../../types/tenant-member.types';
 import type { ProjectSection, Task, TaskDetail, TaskPriority, TaskStatus } from '../../types/project.types';
+import { apiValidationMessage } from '../../utils/apiError';
 
-type TaskProject = { id: number; name: string; due_date: string | null };
-type TaskFormState = { title: string; description: string; section_id: number | null; assignee_ids: number[]; status: TaskStatus; priority: TaskPriority; start_date: string; due_date: string };
+export type TaskProject = { id: number; name: string; due_date: string | null };
+export type TaskMutationAction = 'created' | 'saved' | 'deleted' | 'subtask';
+type TaskFormState = { project_id: number; title: string; description: string; section_id: number | null; assignee_ids: number[]; status: TaskStatus; priority: TaskPriority; start_date: string; due_date: string };
 
 const priorities: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
 const statuses: Array<{ value: TaskStatus; label: string }> = [{ value: 'todo', label: 'To do' }, { value: 'in_progress', label: 'In progress' }, { value: 'done', label: 'Done' }];
 const emptySections: ProjectSection[] = [];
 
-function taskForm(task: Task | null, sectionId: number | null): TaskFormState {
+function taskForm(task: Task | null, sectionId: number | null, projectId: number): TaskFormState {
   return {
+    project_id: task?.project_id ?? projectId,
     title: task?.title ?? '',
     description: task?.description ?? '',
     section_id: task?.section_id ?? sectionId,
@@ -33,19 +36,20 @@ interface TaskDetailModalProps {
   task: Task | null;
   project: TaskProject;
   members: TenantMember[];
+  projects?: TaskProject[];
   sections?: ProjectSection[];
   initialSectionId?: number | null;
   canEdit: boolean;
   canDelete?: boolean;
   onClose: () => void;
-  onSaved: () => Promise<void> | void;
+  onSaved: (action: TaskMutationAction) => Promise<void> | void;
 }
 
-export default function TaskDetailModal({ task, project, members, sections: initialSections = emptySections, initialSectionId = null, canEdit, canDelete = false, onClose, onSaved }: TaskDetailModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+export default function TaskDetailModal({ task, project, members, projects, sections: initialSections = emptySections, initialSectionId = null, canEdit, canDelete = false, onClose, onSaved }: TaskDetailModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [sections, setSections] = useState<ProjectSection[]>(initialSections);
   const [detail, setDetail] = useState<TaskDetail | null>(null);
-  const [form, setForm] = useState<TaskFormState>(() => taskForm(task, initialSectionId));
+  const [form, setForm] = useState<TaskFormState>(() => taskForm(task, initialSectionId, project.id));
   const [loadingDetail, setLoadingDetail] = useState(Boolean(task));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -54,24 +58,24 @@ export default function TaskDetailModal({ task, project, members, sections: init
   const [subtaskSaving, setSubtaskSaving] = useState(false);
 
   const currentTask = detail ?? task;
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (dialog && !dialog.open) dialog.showModal();
-    return () => { if (dialog?.open) dialog.close(); };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    queueMicrotask(() => { if (active) { setForm(taskForm(task, initialSectionId)); setDetail(null); } });
-    return () => { active = false; };
-  }, [task, initialSectionId]);
+  // The effective project is selected state while creating and the task's own
+  // project while editing, so an existing task cannot move between projects.
+  const activeProjectId = form.project_id;
+  const activeProject = projects?.find((item) => item.id === activeProjectId) ?? project;
+  const canChooseProject = Boolean(projects?.length) && currentTask === null;
 
   useEffect(() => {
     let active = true;
-    void projectSectionService.list(project.id).then((response) => { if (active) setSections(response.data.data); }).catch(() => { if (active) setSections(initialSections); });
+    queueMicrotask(() => { if (active) { setForm(taskForm(task, initialSectionId, task?.project_id ?? project.id)); setDetail(null); } });
     return () => { active = false; };
-  }, [initialSections, project.id]);
+  }, [task, initialSectionId, project.id]);
+
+  useEffect(() => {
+    let active = true;
+    const callerSections = activeProjectId === project.id ? initialSections : emptySections;
+    void projectSectionService.list(activeProjectId).then((response) => { if (active) setSections(response.data.data); }).catch(() => { if (active) setSections(callerSections); });
+    return () => { active = false; };
+  }, [activeProjectId, initialSections, project.id]);
 
   const hydrate = async () => {
     if (!task) return;
@@ -79,7 +83,7 @@ export default function TaskDetailModal({ task, project, members, sections: init
     try {
       const response = await taskService.show(task.id);
       setDetail(response.data.data);
-      setForm(taskForm(response.data.data, response.data.data.section_id));
+      setForm(taskForm(response.data.data, response.data.data.section_id, response.data.data.project_id));
     } catch {
       setError('Unable to load the latest task details. You can try again.');
     } finally { setLoadingDetail(false); }
@@ -88,8 +92,7 @@ export default function TaskDetailModal({ task, project, members, sections: init
   useEffect(() => { queueMicrotask(() => { void hydrate(); }); }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const close = () => {
-    if (dialogRef.current?.open) dialogRef.current.close();
-    else onClose();
+    onClose();
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -99,7 +102,7 @@ export default function TaskDetailModal({ task, project, members, sections: init
     setError('');
     try {
       const payload = {
-        project_id: project.id,
+        project_id: form.project_id,
         title: form.title.trim(),
         description: form.description.trim() || undefined,
         section_id: form.section_id,
@@ -111,10 +114,10 @@ export default function TaskDetailModal({ task, project, members, sections: init
       };
       if (currentTask) await taskService.update(currentTask.id, payload);
       else await taskService.create(payload);
-      await onSaved();
+      await onSaved(currentTask ? 'saved' : 'created');
       close();
-    } catch {
-      setError('We could not save this task. Check the dates and workspace members, then try again.');
+    } catch (exception: unknown) {
+      setError(apiValidationMessage(exception) ?? 'We could not save this task. Check the dates and workspace members, then try again.');
     } finally { setSaving(false); }
   };
 
@@ -122,7 +125,7 @@ export default function TaskDetailModal({ task, project, members, sections: init
     try {
       await taskService.update(subtask.id, { status: subtask.status === 'done' ? 'todo' : 'done' });
       await hydrate();
-      await onSaved();
+      await onSaved('subtask');
     } catch { setError('We could not update that subtask. Please try again.'); }
   };
 
@@ -130,10 +133,10 @@ export default function TaskDetailModal({ task, project, members, sections: init
     if (!currentTask || !subtaskTitle.trim()) return;
     setSubtaskSaving(true);
     try {
-      await taskService.create({ project_id: project.id, title: subtaskTitle.trim(), parent_task_id: currentTask.id, section_id: currentTask.section_id, priority: 'medium' });
+      await taskService.create({ project_id: currentTask.project_id, title: subtaskTitle.trim(), parent_task_id: currentTask.id, section_id: currentTask.section_id, priority: 'medium' });
       setSubtaskTitle('');
       await hydrate();
-      await onSaved();
+      await onSaved('subtask');
     } catch { setError('We could not add that subtask. Please try again.'); }
     finally { setSubtaskSaving(false); }
   };
@@ -144,17 +147,17 @@ export default function TaskDetailModal({ task, project, members, sections: init
     setError('');
     try {
       await taskService.remove(currentTask.id);
-      await onSaved();
+      await onSaved('deleted');
       close();
-    } catch { setError('We could not delete this task. Please try again.'); }
+    } catch (exception: unknown) { setError(apiValidationMessage(exception) ?? 'We could not delete this task. Please try again.'); }
     finally { setDeleting(false); }
   };
 
   return (
-    <dialog ref={dialogRef} className="pm-task-dialog" aria-label={currentTask ? `Task details: ${currentTask.title}` : 'Create task'} onClose={onClose} onCancel={(event) => { event.preventDefault(); close(); }} onClick={(event) => { if (event.target === dialogRef.current) close(); }}>
+    <div ref={dialogRef} className="pm-task-dialog" role="dialog" aria-modal="true" aria-label={currentTask ? `Task details: ${currentTask.title}` : 'Create task'} tabIndex={-1} onKeyDown={(event) => { if (event.key === 'Escape') close(); }} onClick={(event) => { if (event.target === dialogRef.current) close(); }}>
       <form className="pm-task-dialog__surface" onSubmit={submit}>
         <div className="pm-task-dialog__main">
-          <div className="pm-task-dialog__crumb">{project.name}{form.section_id ? ` / ${sections.find((section) => section.id === form.section_id)?.name ?? 'Section'}` : ''}</div>
+          <div className="pm-task-dialog__crumb">{activeProject.name}{form.section_id ? ` / ${sections.find((section) => section.id === form.section_id)?.name ?? 'Section'}` : ''}</div>
           <label className="sr-only" htmlFor="task-detail-title">Task title</label>
           <input id="task-detail-title" className="pm-task-dialog__title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Name this task" required disabled={!canEdit || saving} autoFocus />
           <button type="button" className="pm-task-dialog__close" onClick={close} aria-label="Close task details"><X aria-hidden="true" /></button>
@@ -174,15 +177,15 @@ export default function TaskDetailModal({ task, project, members, sections: init
         </div>
 
         <aside className="pm-task-dialog__meta" aria-label="Task metadata">
-          <div><span>Project</span><strong>{project.name}</strong></div>
+          {canChooseProject ? <label><span>Project</span><select className="dashboard-control" value={form.project_id} onChange={(event) => setForm({ ...form, project_id: Number(event.target.value), section_id: null })} disabled={saving}>{projects?.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select><small>Changing the project clears the section.</small></label> : <div><span>Project</span><strong>{activeProject.name}</strong></div>}
           <label><span>Section</span><select className="dashboard-control" value={form.section_id ?? ''} onChange={(event) => setForm({ ...form, section_id: event.target.value ? Number(event.target.value) : null })} disabled={!canEdit || saving}><option value="">No section</option>{sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}</select></label>
           <label><span>Assignee</span><select className="dashboard-control pm-task-dialog__assignees" multiple value={form.assignee_ids.map(String)} onChange={(event) => setForm({ ...form, assignee_ids: Array.from(event.target.selectedOptions, (option) => Number(option.value)) })} disabled={!canEdit || saving}>{members.map((member) => <option key={member.id} value={member.id}>{member.name} · {member.role}</option>)}</select><small>Use Ctrl/Cmd to select more than one person.</small></label>
           <label><span>Status</span><select className="dashboard-control" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as TaskStatus })} disabled={!canEdit || saving}>{statuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
           <label><span>Priority</span><select className="dashboard-control" value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value as TaskPriority })} disabled={!canEdit || saving}>{priorities.map((priority) => <option key={priority} value={priority}>{priority[0].toUpperCase() + priority.slice(1)}</option>)}</select></label>
-          <label><span>Start date</span><input type="date" className="dashboard-control" value={form.start_date} onChange={(event) => setForm({ ...form, start_date: event.target.value })} max={form.due_date || project.due_date || undefined} disabled={!canEdit || saving} /></label>
-          <label><span>Due date</span><input type="date" className="dashboard-control" value={form.due_date} onChange={(event) => setForm({ ...form, due_date: event.target.value })} min={form.start_date || undefined} max={project.due_date || undefined} disabled={!canEdit || saving} /></label>
+          <label><span>Start date</span><input type="date" className="dashboard-control" value={form.start_date} onChange={(event) => setForm({ ...form, start_date: event.target.value })} max={form.due_date || activeProject.due_date || undefined} disabled={!canEdit || saving} /></label>
+          <label><span>Due date</span><input type="date" className="dashboard-control" value={form.due_date} onChange={(event) => setForm({ ...form, due_date: event.target.value })} min={form.start_date || undefined} max={activeProject.due_date || undefined} disabled={!canEdit || saving} /></label>
         </aside>
       </form>
-    </dialog>
+    </div>
   );
 }

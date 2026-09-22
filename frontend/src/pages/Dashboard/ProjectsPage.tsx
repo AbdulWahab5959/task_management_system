@@ -1,4 +1,3 @@
-import { isAxiosError } from 'axios';
 import { ArrowRight, CalendarDays, FolderKanban, Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -9,19 +8,12 @@ import EmptyState from '../../components/dashboard/EmptyState';
 import { useTenant } from '../../hooks/useTenant';
 import { projectService } from '../../services/project.service';
 import type { Project, ProjectStatus } from '../../types/project.types';
+import { projectApiError } from '../../utils/apiError';
 import { showDashboardError, showDashboardSuccess } from '../../utils/dashboardAlert';
 
 const statuses: Array<ProjectStatus | ''> = ['', 'active', 'completed', 'archived'];
 const today = () => new Date().toISOString().slice(0, 10);
 const formatDate = (value: string | null) => value ? new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${value}T00:00:00`)) : 'No due date';
-
-function apiError(error: unknown) {
-  if (isAxiosError<{ message?: string; errors?: Record<string, string[]> }>(error)) {
-    if (error.response?.status === 500) return 'This workspace database needs the latest project update. An administrator must run the tenant migration workflow.';
-    return Object.values(error.response?.data?.errors ?? {}).flat()[0] ?? error.response?.data?.message;
-  }
-  return undefined;
-}
 
 export default function ProjectsPage() {
   const { activeTenant } = useTenant();
@@ -56,7 +48,7 @@ export default function ProjectsPage() {
       setModalOpen(false);
       void showDashboardSuccess('Project created', `${response.data.data.name} is ready for planning.`);
     } catch (exception: unknown) {
-      const message = apiError(exception) ?? 'Unable to create project. Check the project details and try again.';
+      const message = projectApiError(exception) ?? 'Unable to create project. Check the project details and try again.';
       setError(message);
       void showDashboardError('Project was not created', message);
     } finally { setSaving(false); }

@@ -62,7 +62,7 @@ class ProjectController extends Controller
         return response()->json([
             'data' => [
                 ...$this->serializeProject($record, $users),
-                'sections' => $record->sections()->withCount('tasks')->get()->map(fn ($section) => [
+                'sections' => $record->sections()->withCount(['tasks as tasks_count' => fn ($tasks) => $tasks->whereNull('parent_task_id')])->get()->map(fn ($section) => [
                     'id' => $section->id,
                     'project_id' => $section->project_id,
                     'name' => $section->name,

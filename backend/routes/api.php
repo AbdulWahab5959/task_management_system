@@ -74,6 +74,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::prefix('tenant')->middleware('tenant.identify')->group(function () {
         Route::get('/dashboard/summary', [TenantDashboardController::class, 'summary'])->middleware('permission:organization.view');
+        Route::get('/dashboard/activity', [TenantDashboardController::class, 'activity'])->middleware('permission:organization.view');
         Route::get('/analytics', [TenantAnalyticsController::class, 'index'])->middleware('permission:analytics.view');
         Route::get('/subscription/access', TenantSubscriptionAccessController::class);
         Route::get('/settings', [TenantSettingsController::class, 'show'])->middleware('permission:organization.settings.view');

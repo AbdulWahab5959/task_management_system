@@ -15,8 +15,15 @@ class ProjectSectionController extends Controller
     {
         $record = Project::findOrFail($project);
 
+        // `tasks_total` counts the section's top-level tasks so it matches the
+        // count the project view renders for that section. Subtasks belong to
+        // their parent task, not to the section list.
+        $sections = $record->sections()
+            ->withCount(['tasks as tasks_count' => fn ($tasks) => $tasks->whereNull('parent_task_id')])
+            ->get();
+
         return response()->json([
-            'data' => $record->sections()->withCount('tasks')->get()->map(fn (ProjectSection $section) => $this->serialize($section))->values(),
+            'data' => $sections->map(fn (ProjectSection $section) => $this->serialize($section))->values(),
         ]);
     }
 
@@ -79,7 +86,7 @@ class ProjectSectionController extends Controller
             'project_id' => $section->project_id,
             'name' => $section->name,
             'position' => $section->position,
-            'tasks_total' => (int) ($section->tasks_count ?? $section->tasks()->count()),
+            'tasks_total' => (int) ($section->tasks_count ?? $section->tasks()->whereNull('parent_task_id')->count()),
             'created_at' => $section->created_at?->toISOString(),
             'updated_at' => $section->updated_at?->toISOString(),
         ];

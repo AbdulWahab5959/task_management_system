@@ -268,6 +268,43 @@ class ProjectTaskTest extends TestCase
             ->postJson('/api/tenant/tasks', ['project_id' => $otherProject['id'], 'section_id' => $section['id'], 'title' => 'Cross-project section'])
             ->assertNotFound();
     }
+public function test_section_task_total_counts_only_top_level_tasks(): void
+    {
+        $owner = User::factory()->create();
+        $tenant = $this->createTenant($owner, 'owner');
+        $project = $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->postJson('/api/tenant/projects', ['name' => 'Section Count Project'])
+            ->assertCreated()->json('data');
+        $section = $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->postJson('/api/tenant/projects/'.$project['id'].'/sections', ['name' => 'Build'])
+            ->assertCreated()->json('data');
+
+        $parent = $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->postJson('/api/tenant/tasks', [
+                'project_id' => $project['id'],
+                'section_id' => $section['id'],
+                'title' => 'Build the homepage',
+            ])->assertCreated()->json('data');
+
+        $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->postJson('/api/tenant/tasks', [
+                'project_id' => $project['id'],
+                'section_id' => $section['id'],
+                'parent_task_id' => $parent['id'],
+                'title' => 'Connect the contact form',
+            ])->assertCreated();
+
+        $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->getJson('/api/tenant/projects/'.$project['id'].'/sections')
+            ->assertOk()
+            ->assertJsonPath('data.0.tasks_total', 1);
+
+        $this->actingAs($owner, 'sanctum')->withTenant($tenant)
+            ->getJson('/api/tenant/projects/'.$project['id'])
+            ->assertOk()
+            ->assertJsonPath('data.sections.0.tasks_total', 1)
+            ->assertJsonPath('data.tasks_total', 2);
+    }
 
     private function withTenant(Tenant $tenant): static
     {

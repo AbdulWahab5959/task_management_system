@@ -3,25 +3,38 @@ import {
   Building2,
   CircleAlert,
   CreditCard,
-  MailPlus,
+  ChevronLeft,
+  ChevronRight,
   RefreshCw,
   ShieldCheck,
-  Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ProfessionalLoader from '../../components/common/ProfessionalLoader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
 import PageHeader from '../../components/dashboard/PageHeader';
-import StatsCard from '../../components/dashboard/StatsCard';
 import TenantOnboarding from '../../components/dashboard/TenantOnboarding';
 import PendingInvitationsOnboarding from '../../components/dashboard/PendingInvitationsOnboarding';
 import EmptyState from '../../components/dashboard/EmptyState';
-import SetupChecklist from '../../components/dashboard/SetupChecklist';
 import { useAuth } from '../../hooks/useAuth';
 import { useTenant } from '../../hooks/useTenant';
 import { getCurrentBilling, type CurrentBillingResponse } from '../../services/billing.service';
 import { tenantDashboardService } from '../../services/tenant-dashboard.service';
-import type { TenantDashboardSummary } from '../../types/tenant-dashboard.types';
+import type {
+  PaginatedTenantActivity,
+  TenantDashboardSummary,
+} from '../../types/tenant-dashboard.types';
+
+const ACTIVITY_PAGE_SIZE = 8;
+const ACTIVITY_ACTION_LABELS: Record<string, string> = {
+  'tenant.organization.created': 'Organization created',
+  'tenant.organization.updated': 'Organization updated',
+  'tenant.member.invited': 'Member invited',
+  'tenant.member.removed': 'Member removed',
+  'tenant.member.role_updated': 'Member role updated',
+  'tenant.settings.updated': 'Organization settings updated',
+  'project.created': 'Project created',
+  'task.created': 'Task created',
+};
 
 function getFirstName(name?: string) {
   return name?.split(' ').filter(Boolean)[0] ?? 'there';
@@ -36,8 +49,26 @@ function formatRole(role?: string | null) {
   return role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Member';
 }
 
-function formatIndustry(industry?: string | null) {
-  return industry ? industry.replace(/-/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : 'Not configured';
+function formatActivityAction(action: string) {
+  const knownLabel = ACTIVITY_ACTION_LABELS[action];
+  if (knownLabel) return knownLabel;
+
+  return action
+    .replace(/^tenant\./, '')
+    .replace(/[._-]+/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function getInitialActivityPagination(): PaginatedTenantActivity {
+  return {
+    data: [],
+    current_page: 1,
+    from: null,
+    last_page: 1,
+    per_page: ACTIVITY_PAGE_SIZE,
+    to: null,
+    total: 0,
+  };
 }
 
 function DashboardSummarySkeleton() {
@@ -48,12 +79,7 @@ function DashboardSummarySkeleton() {
         <div className="item-skeleton h-8 w-72 rounded" />
         <div className="item-skeleton h-4 w-96 max-w-full rounded" />
       </div>
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => <div key={index} className="item-skeleton h-32 rounded-xl" />)}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        {Array.from({ length: 2 }, (_, index) => <div key={index} className="item-skeleton h-64 rounded-xl" />)}
-      </div>
+      <div className="item-skeleton h-32 rounded-xl" />
       <span className="sr-only">Preparing your workspace dashboard</span>
     </div>
   );
@@ -67,6 +93,11 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<TenantDashboardSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [activityPagination, setActivityPagination] = useState<PaginatedTenantActivity>(getInitialActivityPagination);
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState('');
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0);
   const requestVersion = useRef(0);
 
   useEffect(() => {
@@ -121,12 +152,57 @@ export default function DashboardPage() {
     return () => { cancelled = true; };
   }, [activeTenant?.id]);
 
+  useEffect(() => {
+    queueMicrotask(() => {
+      setActivityPage(1);
+      setActivityPagination(getInitialActivityPagination());
+      setActivityError('');
+    });
+  }, [activeTenant?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const tenantId = activeTenant?.id;
+
+    if (!tenantId) {
+      queueMicrotask(() => {
+        if (!cancelled) setActivityLoading(false);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setActivityLoading(true);
+        setActivityError('');
+      }
+    });
+
+    void tenantDashboardService.getActivity({ page: activityPage, per_page: ACTIVITY_PAGE_SIZE })
+      .then((nextActivity) => {
+        if (!cancelled) setActivityPagination(nextActivity);
+      })
+      .catch(() => {
+        if (!cancelled) setActivityError('Unable to load recent activity.');
+      })
+      .finally(() => {
+        if (!cancelled) setActivityLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTenant?.id, activityPage, activityRefreshKey]);
+
   const reload = () => {
     if (!activeTenant) return;
     const version = ++requestVersion.current;
     setSummary(null);
     setError('');
     setLoading(true);
+    setActivityRefreshKey((value) => value + 1);
     void tenantDashboardService.getSummary()
       .then((nextSummary) => {
         if (version === requestVersion.current && nextSummary.tenant.id === activeTenant.id) setSummary(nextSummary);
@@ -213,15 +289,12 @@ export default function DashboardPage() {
   }
 
   if (!summary) return null;
-  const profile = summary.organization_profile;
   const subscription = summary.billing.current_subscription;
+  const hasActivity = activityPagination.data.length > 0;
   const isSuperAdmin = user?.role === 'super_admin';
   const organizationLimit = summary.billing.organization_limit === 'unlimited' ? null : Number(summary.billing.organization_limit);
   const isOverOrganizationLimit = organizationLimit !== null && summary.billing.organizations_used > organizationLimit;
   const organizationsOverLimit = isOverOrganizationLimit ? summary.billing.organizations_used - (organizationLimit ?? 0) : 0;
-  const setupChecklist = isSuperAdmin
-    ? summary.setup_checklist.filter((item) => item.key !== 'billing')
-    : summary.setup_checklist;
 
   return (
     <>
@@ -238,81 +311,107 @@ export default function DashboardPage() {
         <span className="rounded-full bg-slate-100 px-3 py-1.5 font-semibold text-slate-700">{formatRole(summary.tenant.current_user_role)}</span>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        <StatsCard title="Profile completion" value={`${profile.completion_percent}%`} description={`${profile.missing_fields.length} fields remaining`} icon={<Building2 />} variant="indigo" />
-        <StatsCard title="Active team" value={String(summary.team.members_total)} description={`${summary.team.admins} admins, ${summary.team.members} members`} icon={<Users />} variant="violet" />
-        <StatsCard title="Pending invitations" value={String(summary.team.pending_invitations)} description={summary.team.pending_invitations ? 'Ready for review' : 'No invitations waiting'} icon={<MailPlus />} variant="amber" />
-        <StatsCard title="Your subscription" value={subscription?.plan_name ?? 'Not available'} description={subscription ? `${subscription.status} · ${summary.billing.subscription_scope}-scoped` : 'Billing information is not available yet.'} icon={<CreditCard />} variant={subscription ? 'emerald' : 'rose'} />
-      </div>
-
-      <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        <StatsCard title="Total projects" value={String(summary.projects.total)} description={`${summary.projects.active} active projects`} icon={<Building2 />} variant="indigo" />
-        <StatsCard title="Completed projects" value={String(summary.projects.completed)} description="Projects finished" icon={<ShieldCheck />} variant="emerald" />
-        <StatsCard title="Open tasks" value={String(summary.projects.tasks_total - summary.projects.tasks_completed)} description={`${summary.projects.tasks_completed} completed`} icon={<Users />} variant="violet" />
-        <StatsCard title="Overdue tasks" value={String(summary.projects.tasks_overdue)} description="Needs attention" icon={<CircleAlert />} variant="amber" />
-      </div>
-
       {isSuperAdmin ? <div role="status" className="mt-5 flex flex-col gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-950 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">Platform administration mode</p><p className="mt-0.5 text-indigo-800">You are viewing this organization with platform-wide access. Customer plan limits and organization creation rules do not apply to your super-admin account.</p></div><Link to="/dashboard/organizations" className="shrink-0 font-semibold text-indigo-700 underline underline-offset-2">Manage organizations</Link></div> : isOverOrganizationLimit ? <div role="alert" className="mt-5 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">Your account is over the current organization limit.</p><p className="mt-0.5">You have {summary.billing.organizations_used} active organizations, but your {subscription?.plan_name ?? 'current'} plan allows {organizationLimit}. New organizations are blocked until you upgrade or archive {organizationsOverLimit} organization{organizationsOverLimit === 1 ? '' : 's'}.</p></div><Link to="/dashboard/billing" className="shrink-0 font-semibold text-amber-800 underline underline-offset-2">Review plan</Link></div> : null}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
-        <Card>
-          <CardHeader><CardTitle>Organization overview</CardTitle><CardDescription>Profile details for the active organization.</CardDescription></CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Detail label="Industry" value={formatIndustry(profile.industry)} />
-              <Detail label="Website" value={profile.website ?? 'Not configured'} href={profile.website ?? undefined} />
-              <Detail label="Description" value={profile.description ?? 'Not configured'} />
-              <Detail label="Contact email" value={profile.contact_email ?? 'Not configured'} />
-              <Detail label="Phone" value={profile.phone ?? 'Not configured'} />
-              <Detail label="Country" value={profile.country ?? 'Not configured'} />
-              <Detail label="Timezone" value={profile.timezone} />
-              <Detail label="Currency" value={profile.currency} />
-              <Detail label="Created" value={formatDate(summary.tenant.created_at)} />
+      <Card className="mt-6 border-emerald-100 bg-emerald-50/40">
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Organization overview lives in Organizations</CardTitle>
+            <CardDescription className="mt-1">Manage your profile, team, subscription, projects, and tasks from one focused workspace view.</CardDescription>
+          </div>
+          <Link to="/dashboard/organizations" className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-[#b8d85d] bg-[#d7f36b] px-4 py-2.5 text-sm font-semibold text-[#0b0d0c] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.4),0_0.35rem_0.9rem_rgb(95_126_26_/_0.14)] hover:bg-[#efffa8]">
+            Open Organizations
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Recent activity</CardTitle>
+          <CardDescription>Recent actions from people in this organization.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0" aria-busy={activityLoading}>
+          {activityLoading && !hasActivity ? (
+            <div className="space-y-3 px-5 py-5 sm:px-6" role="status" aria-label="Loading recent activity">
+              <span className="sr-only">Loading recent activity</span>
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="item-skeleton h-16 rounded-lg" />
+              ))}
             </div>
-            <div className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3">
-              <div><p className="text-sm font-semibold text-indigo-950">{profile.completion_percent}% complete</p><p className="mt-0.5 text-xs text-indigo-700">{profile.missing_fields.length ? `Add ${profile.missing_fields.join(', ')} to finish your profile.` : 'Your organization profile is complete.'}</p></div>
-              <Link to="/dashboard/organizations" className="shrink-0 text-sm font-semibold text-indigo-700 hover:text-indigo-900">Manage organization</Link>
+          ) : activityError && !hasActivity ? (
+            <div className="flex flex-col items-center justify-center px-5 py-10 text-center sm:px-6" role="alert">
+              <CircleAlert className="h-8 w-8 text-amber-500" aria-hidden="true" />
+              <p className="mt-3 text-sm font-semibold text-slate-900">Could not load recent activity</p>
+              <p className="mt-1 text-sm text-slate-500">{activityError}</p>
+              <button
+                type="button"
+                onClick={() => setActivityRefreshKey((value) => value + 1)}
+                className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden="true" /> Retry
+              </button>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>Setup checklist</CardTitle><CardDescription>Recommended steps for this workspace.</CardDescription></CardHeader>
-          <CardContent><SetupChecklist items={setupChecklist} /></CardContent>
-        </Card>
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Team overview</CardTitle><CardDescription>Active members and pending invitations are counted separately.</CardDescription></CardHeader>
-          <CardContent><div className="grid grid-cols-3 gap-3"><Metric label="Owners" value={summary.team.owners} /><Metric label="Admins" value={summary.team.admins} /><Metric label="Members" value={summary.team.members} /></div><p className="mt-4 text-sm text-slate-600">{summary.team.members_total <= 1 ? 'Invite your first team member.' : `${summary.team.members_total} active members in this organization.`}</p><Link to="/dashboard/team" className="mt-4 inline-flex items-center justify-center text-sm font-semibold text-indigo-700 hover:text-indigo-900">Manage team</Link></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>{isSuperAdmin ? 'Platform administration' : 'Your current subscription'}</CardTitle><CardDescription>{isSuperAdmin ? 'Organization plans and billing are managed from the platform administration tools.' : 'Your plan and payment belong to your account and cover your organizations.'}</CardDescription></CardHeader>
-          <CardContent>{subscription ? <div className="space-y-3"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Plan</span><span className="text-sm font-semibold text-slate-900">{subscription.plan_name ?? 'Unnamed plan'}</span></div><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Organizations</span><span className="text-sm font-semibold text-slate-900">{summary.billing.organizations_used} of {summary.billing.organization_limit}</span></div><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Status</span><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold capitalize text-emerald-700">{subscription.status}</span></div>{subscription.current_period_end ? <div className="flex items-center justify-between"><span className="text-sm text-slate-500">Current period ends</span><span className="text-sm font-semibold text-slate-900">{formatDate(subscription.current_period_end)}</span></div> : null}<div className="border-t border-slate-100 pt-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chatbot features</p><ul className="mt-2 space-y-1 text-sm text-slate-600">{summary.billing.plan_features.map((feature) => <li key={feature}>• {feature}</li>)}</ul></div></div> : <p className="text-sm text-slate-500">Billing information is not available yet.</p>}<Link to="/dashboard/billing" className="mt-5 inline-flex items-center justify-center text-sm font-semibold text-indigo-700 hover:text-indigo-900">Manage billing</Link></CardContent>
-        </Card>
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader><div className="flex items-center justify-between gap-3"><div><CardTitle>My tasks</CardTitle><CardDescription>Open work assigned to you.</CardDescription></div><Link to="/dashboard/tasks" className="text-sm font-semibold text-indigo-700 hover:text-indigo-900">View all</Link></div></CardHeader>
-          <CardContent>{summary.projects.my_tasks.length ? <div className="divide-y divide-slate-100">{summary.projects.my_tasks.map((task) => <div key={task.id} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-800">{task.title}</p><p className="mt-1 text-xs text-slate-500">{task.project_name || 'Project'}{task.due_date ? ` · Due ${task.due_date}` : ''}</p></div><span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold capitalize text-slate-600">{task.priority}</span></div>)}</div> : <EmptyState title="No open tasks assigned" description="Tasks assigned to you will appear here." />}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader><div className="flex items-center justify-between gap-3"><div><CardTitle>Recent projects</CardTitle><CardDescription>Latest work in this workspace.</CardDescription></div><Link to="/dashboard/projects" className="text-sm font-semibold text-indigo-700 hover:text-indigo-900">View all</Link></div></CardHeader>
-          <CardContent>{summary.projects.recent_projects.length ? <div className="divide-y divide-slate-100">{summary.projects.recent_projects.map((project) => <Link key={project.id} to={`/dashboard/projects/${project.id}`} className="flex items-center justify-between gap-3 py-3 hover:text-indigo-700"><span className="truncate text-sm font-semibold text-slate-800">{project.name}</span><span className="shrink-0 text-xs font-semibold capitalize text-slate-500">{project.status}</span></Link>)}</div> : <EmptyState title="No projects yet" description="Create a project to start planning work." />}</CardContent>
-        </Card>
-      </div>
-
-      <Card className="mt-6"><CardHeader><CardTitle>Recent activity</CardTitle><CardDescription>Only safe tenant activity will appear here when tenant-keyed logging is available.</CardDescription></CardHeader><CardContent>{summary.activity_available && summary.activity.length ? <div className="space-y-3">{summary.activity.map((item) => <div key={item.id} className="flex items-center justify-between"><div><p className="text-sm font-semibold text-slate-800">{item.action}</p><p className="text-xs text-slate-500">{item.description}</p></div><time className="text-xs text-slate-400">{formatDate(item.created_at)}</time></div>)}</div> : <EmptyState icon={<ShieldCheck className="h-6 w-6" aria-hidden="true" />} eyebrow="Workspace timeline" title="Your activity feed is ready for its first event" description={summary.activity_note ?? 'Actions from your team will appear here as you complete setup and start working.'} action={<Link to="/dashboard/team" className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Go to team</Link>} />}</CardContent></Card>
+          ) : hasActivity ? (
+            <>
+              <ul className="divide-y divide-slate-100" role="list">
+                {activityPagination.data.map((item) => (
+                  <li key={item.id} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 sm:px-6">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-slate-900">{formatActivityAction(item.action)}</p>
+                        <span className="rounded-full bg-[#f7fde7] px-2 py-0.5 text-xs font-semibold text-[#557014]">
+                          {item.user?.name ?? 'System'}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm leading-5 text-slate-500">{item.description ?? 'Activity recorded.'}</p>
+                    </div>
+                    <time className="shrink-0 text-xs text-slate-400 sm:pt-0.5">{formatDate(item.created_at)}</time>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <p className="text-xs tabular-nums text-slate-500">
+                  Showing {activityPagination.from ?? 0}–{activityPagination.to ?? 0} of {activityPagination.total}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setActivityPage((page) => Math.max(1, page - 1))}
+                    disabled={activityPage <= 1 || activityLoading}
+                    aria-label="Previous activity page"
+                    className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                  <span className="min-w-24 text-center text-xs font-semibold tabular-nums text-slate-600" aria-live="polite">
+                    Page {activityPagination.current_page} of {activityPagination.last_page}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActivityPage((page) => Math.min(activityPagination.last_page, page + 1))}
+                    disabled={activityPage >= activityPagination.last_page || activityLoading}
+                    aria-label="Next activity page"
+                    className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+              {activityError ? <p className="border-t border-amber-100 bg-amber-50 px-5 py-2 text-xs text-amber-900 sm:px-6" role="alert">{activityError}</p> : null}
+            </>
+          ) : (
+            <div className="px-5 py-8 sm:px-6">
+              <EmptyState
+                icon={<ShieldCheck className="h-6 w-6" aria-hidden="true" />}
+                eyebrow="Workspace timeline"
+                title="No activity yet"
+                description="Actions from people in this organization will appear here as work begins."
+                action={<Link to="/dashboard/team" className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Go to team</Link>}
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </>
   );
-}
-
-function Detail({ label, value, href }: { label: string; value: string; href?: string }) {
-  return <div className="rounded-xl bg-slate-50 px-4 py-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>{href ? <a href={href} target="_blank" rel="noreferrer" className="mt-1 block truncate text-sm font-semibold text-indigo-700 hover:underline">{value}</a> : <p className="mt-1 truncate text-sm font-semibold text-slate-900">{value}</p>}</div>;
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return <div className="rounded-xl bg-slate-50 px-3 py-3 text-center"><p className="text-xl font-bold tabular-nums text-slate-950">{value}</p><p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p></div>;
 }

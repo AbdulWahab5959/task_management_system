@@ -166,7 +166,12 @@ class SupportController extends Controller
 
     private function conversationPayload(SupportConversation $conversation, User $viewer): array
     {
-        return $conversation->load(['user:id,name,email', 'organization:id,name'])->toArray();
+        return $conversation
+            ->load(['user:id,name,email', 'organization:id,name'])
+            ->loadCount(['messages as unread_count' => static fn ($messages) => $messages
+                ->whereNull('read_at')
+                ->where('sender_id', '!=', $viewer->id)])
+            ->toArray();
     }
 
     private function broadcastSafely($message): void

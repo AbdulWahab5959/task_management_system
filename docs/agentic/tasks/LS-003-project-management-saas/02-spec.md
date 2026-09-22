@@ -17,8 +17,8 @@ PENDING DEVELOPER APPROVAL
 
 ## Proposed resource behavior
 
-- Projects: list/search/filter, create, show, update, archive, authorized delete; statuses `active`, `on_hold`, `completed`, `archived`; dates and creator included.
-- Tasks: list/search/filter by status/priority/assignee/due date, create, update, delete, assignment, status/priority changes, and project-scoped retrieval; statuses `todo`, `in_progress`, `review`, `done`; priorities `low`, `medium`, `high`, `urgent`.
+- Projects: list/search/filter, create, show, update, archive, authorized delete; statuses `active`, `completed`, `archived` (AMENDED 2026-09-18, see Revision 1 below); dates and creator included.
+- Tasks: list/search/filter by status/priority/assignee/due date, create, update, delete, assignment, status/priority changes, and project-scoped retrieval; statuses `todo`, `in_progress`, `done` (AMENDED 2026-09-18, see Revision 1 below); priorities `low`, `medium`, `high`, `urgent`.
 - Project detail: summary, progress derived from task status, member display resolved safely, paginated task list, and empty/error/loading states.
 - Dashboard: total/active/completed projects, total/completed/overdue tasks, team count, current user's tasks, recent projects/tasks, and upcoming deadlines.
 
@@ -38,4 +38,16 @@ PENDING DEVELOPER APPROVAL
 - Whether project deletion is hard delete or archive-first, considering tenant-local data retention.
 - Whether platform super-admins can inspect tenant-local project/task data, and under what explicit route/authorization contract.
 - Whether to update existing chatbot-oriented plan copy now or defer it to a separate documentation/product task.
+
+## Revision 1 — 2026-09-18: Status enum amendment (approved)
+
+**Approved by:** the developer (via direct instruction during the LS-005 session, in response to the discrepancy recorded in `LS-004/06-evidence.md` → "Outstanding Decision").
+
+**Amendment:** The task status list is corrected from `todo`, `in_progress`, `review`, `done` to `todo`, `in_progress`, `done`. The project status list is corrected from `active`, `on_hold`, `completed`, `archived` to `active`, `completed`, `archived`.
+
+**Rationale:** The shipped implementation never included `review` or `on_hold`. Every authoritative artifact — `backend/database/migrations/tenant/2026_06_12_000003_create_tasks_table.php` (line 16), `2026_06_12_000002_create_projects_table.php` (line 15), `TaskController::STATUSES` (line 17), and `frontend/src/types/project.types.ts` — defines the three-value enums, and all 163 backend tests plus both dashboard flows rely on them. The original spec listed aspirational statuses that were never approved for implementation. This amendment makes the specification match the tested, shipped contract.
+
+**Corresponding open-decision resolution:** the open decision item "Whether `on_hold` and `review` are additive enum migrations compatible with all supported databases" is resolved as "not pursued — statuses removed from scope by this amendment." Reintroducing either status later requires a new requirement artifact, an enum migration with data review, and renewed developer approval.
+
+**No code change** accompanies this amendment; it is documentation-only.
 
