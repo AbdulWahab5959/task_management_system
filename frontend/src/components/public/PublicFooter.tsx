@@ -12,7 +12,7 @@ export default function PublicFooter() {
               <span className="public-wordmark">LaunchStack</span>
             </Link>
             <p className="mt-3 text-sm leading-6 text-slate-400">
-              The modern SaaS boilerplate for building and launching your next big idea.
+              LaunchStack helps teams manage projects, tasks, members, and deadlines from one secure workspace.
             </p>
           </div>
 
@@ -29,9 +29,7 @@ export default function PublicFooter() {
               <Link to="/contact" className="public-footer-link text-sm transition">
                 Contact
               </Link>
-              <Link to="/chatbots" className="public-footer-link text-sm transition">
-                Chatbots
-              </Link>
+              <Link to="/pricing" className="public-footer-link text-sm transition">Pricing</Link>
             </div>
           </div>
 

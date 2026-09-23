@@ -60,7 +60,7 @@ export default function RegisterPage() {
       title="Register"
       subtitle={
         <>
-          Already have an account?{' '}
+          Create your workspace and start organizing your team's projects. Already have an account?{' '}
           <Link to="/login" className="text-cyan-300 hover:text-cyan-200">
             sign in
           </Link>

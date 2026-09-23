@@ -132,6 +132,32 @@ function formatCapacityValue(value: number | string | undefined, unit: 'storage'
   return numericValue.toLocaleString();
 }
 
+function formatUsageMetric(metric: string): string {
+  const labels: Record<string, string> = {
+    storage_bytes: 'Workspace storage',
+    api_requests_monthly: 'API requests this month',
+  };
+  return labels[metric] ?? metric.replaceAll('_', ' ');
+}
+
+function workspacePlanDescription(plan: BillingPlan): string {
+  const name = plan.name.toLowerCase();
+  if (name.includes('enterprise')) return 'For teams managing larger portfolios and structured delivery.';
+  if (name.includes('pro')) return 'For growing teams that need more room for projects and collaboration.';
+  return 'A focused starting point for organizing your team’s work.';
+}
+
+function managementPlanFeatures(plan: BillingPlan): string[] {
+  const name = plan.name.toLowerCase();
+  return [
+    'Project planning and status tracking',
+    'Task creation and assignment',
+    'Shared workspace dashboard',
+    'Team member access',
+    name.includes('business') || name.includes('enterprise') ? 'Advanced project management' : 'Email support',
+  ];
+}
+
 function periodEndFor(subscription?: CurrentSubscription | null): string | undefined {
   return subscription?.ends_at || subscription?.current_period_end;
 }
@@ -433,6 +459,7 @@ export default function BillingPage() {
   const paymentNeedsAttention = Boolean(subscription && ['past_due', 'unpaid', 'pending'].includes(subscription.status));
   const isCancelScheduled = isCancellingAtPeriodEnd(activeSubscription);
   const isImmediateCancel = wasCancelledImmediately(activeSubscription);
+  const visibleUsage = Object.entries(billing?.usage ?? {}).filter(([metric]) => metric !== 'chatbot_messages_monthly');
 
   return (
     <>
@@ -455,10 +482,10 @@ export default function BillingPage() {
         </div>
       ) : null}
 
-      {billing?.subscription && billing.current_plan && billing?.usage && Object.keys(billing.usage).length > 0 ? (
+      {billing?.subscription && billing.current_plan && visibleUsage.length > 0 ? (
         <Card className="mb-6">
           <CardHeader><CardTitle>Plan usage</CardTitle><CardDescription>Usage is measured and enforced by the server for your current account plan.</CardDescription></CardHeader>
-          <CardContent><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{Object.entries(billing.usage).map(([metric, value]) => <div key={metric} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{metric.replaceAll('_', ' ')}</p><p className="mt-1 text-lg font-bold text-slate-950">{value.used.toLocaleString()} <span className="text-xs font-medium text-slate-500">/ {value.limit === 'unlimited' || value.limit === null ? 'unlimited' : Number(value.limit).toLocaleString()}</span></p></div>)}</div></CardContent>
+          <CardContent><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{visibleUsage.map(([metric, value]) => <div key={metric} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{formatUsageMetric(metric)}</p><p className="mt-1 text-lg font-bold text-slate-950">{value.used.toLocaleString()} <span className="text-xs font-medium text-slate-500">/ {value.limit === 'unlimited' || value.limit === null ? 'unlimited' : Number(value.limit).toLocaleString()}</span></p></div>)}</div></CardContent>
         </Card>
       ) : null}
 
@@ -598,15 +625,12 @@ export default function BillingPage() {
                   const actionLabel = getPlanActionLabel(plan, activeCurrentPlan);
                   const isDowngrade = actionLabel === 'Downgrade';
                   const isUpgrade = actionLabel === 'Upgrade';
-                  const displayFeatures = (plan.features ?? [])
-                    .filter((feature) => !/\borganizations?\b/i.test(feature))
-                    .slice(0, 4);
+                  const displayFeatures = managementPlanFeatures(plan);
                   const organizationLimit = formatCapacityValue(plan.limits?.organizations, 'count');
                   const includedPoints = [
                     ...displayFeatures,
                     `${organizationLimit} organization${organizationLimit === '1' ? '' : 's'}`,
                     `${formatCapacityValue(plan.limits?.storage_bytes, 'storage')} storage`,
-                    `${formatCapacityValue(plan.limits?.chatbot_messages_monthly, 'count')} chatbot messages / month`,
                     `${formatCapacityValue(plan.limits?.team_members, 'count')} team members`,
                   ];
 
@@ -632,7 +656,7 @@ export default function BillingPage() {
                         <div className="min-w-0">
                           <h3 className="truncate text-lg font-bold tracking-tight text-slate-900">{plan.name}</h3>
                           {plan.description ? (
-                            <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">{plan.description}</p>
+                            <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">{workspacePlanDescription(plan)}</p>
                           ) : null}
                         </div>
                         {isCurrentPlan ? (

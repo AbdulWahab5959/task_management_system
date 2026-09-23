@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\TenantDashboardController;
+use App\Http\Controllers\Api\TenantAnalyticsController;
 use App\Http\Controllers\Api\TenantSubscriptionAccessController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PlanController;
@@ -21,6 +22,9 @@ use App\Http\Controllers\TenantSettingsController;
 use App\Http\Controllers\TenantInvitationController;
 use App\Http\Controllers\TenantMemberController;
 use App\Http\Controllers\TenantPermissionController;
+use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ProjectSectionController;
+use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserSettingsController;
 use Illuminate\Support\Facades\Route;
 
@@ -41,12 +45,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('support')->middleware('throttle:30,1')->group(function () {
         Route::get('/faqs', [App\Http\Controllers\Api\SupportController::class, 'faqs'])->withoutMiddleware('throttle:30,1');
         Route::get('/faqs/{slug}', [App\Http\Controllers\Api\SupportController::class, 'faqAnswer'])->withoutMiddleware('throttle:30,1');
-        Route::post('/conversation/faqs/{slug}', [App\Http\Controllers\Api\SupportController::class, 'faqInteraction']);
-        Route::get('/conversation', [App\Http\Controllers\Api\SupportController::class, 'show']);
-        Route::get('/conversation/messages', [App\Http\Controllers\Api\SupportController::class, 'messages']);
-        Route::post('/conversation/messages', [App\Http\Controllers\Api\SupportController::class, 'send'])->middleware('throttle:support-messages');
-        Route::post('/conversation/read', [App\Http\Controllers\Api\SupportController::class, 'markRead']);
-        Route::post('/conversation/status/{status}', [App\Http\Controllers\Api\SupportController::class, 'updateStatus']);
+        Route::post('/conversation/faqs/{slug}', [App\Http\Controllers\Api\SupportController::class, 'faqInteraction'])
+            ->middleware(['tenant.identify', 'permission:support.manage']);
+        Route::get('/conversation', [App\Http\Controllers\Api\SupportController::class, 'show'])
+            ->middleware(['tenant.identify', 'permission:support.view']);
+        Route::get('/conversation/messages', [App\Http\Controllers\Api\SupportController::class, 'messages'])
+            ->middleware(['tenant.identify', 'permission:support.view']);
+        Route::post('/conversation/messages', [App\Http\Controllers\Api\SupportController::class, 'send'])
+            ->middleware(['tenant.identify', 'permission:support.manage', 'throttle:support-messages']);
+        Route::post('/conversation/read', [App\Http\Controllers\Api\SupportController::class, 'markRead'])
+            ->middleware(['tenant.identify', 'permission:support.view']);
+        Route::post('/conversation/status/{status}', [App\Http\Controllers\Api\SupportController::class, 'updateStatus'])
+            ->middleware(['tenant.identify', 'permission:support.manage']);
     });
     // Tenant membership and creation. Tenant deletion remains intentionally unrouted.
     Route::get('/tenants', [TenantController::class, 'index']);
@@ -59,10 +69,13 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('tenant.identify');
     Route::post('/tenants/{tenant}/schedule-deletion', [TenantController::class, 'schedulePermanentDeletion'])
         ->middleware('tenant.identify');
-    Route::delete('/tenants/{tenant}/permanent', [TenantController::class, 'permanentlyDelete']);
+    Route::delete('/tenants/{tenant}/permanent', [TenantController::class, 'permanentlyDelete'])
+        ->middleware('tenant.identify');
 
     Route::prefix('tenant')->middleware('tenant.identify')->group(function () {
         Route::get('/dashboard/summary', [TenantDashboardController::class, 'summary'])->middleware('permission:organization.view');
+        Route::get('/dashboard/activity', [TenantDashboardController::class, 'activity'])->middleware('permission:organization.view');
+        Route::get('/analytics', [TenantAnalyticsController::class, 'index'])->middleware('permission:analytics.view');
         Route::get('/subscription/access', TenantSubscriptionAccessController::class);
         Route::get('/settings', [TenantSettingsController::class, 'show'])->middleware('permission:organization.settings.view');
         Route::put('/settings', [TenantSettingsController::class, 'update'])->middleware('permission:organization.settings.update');
@@ -82,6 +95,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/members/{user}/permissions', [TenantPermissionController::class, 'show'])->middleware('permission:members.view');
         Route::put('/members/{user}/permissions', [TenantPermissionController::class, 'update'])->middleware('permission:members.update_role');
         Route::post('/members/{user}/permissions/reset', [TenantPermissionController::class, 'reset'])->middleware('permission:members.update_role');
+        Route::get('/projects', [ProjectController::class, 'index'])->middleware('permission:projects.view');
+        Route::post('/projects', [ProjectController::class, 'store'])->middleware('permission:projects.create');
+        Route::get('/projects/{project}', [ProjectController::class, 'show'])->middleware('permission:projects.view');
+        Route::put('/projects/{project}', [ProjectController::class, 'update'])->middleware('permission:projects.update');
+        Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->middleware('permission:projects.delete');
+        Route::get('/projects/{project}/sections', [ProjectSectionController::class, 'index'])->middleware('permission:projects.view');
+        Route::post('/projects/{project}/sections', [ProjectSectionController::class, 'store'])->middleware('permission:projects.update');
+        Route::put('/projects/{project}/sections/{section}', [ProjectSectionController::class, 'update'])->middleware('permission:projects.update');
+        Route::put('/projects/{project}/sections/{section}/move', [ProjectSectionController::class, 'move'])->middleware('permission:projects.update');
+        Route::delete('/projects/{project}/sections/{section}', [ProjectSectionController::class, 'destroy'])->middleware('permission:projects.update');
+        Route::get('/tasks', [TaskController::class, 'index'])->middleware('permission:tasks.view');
+        Route::post('/tasks', [TaskController::class, 'store'])->middleware('permission:tasks.create');
+        Route::get('/tasks/{task}', [TaskController::class, 'show'])->middleware('permission:tasks.view');
+        Route::put('/tasks/{task}', [TaskController::class, 'update'])->middleware('permission:tasks.update');
+        Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])->middleware('permission:tasks.delete');
     });
 
     Route::post('/invitations/{token}/accept', [TenantInvitationController::class, 'accept']);

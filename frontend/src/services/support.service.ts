@@ -4,6 +4,10 @@ import type { SupportConversation, SupportFaqCategory, SupportMessage, SupportMe
 const tenantConfig = (tenantId?: number) => ({ tenantScoped: true, ...(tenantId ? { tenantId } : {}) });
 
 export const supportService = {
+  async unreadCount(tenantId?: number) {
+    const response = await this.conversation(tenantId);
+    return response.data.data.unread_count ?? 0;
+  },
   async faqs() {
     return api.get<{ data: SupportFaqCategory[] }>('/support/faqs');
   },
@@ -31,6 +35,10 @@ export const supportService = {
 };
 
 export const adminSupportService = {
+  async unreadCount() {
+    const response = await this.list();
+    return response.data.data.data.reduce((total, conversation) => total + (conversation.unread_count ?? 0), 0);
+  },
   async list(params?: { status?: string; search?: string }) {
     return api.get<{ data: { data: SupportConversation[]; current_page: number; last_page: number } }>('/admin/support/conversations', { params });
   },

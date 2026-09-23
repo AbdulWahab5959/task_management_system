@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Subscription;
 use App\Models\Tenant;
 use App\Models\TenantInvitation;
 use App\Models\TenantSetting;
+use App\Models\Project;
+use App\Models\Task;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +18,8 @@ use App\Services\PlanEntitlementService;
 
 class TenantDashboardController extends Controller
 {
+    private const ACTIVITY_PAGE_SIZE = 8;
+
     public function __construct(private readonly PlanEntitlementService $entitlements) {}
     private const PROFILE_FIELDS = [
         'name',
@@ -52,6 +57,41 @@ class TenantDashboardController extends Controller
             $settings = collect();
             $roleCounts = collect();
             $pendingInvitations = 0;
+        }
+
+        $projectMetrics = [
+            'total' => 0,
+            'active' => 0,
+            'completed' => 0,
+            'tasks_total' => 0,
+            'tasks_completed' => 0,
+            'tasks_overdue' => 0,
+            'recent_projects' => [],
+            'recent_tasks' => [],
+            'my_tasks' => [],
+            'upcoming_deadlines' => [],
+        ];
+        try {
+            $projectMetrics['total'] = Project::query()->count();
+            $projectMetrics['active'] = Project::query()->where('status', 'active')->count();
+            $projectMetrics['completed'] = Project::query()->where('status', 'completed')->count();
+            $projectMetrics['tasks_total'] = Task::query()->count();
+            $projectMetrics['tasks_completed'] = Task::query()->where('status', 'done')->count();
+            $projectMetrics['tasks_overdue'] = Task::query()->whereNotNull('due_date')->whereDate('due_date', '<', now()->toDateString())->where('status', '<>', 'done')->count();
+            $projectMetrics['recent_projects'] = Project::query()->latest()->limit(5)->get(['id', 'name', 'status', 'due_date'])->map(fn (Project $project) => [
+                'id' => $project->id, 'name' => $project->name, 'status' => $project->status, 'due_date' => $project->due_date?->toDateString(),
+            ])->values()->all();
+            $projectMetrics['recent_tasks'] = Task::query()->with('project:id,name')->latest()->limit(5)->get()->map(fn (Task $task) => [
+                'id' => $task->id, 'title' => $task->title, 'status' => $task->status, 'priority' => $task->priority, 'project_id' => $task->project_id, 'project_name' => $task->project?->name, 'due_date' => $task->due_date?->toDateString(),
+            ])->values()->all();
+            $projectMetrics['my_tasks'] = Task::query()->with('project:id,name')->where('assigned_to', $user->id)->where('status', '<>', 'done')->latest()->limit(8)->get()->map(fn (Task $task) => [
+                'id' => $task->id, 'title' => $task->title, 'status' => $task->status, 'priority' => $task->priority, 'project_id' => $task->project_id, 'project_name' => $task->project?->name, 'due_date' => $task->due_date?->toDateString(),
+            ])->values()->all();
+            $projectMetrics['upcoming_deadlines'] = Task::query()->with('project:id,name')->whereNotNull('due_date')->whereDate('due_date', '>=', now()->toDateString())->where('status', '<>', 'done')->orderBy('due_date')->limit(5)->get()->map(fn (Task $task) => [
+                'id' => $task->id, 'title' => $task->title, 'project_name' => $task->project?->name, 'due_date' => $task->due_date?->toDateString(),
+            ])->values()->all();
+        } catch (Throwable) {
+            // Keep the existing dashboard usable for legacy tenants while their tenant database is repaired.
         }
 
         $profile = [
@@ -134,6 +174,7 @@ class TenantDashboardController extends Controller
                     'members' => (int) ($roleCounts['member'] ?? 0),
                     'pending_invitations' => $pendingInvitations,
                 ],
+                'projects' => $projectMetrics,
                 'billing' => $billing,
                 'activity' => [],
                 'activity_available' => false,
@@ -145,6 +186,44 @@ class TenantDashboardController extends Controller
                     ['key' => 'settings', 'label' => 'Configure organization settings', 'completed' => count($completedFields) > 1],
                 ],
             ],
+        ]);
+    }
+
+    public function activity(Request $request): JsonResponse
+    {
+        /** @var Tenant $tenant */
+        $tenant = $request->attributes->get('tenant') ?? abort(404, 'Tenant not found.');
+        $validated = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        $activity = ActivityLog::query()
+            ->where('tenant_id', $tenant->id)
+            ->with('user:id,name')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate((int) ($validated['per_page'] ?? self::ACTIVITY_PAGE_SIZE));
+
+        $items = $activity->getCollection()->map(fn (ActivityLog $log) => [
+            'id' => $log->id,
+            'action' => $log->action,
+            'description' => $log->description,
+            'created_at' => $log->created_at?->toISOString(),
+            'user' => $log->user ? [
+                'id' => $log->user->id,
+                'name' => $log->user->name,
+            ] : null,
+        ])->values()->all();
+
+        return response()->json([
+            'data' => $items,
+            'current_page' => $activity->currentPage(),
+            'from' => $activity->firstItem(),
+            'last_page' => $activity->lastPage(),
+            'per_page' => $activity->perPage(),
+            'to' => $activity->lastItem(),
+            'total' => $activity->total(),
         ]);
     }
 }

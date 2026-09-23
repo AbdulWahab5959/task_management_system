@@ -57,6 +57,25 @@ export interface RecentActivityItem {
   created_at: string | null;
 }
 
+export interface TenantActivityUser {
+  id: number;
+  name: string;
+}
+
+export interface TenantActivityItem extends RecentActivityItem {
+  user: TenantActivityUser | null;
+}
+
+export interface PaginatedTenantActivity {
+  data: TenantActivityItem[];
+  current_page: number;
+  from: number | null;
+  last_page: number;
+  per_page: number;
+  to: number | null;
+  total: number;
+}
+
 export interface TenantDashboardSummary {
   tenant: {
     id: number;
@@ -68,6 +87,18 @@ export interface TenantDashboardSummary {
   };
   organization_profile: OrganizationProfileSummary;
   team: TeamSummary;
+  projects: {
+    total: number;
+    active: number;
+    completed: number;
+    tasks_total: number;
+    tasks_completed: number;
+    tasks_overdue: number;
+    recent_projects: Array<{ id: number; name: string; status: string; due_date: string | null }>;
+    recent_tasks: Array<{ id: number; title: string; status: string; priority: string; project_id: number; project_name: string | null; due_date: string | null }>;
+    my_tasks: Array<{ id: number; title: string; status: string; priority: string; project_id: number; project_name: string | null; due_date: string | null }>;
+    upcoming_deadlines: Array<{ id: number; title: string; project_name: string | null; due_date: string | null }>;
+  };
   billing: BillingSummary;
   activity: RecentActivityItem[];
   activity_available: boolean;

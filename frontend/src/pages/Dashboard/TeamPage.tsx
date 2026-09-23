@@ -1,6 +1,6 @@
 import { MailPlus, RefreshCw, Send, ShieldCheck, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -14,6 +14,7 @@ import { tenantMembersService } from '../../services/tenant-members.service';
 import type { InvitationRole, TenantInvitation } from '../../types/team-invitation.types';
 import type { TenantMember } from '../../types/tenant-member.types';
 import type { PermissionMeta } from '../../services/tenant-members.service';
+import { showDashboardToast } from '../../utils/dashboardAlert';
 
 function formatDate(value: string | null) {
   return value ? new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value)) : 'Not available';
@@ -30,6 +31,7 @@ function RoleBadge({ role }: { role: TenantMember['role'] }) {
 
 export default function TeamPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { activeTenant, tenants, pendingInvitations, pendingInvitationsLoading } = useTenant();
   const [members, setMembers] = useState<TenantMember[]>([]);
   const [invitations, setInvitations] = useState<TenantInvitation[]>([]);
@@ -41,10 +43,10 @@ export default function TeamPage() {
   const [actionKey, setActionKey] = useState('');
   const [confirmMember, setConfirmMember] = useState<TenantMember | null>(null);
   const [permissionMember, setPermissionMember] = useState<TenantMember | null>(null);
-  const [permissionGroups, setPermissionGroups] = useState<Record<string, PermissionMeta[]>>({});
+  const [permissionGroups] = useState<Record<string, PermissionMeta[]>>({});
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [initialPermissions, setInitialPermissions] = useState<string[]>([]);
-  const [loadingPermissions, setLoadingPermissions] = useState(false);
+  const [loadingPermissions] = useState(false);
   const [savingPermissions, setSavingPermissions] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState(() => (location.state as { teamMessage?: string } | null)?.teamMessage ?? '');
@@ -112,6 +114,16 @@ export default function TeamPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTenant?.id, canViewInvitations]);
 
+  useEffect(() => {
+    if (!message) return;
+    void showDashboardToast('success', message);
+  }, [message]);
+
+  useEffect(() => {
+    if (!error) return;
+    void showDashboardToast('error', error);
+  }, [error]);
+
   const submitInvitation = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaving(true);
@@ -162,23 +174,9 @@ export default function TeamPage() {
     }
   };
 
-  const openPermissions = async (member: TenantMember) => {
+  const openPermissions = (member: TenantMember) => {
     if (member.protected || !canManage) return;
-    setPermissionMember(member);
-    setLoadingPermissions(true);
-    setError('');
-    try {
-      const [groupsResponse, memberResponse] = await Promise.all([tenantMembersService.permissionGroups(), tenantMembersService.permissions(member.id)]);
-      const direct = memberResponse.data.data.direct_permissions;
-      setPermissionGroups(groupsResponse.data.data);
-      setSelectedPermissions(direct);
-      setInitialPermissions(direct);
-    } catch (exception: unknown) {
-      setError(getApiMessage(exception, 'Unable to load permissions.'));
-      setPermissionMember(null);
-    } finally {
-      setLoadingPermissions(false);
-    }
+    navigate(`/dashboard/team/members/${member.id}/permissions`);
   };
 
   const closePermissions = () => {
@@ -252,9 +250,6 @@ export default function TeamPage() {
   return (
     <>
       <PageHeader eyebrow="Team" title="Team members" description={`Manage active membership and invitations for ${activeTenant.name}.`} />
-      {error ? <div className="mb-5 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
-      {message ? <div className="mb-5 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
-
       <Card>
         <CardHeader><div className="flex items-center justify-between gap-4"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700 ring-1 ring-violet-100"><Users className="h-5 w-5" aria-hidden="true" /></span><div><CardTitle>Active members</CardTitle><CardDescription>Current members come directly from the secure tenant membership record.</CardDescription></div></div><Button variant="ghost" size="sm" icon={<RefreshCw className="h-4 w-4" aria-hidden="true" />} onClick={() => void loadMembers()}>Refresh</Button></div></CardHeader>
         <CardContent>

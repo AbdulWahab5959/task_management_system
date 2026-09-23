@@ -30,7 +30,7 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
           </div>
         </div>
       </div>
-      <footer className="auth-footer relative"><div className="mx-auto flex max-w-md flex-wrap justify-center gap-x-5 gap-y-2 px-5 pb-8 text-xs"><Link to="/privacy" className="auth-footer-link">Privacy</Link><Link to="/terms" className="auth-footer-link">Terms</Link><Link to="/chatbots" className="auth-footer-link">Chatbots</Link></div></footer>
+      <footer className="auth-footer relative"><div className="mx-auto flex max-w-md flex-wrap justify-center gap-x-5 gap-y-2 px-5 pb-8 text-xs"><Link to="/privacy" className="auth-footer-link">Privacy</Link><Link to="/terms" className="auth-footer-link">Terms</Link><Link to="/pricing" className="auth-footer-link">Pricing</Link></div></footer>
     </div>
   );
 }

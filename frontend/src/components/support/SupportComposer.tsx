@@ -1,4 +1,4 @@
-import { AlertCircle, Loader2, RotateCcw, SendHorizonal } from 'lucide-react';
+import { AlertCircle, Clock3, Loader2, RotateCcw, SendHorizonal } from 'lucide-react';
 import { MAX_MESSAGE_LENGTH } from '../../types/support.types';
 import { cn } from '../../utils/cn';
 
@@ -44,10 +44,10 @@ export default function SupportComposer({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-slate-100 bg-white px-3 pb-3 pt-2.5" aria-label="Support message composer">
+    <form onSubmit={handleSubmit} className="support-composer" aria-label="Support message composer">
       <div
         className={cn(
-          'rounded-2xl border bg-white transition duration-150',
+          'support-composer__input-wrap transition duration-150',
           overLimit
             ? 'border-rose-300 ring-4 ring-rose-500/10'
             : 'border-slate-200 focus-within:border-indigo-300 focus-within:ring-4 focus-within:ring-indigo-500/10',
@@ -64,19 +64,25 @@ export default function SupportComposer({
           placeholder={placeholder}
           aria-label={placeholder}
           aria-invalid={overLimit || Boolean(error)}
-          className="min-h-12 w-full resize-none bg-transparent px-3.5 py-2.5 text-sm leading-5 text-slate-800 outline-none placeholder:text-slate-400 disabled:opacity-60"
+          className="support-composer__input"
         />
-        <div className="flex items-center justify-between gap-2 px-3 pb-2">
-          <span className={cn('text-[11px] tabular-nums', overLimit ? 'font-semibold text-rose-600' : 'text-slate-400')}>
+        <div className="support-composer__footer">
+          <span className={cn('support-composer__count tabular-nums', overLimit ? 'font-semibold text-rose-600' : 'text-slate-400')}>
             {overLimit
               ? `${value.length - MAX_MESSAGE_LENGTH} characters over the limit`
               : `${value.length}/${MAX_MESSAGE_LENGTH}`}
           </span>
+          {hint && !error && !overLimit ? (
+            <span className="support-composer__hint" title={hint}>
+              <Clock3 className="h-3 w-3 shrink-0" aria-hidden="true" />
+              {hint}
+            </span>
+          ) : null}
           <button
             type="submit"
             disabled={!canSend}
             className={cn(
-              'inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold transition-[transform,background-color,box-shadow,color,opacity] duration-150',
+              'support-composer__send inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold transition-[transform,background-color,box-shadow,color,opacity] duration-150',
               'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2',
               canSend
                 ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25 hover:bg-indigo-500 active:scale-[0.98]'
@@ -88,10 +94,6 @@ export default function SupportComposer({
           </button>
         </div>
       </div>
-
-      {hint && !error && !overLimit ? (
-        <p className="mt-1.5 px-2 text-[11px] text-slate-400">{hint}</p>
-      ) : null}
 
       {error ? (
         <p className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700" role="alert">

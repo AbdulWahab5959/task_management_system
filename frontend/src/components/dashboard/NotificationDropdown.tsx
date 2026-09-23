@@ -1,7 +1,7 @@
 import { Bell, CheckCheck, Loader2, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getNotifications, markAllAsRead, markAsRead, type NotificationItem } from '../../services/notifications.service';
+import { getNotifications, getUnreadCount, markAllAsRead, markAsRead, type NotificationItem } from '../../services/notifications.service';
 import { cn } from '../../utils/cn';
 
 function formatTimeAgo(dateStr: string): string {
@@ -34,13 +34,13 @@ function getNotificationLink(notification: NotificationItem): string | null {
 function getNotificationIcon(notification: NotificationItem) {
   if (notification.type.startsWith('refund')) {
     return (
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f7fde7] text-[#536c1e] ring-1 ring-[#d7f36b]">
         <RotateCcw className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
       </div>
     );
   }
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f7fde7] text-[#536c1e] ring-1 ring-[#d7f36b]">
       <Bell className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
     </div>
   );
@@ -114,6 +114,19 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
     }
   };
 
+  useEffect(() => {
+    let mounted = true;
+    void getUnreadCount()
+      .then((count) => {
+        if (mounted) onUnreadCountChange(count);
+      })
+      .catch(() => {
+        // The notification control remains usable if the count request is unavailable.
+      });
+
+    return () => { mounted = false; };
+  }, [onUnreadCountChange]);
+
   // Close on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -152,7 +165,7 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
         type="button"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
         onClick={handleToggle}
-        className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white/90 text-slate-500 shadow-sm shadow-slate-200/50 transition-colors duration-150 hover:border-slate-300 hover:bg-white hover:text-slate-900"
+        className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#dfe9c4] bg-white/90 text-slate-500 shadow-sm shadow-[#5f7e1a]/10 transition-colors duration-150 hover:border-[#b8d85d] hover:bg-[#f7fde7] hover:text-[#0b0d0c] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#b8d85d]/35"
       >
         <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
         {unreadCount > 0 ? (
@@ -164,7 +177,7 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
 
       {open ? (
         <div
-          className="absolute right-0 mt-2 w-[22rem] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-900/10 ring-1 ring-slate-900/5 sm:w-96"
+          className="absolute right-0 mt-2 w-[22rem] overflow-hidden rounded-xl border border-[#dfe9c4] bg-white shadow-lg shadow-[#5f7e1a]/15 ring-1 ring-[#5f7e1a]/5 sm:w-96"
         >
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <div>
@@ -176,7 +189,7 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
                 type="button"
                 onClick={() => void handleMarkAllRead()}
                 disabled={markingAll}
-                className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 transition-colors duration-150 hover:bg-indigo-50 disabled:cursor-wait disabled:opacity-60"
+                className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#536c1e] transition-colors duration-150 hover:bg-[#f7fde7] disabled:cursor-wait disabled:opacity-60"
               >
                 <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
                 {markingAll ? 'Saving…' : 'Mark all read'}
@@ -188,7 +201,7 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
             {error ? (
               <div className="px-4 py-6 text-center" role="alert">
                 <p className="text-sm font-medium text-slate-700">{error}</p>
-                <button type="button" onClick={() => void fetchNotifications()} className="mt-3 inline-flex min-h-10 items-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-indigo-600 transition-colors duration-150 hover:bg-indigo-50">
+                <button type="button" onClick={() => void fetchNotifications()} className="mt-3 inline-flex min-h-10 items-center rounded-lg border border-[#dfe9c4] px-3 text-xs font-semibold text-[#536c1e] transition-colors duration-150 hover:bg-[#f7fde7]">
                   Try again
                 </button>
               </div>
@@ -213,7 +226,7 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
                       key={notification.id}
                       className={cn(
                         'relative flex gap-3 px-4 py-3 transition hover:bg-slate-50',
-                        !notification.is_read && 'bg-indigo-50/40',
+                        !notification.is_read && 'bg-[#f7fde7]',
                       )}
                     >
                       {getNotificationIcon(notification)}
@@ -238,7 +251,7 @@ export default function NotificationDropdown({ unreadCount, onUnreadCountChange 
                                 }
                                 setOpen(false);
                               }}
-                              className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                              className="text-xs font-medium text-[#536c1e] hover:text-[#0b0d0c]"
                             >
                               {getNotificationAction(notification)}
                             </Link>

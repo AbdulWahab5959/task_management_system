@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLog;
 use App\Models\Tenant;
 use App\Models\TenantSetting;
 use App\Models\TenantInvitation;
@@ -82,6 +83,70 @@ class TenantDashboardTest extends TestCase
             ->withHeader('X-Tenant-ID', (string) $inactive->id)
             ->getJson('/api/tenant/dashboard/summary')
             ->assertForbidden();
+    }
+
+    public function test_activity_is_tenant_scoped_and_paginated(): void
+    {
+        $owner = User::factory()->create(['name' => 'Owner User']);
+        $member = User::factory()->create(['name' => 'Member User']);
+        $otherOwner = User::factory()->create(['name' => 'Other Owner']);
+        $tenant = $this->createTenant($owner, 'owner', 'First Workspace');
+        $tenant->users()->attach($member->id, ['role' => 'member']);
+        $otherTenant = $this->createTenant($otherOwner, 'owner', 'Other Workspace');
+
+        ActivityLog::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $owner->id,
+            'action' => 'tenant.organization.created',
+            'description' => 'First workspace was created.',
+            'created_at' => now()->subMinutes(3),
+        ]);
+        ActivityLog::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $member->id,
+            'action' => 'tenant.member.invited',
+            'description' => 'A member was invited.',
+            'created_at' => now()->subMinutes(2),
+        ]);
+        ActivityLog::create([
+            'tenant_id' => $otherTenant->id,
+            'user_id' => $otherOwner->id,
+            'action' => 'outside.tenant',
+            'description' => 'This must not be returned.',
+            'created_at' => now()->subMinute(),
+        ]);
+        ActivityLog::create([
+            'tenant_id' => null,
+            'user_id' => $owner->id,
+            'action' => 'legacy.activity',
+            'description' => 'This is not tenant-scoped.',
+        ]);
+
+        $this->actingAs($member, 'sanctum')
+            ->withHeader('X-Tenant-ID', (string) $tenant->id)
+            ->getJson('/api/tenant/dashboard/activity?page=1&per_page=1')
+            ->assertOk()
+            ->assertJsonPath('current_page', 1)
+            ->assertJsonPath('per_page', 1)
+            ->assertJsonPath('last_page', 2)
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('data.0.user.id', $member->id)
+            ->assertJsonPath('data.0.user.name', 'Member User')
+            ->assertJsonMissing(['action' => 'outside.tenant'])
+            ->assertJsonMissing(['action' => 'legacy.activity']);
+
+        $this->actingAs($member, 'sanctum')
+            ->withHeader('X-Tenant-ID', (string) $tenant->id)
+            ->getJson('/api/tenant/dashboard/activity?page=2&per_page=1')
+            ->assertOk()
+            ->assertJsonPath('current_page', 2)
+            ->assertJsonPath('data.0.user.id', $owner->id)
+            ->assertJsonPath('data.0.action', 'tenant.organization.created');
+
+        $this->actingAs($member, 'sanctum')
+            ->withHeader('X-Tenant-ID', (string) $tenant->id)
+            ->getJson('/api/tenant/dashboard/activity?per_page=51')
+            ->assertUnprocessable();
     }
 
     private function createTenant(User $owner, string $role, string $name = 'Acme Logistics', string $status = 'active'): Tenant

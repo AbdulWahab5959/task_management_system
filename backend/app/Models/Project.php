@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\UsesTenantConnection;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 class Project extends Model
@@ -13,11 +14,28 @@ class Project extends Model
         'name',
         'description',
         'status',
+        'start_date',
+        'due_date',
         'created_by',
+    ];
+
+    protected $casts = [
+        'start_date' => 'date',
+        'due_date' => 'date',
     ];
 
     public function tasks()
     {
         return $this->hasMany(Task::class);
+    }
+
+    public function sections()
+    {
+        return $this->hasMany(ProjectSection::class)->orderBy('position');
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }
