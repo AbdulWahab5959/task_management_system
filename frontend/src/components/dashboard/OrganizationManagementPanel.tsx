@@ -110,6 +110,19 @@ export default function OrganizationManagementPanel() {
   }, [modalOpen]);
 
   useEffect(() => {
+    if (!modalOpen) return;
+    const dismissOnBackdrop = (event: MouseEvent) => {
+      if (!(event.target instanceof Element) || event.target.closest('[role="dialog"]')) return;
+      setCreateOpen(false);
+      setEditOpen(false);
+      setLimitOpen(false);
+      setDeleteOpen(false);
+    };
+    document.addEventListener('mousedown', dismissOnBackdrop);
+    return () => document.removeEventListener('mousedown', dismissOnBackdrop);
+  }, [modalOpen]);
+
+  useEffect(() => {
     if (!message) return;
     void showDashboardToast('success', message);
   }, [message]);
@@ -286,13 +299,13 @@ export default function OrganizationManagementPanel() {
           </div>
         </div>
         {summaryLoading ? <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" role="status" aria-label="Loading organization overview" aria-busy="true">{Array.from({ length: 8 }, (_, index) => <div key={index} className="item-skeleton h-28 rounded-xl" />)}</div> : summary && profile ? <>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="stats-grid mt-6 grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatsCard title="Profile completion" value={`${profile.completion_percent}%`} description={`${profile.missing_fields.length} fields remaining`} icon={<Building2 />} variant="emerald" compact className={statsCardClass} />
             <StatsCard title="Active team" value={String(summary.team.members_total)} description={`${summary.team.admins} admins, ${summary.team.members} members`} icon={<Users />} variant="emerald" compact className={statsCardClass} />
             <StatsCard title="Subscription" value={subscription?.plan_name ?? 'Not available'} description={subscription ? `${subscription.status} · ${summary.billing.subscription_scope}-scoped` : 'Billing unavailable'} icon={<CreditCard />} variant="emerald" compact className={statsCardClass} />
             <StatsCard title="Open tasks" value={String(summary.projects.tasks_total - summary.projects.tasks_completed)} description={`${summary.projects.tasks_completed} completed`} icon={<Users />} variant="emerald" compact className={statsCardClass} />
           </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="stats-grid mt-4 grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatsCard title="Projects" value={String(summary.projects.total)} description={`${summary.projects.active} active projects`} icon={<Building2 />} variant="emerald" compact className={statsCardClass} />
             <StatsCard title="Completed projects" value={String(summary.projects.completed)} description="Projects finished" icon={<ShieldCheck />} variant="emerald" compact className={statsCardClass} />
             <StatsCard title="Overdue tasks" value={String(summary.projects.tasks_overdue)} description="Needs attention" icon={<CircleAlert />} variant="emerald" compact className={statsCardClass} />

@@ -12,7 +12,6 @@ const RegisterPage = lazy(() => import('./pages/Auth/RegisterPage'));
 const DashboardPage = lazy(() => import('./pages/Dashboard/DashboardPage'));
 const OrganizationsPage = lazy(() => import('./pages/Dashboard/OrganizationsPage'));
 const ProfilePage = lazy(() => import('./pages/Dashboard/ProfilePage'));
-const SettingsPage = lazy(() => import('./pages/Dashboard/SettingsPage'));
 const UserSettingsPage = lazy(() => import('./pages/Dashboard/UserSettingsPage'));
 const AdminPage = lazy(() => import('./pages/Dashboard/AdminPage'));
 const ActivityLogsPage = lazy(() => import('./pages/Dashboard/ActivityLogsPage'));
@@ -163,7 +162,6 @@ function App() {
           />
           <Route path="support" element={<RoleProtectedRoute allowedRoles={['super_admin']}><SupportInboxPage /></RoleProtectedRoute>} />
 
-          <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/account" element={<UserSettingsPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="analytics" element={<OrganizationAnalyticsPage />} />

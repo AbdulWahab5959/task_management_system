@@ -13,9 +13,6 @@ import {
   Package,
   ReceiptText,
   Rocket,
-  Settings,
-  UserCircle,
-  UserCog,
   Users,
   X,
 } from 'lucide-react';
@@ -63,15 +60,6 @@ const mainNavItems: NavigationItem[] = [
   { label: 'Activity Logs', to: '/dashboard/activity-logs', icon: Activity, roles: ['super_admin'] },
   { label: 'Contact Messages', to: '/dashboard/contact-messages', icon: Mail, roles: ['super_admin'] },
   { label: 'Support Inbox', to: '/dashboard/support', icon: MessageCircle, roles: ['super_admin'] },
-];
-
-const accountNavItems: NavigationItem[] = [
-  { label: 'Team', to: '/dashboard/team', icon: Users },
-  { label: 'Settings', to: '/dashboard/settings', icon: Settings },
-  { label: 'Personal settings', to: '/dashboard/settings/account', icon: UserCog },
-
-  { label: 'Profile', to: '/dashboard/profile', icon: UserCircle },
-
 ];
 
 function getInitials(name?: string) {
@@ -203,41 +191,6 @@ export default function Sidebar({ onClose, open }: SidebarProps) {
               })}
           </div>
 
-          <div className="mt-3 border-t border-white/10 pt-3">
-            <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Account</p>
-            <div className="space-y-1">
-              {accountNavItems
-                .filter((item) => (!item.roles || item.roles.includes(user?.role ?? 'user')) && canSeeNavigationItem(item))
-                .map((item) => {
-                const Icon = item.icon;
-                const isActive = isNavigationItemActive(item, location.pathname);
-
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    onClick={onClose}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={cn(
-                      'group relative flex min-h-9 items-center gap-2.5 rounded-lg px-3 text-[13px] font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d7f36b]/60',
-                      isActive
-                        ? 'bg-[#d7f36b]/[0.12] text-white shadow-sm ring-1 ring-[#b8d85d]/[0.28]'
-                        : 'text-slate-400 hover:bg-[#d7f36b]/[0.07] hover:text-slate-100',
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-[#d7f36b] transition-opacity duration-200',
-                        isActive ? 'opacity-100' : 'opacity-0',
-                      )}
-                    />
-                    <Icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.9} aria-hidden="true" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
         </nav>
 
         {/* User section */}

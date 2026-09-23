@@ -68,30 +68,42 @@ function errorDetails(exception: unknown): { message: string; fields: ApiErrors 
 
 interface ToggleProps {
   id: string;
+  labelId: string;
+  descriptionId: string;
   checked: boolean;
   disabled?: boolean;
   onChange: (value: boolean) => void;
 }
 
-function Toggle({ id, checked, disabled = false, onChange }: ToggleProps) {
+function Toggle({ id, labelId, descriptionId, checked, disabled = false, onChange }: ToggleProps) {
   return (
     <button
       type="button"
       role="switch"
       id={id}
-      aria-label={`${id.replaceAll('_', ' ')} ${checked ? 'enabled' : 'disabled'}`}
+      aria-labelledby={labelId}
+      aria-describedby={descriptionId}
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/50 disabled:cursor-not-allowed ${
-        checked ? 'bg-indigo-600' : 'bg-slate-300'
-      } ${disabled ? 'opacity-60' : ''}`}
+      className={`group inline-flex min-h-10 min-w-[3.5rem] shrink-0 items-center justify-center rounded-full transition-[background-color,box-shadow,transform] duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-indigo-100 active:scale-[0.96] disabled:cursor-not-allowed ${
+        disabled ? 'opacity-60' : 'hover:bg-slate-100'
+      }`}
     >
       <span
-        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
-          checked ? 'translate-x-[22px]' : 'translate-x-0.5'
+        aria-hidden="true"
+        className={`relative inline-flex h-7 w-12 items-center rounded-full p-1 shadow-inner transition-[background-color,box-shadow] duration-200 ${
+          checked
+            ? 'bg-indigo-600 shadow-indigo-900/15'
+            : 'bg-slate-300 shadow-slate-400/20'
         }`}
-      />
+      >
+        <span
+          className={`block h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgb(15_23_42_/_0.25)] transition-transform duration-200 ease-out ${
+            checked ? 'translate-x-5' : 'translate-x-0'
+          }`}
+        />
+      </span>
     </button>
   );
 }
@@ -106,17 +118,22 @@ interface ToggleRowProps {
 }
 
 function ToggleRow({ id, title, description, checked, disabled, onChange }: ToggleRowProps) {
+  const labelId = `${id}-label`;
+  const descriptionId = `${id}-description`;
+
   return (
-    <div className={`flex items-center justify-between gap-5 rounded-xl border px-4 py-3.5 transition-colors ${disabled ? 'border-transparent bg-white/50' : 'border-slate-100 bg-white hover:border-indigo-100 hover:bg-indigo-50/30'}`}>
+    <div className={`flex items-center justify-between gap-5 rounded-2xl border px-4 py-3.5 transition-[border-color,background-color,box-shadow] duration-200 ${disabled ? 'border-transparent bg-white/60' : 'border-slate-100 bg-white shadow-[0_1px_2px_rgb(15_23_42_/_0.02)] hover:border-indigo-100 hover:bg-indigo-50/30 hover:shadow-sm'}`}>
       <div className="min-w-0">
-        <label htmlFor={id} className="text-sm font-semibold text-slate-900">
+        <p id={labelId} className="text-sm font-semibold text-slate-900">
           {title}
-        </label>
-        <p className="mt-0.5 text-xs leading-5 text-slate-500">{description}</p>
+        </p>
+        <p id={descriptionId} className="mt-0.5 text-xs leading-5 text-slate-500">{description}</p>
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        <span className={`hidden text-[11px] font-bold uppercase tracking-[0.12em] sm:inline ${checked ? 'text-indigo-600' : 'text-slate-400'}`}>{disabled ? 'Required' : checked ? 'On' : 'Off'}</span>
-        <Toggle id={id} checked={checked} disabled={disabled} onChange={onChange} />
+        <span className={`text-[11px] font-bold uppercase tracking-[0.12em] ${disabled ? 'text-violet-500' : checked ? 'text-indigo-600' : 'text-slate-400'}`}>
+          {disabled ? 'Required' : checked ? 'On' : 'Off'}
+        </span>
+        <Toggle id={id} labelId={labelId} descriptionId={descriptionId} checked={checked} disabled={disabled} onChange={onChange} />
       </div>
     </div>
   );
@@ -153,7 +170,7 @@ export default function UserSettingsPage() {
     const load = async () => {
       setLoading(true);
       setLoadError('');
-      setSecurityStatus('coming_soon');
+      setSecurityStatus('available');
       try {
         const settings: UserSettings = await userSettingsService.get();
         if (!mounted) return;

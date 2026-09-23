@@ -1,4 +1,4 @@
-import { ChevronDown, LogOut, Menu, Settings, UserCircle } from 'lucide-react';
+import { ChevronDown, LogOut, Menu, UserCircle, UserCog, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -22,9 +22,9 @@ const pageTitles: Record<string, string> = {
   '/dashboard/contact-messages': 'Contact Messages',
   '/dashboard/users': 'Users',
   '/dashboard/profile': 'Profile',
-  '/dashboard/settings': 'Settings',
   '/dashboard/organizations': 'Organizations',
   '/dashboard/team': 'Team',
+  '/dashboard/settings/account': 'Account settings',
   '/dashboard/analytics': 'Analytics',
   '/dashboard/activity-logs': 'Activity Logs',
   '/dashboard/support': 'Support inbox',
@@ -233,6 +233,15 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
                 </div>
                 <div className="p-1.5">
                   <Link
+                    to="/dashboard/team"
+                    role="menuitem"
+                    onClick={() => setProfileOpen(false)}
+                    className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors duration-150 hover:bg-[#f7fde7] hover:text-[#0b0d0c]"
+                  >
+                    <Users className="h-4 w-4" aria-hidden="true" />
+                    Team
+                  </Link>
+                  <Link
                     to="/dashboard/profile"
                     role="menuitem"
                     onClick={() => setProfileOpen(false)}
@@ -242,13 +251,13 @@ export default function DashboardNavbar({ onMenuClick }: DashboardNavbarProps) {
                     Profile
                   </Link>
                   <Link
-                    to="/dashboard/settings"
+                    to="/dashboard/settings/account"
                     role="menuitem"
                     onClick={() => setProfileOpen(false)}
                     className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors duration-150 hover:bg-[#f7fde7] hover:text-[#0b0d0c]"
                   >
-                    <Settings className="h-4 w-4" aria-hidden="true" />
-                    Settings
+                    <UserCog className="h-4 w-4" aria-hidden="true" />
+                    Personal settings
                   </Link>
                   <div className="my-1 border-t border-slate-100" />
                   <button

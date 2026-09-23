@@ -58,6 +58,10 @@
       linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   }
 
+  .dashboard-shell .fixed.inset-0.z-50:has(> [role="dialog"]) {
+    z-index: 110;
+  }
+
   .dashboard-control {
     min-height: 2.5rem;
     width: 100%;
@@ -200,6 +204,8 @@
 
   .dashboard-shell select.dashboard-control { appearance: auto; cursor: pointer; }
   .dashboard-shell select.dashboard-control option { color: #334155; background: #ffffff; }
+  .dashboard-shell .stats-grid { align-items: start !important; }
+  .dashboard-shell .stats-grid > .stats-card { align-self: start !important; margin-top: 0 !important; }
   .dashboard-shell .card-content > .grid.grid-cols-2 { gap: 0.75rem; }
   .dashboard-shell .card-content > .grid.grid-cols-2 > div { border: 1px solid #e2e8f0; border-radius: 0.8rem; background: #f8fafc; }
   .dashboard-shell .card-content > .grid.grid-cols-2 > div:nth-child(2) { border-color: #bbf7d0; background: #f0fdf4; }
@@ -207,7 +213,7 @@
   .dashboard-shell .card-content > .flex.flex-wrap.items-center + div > div:first-child { color: #64748b; font-size: 0.75rem; font-weight: 700; }
   .dashboard-shell .card-content > .flex.flex-wrap.items-center + div > div:first-child span:last-child { color:#bbf7d0; font-variant-numeric: tabular-nums; }
   .dashboard-shell .card-content > .flex.flex-wrap.items-center + div > div:last-child { height: 0.55rem; margin-top: 0.6rem; border-radius: 0.35rem; background: #e2e8f0; }
-  .dashboard-shell .card-content > .flex.flex-wrap.items-center + div > div:last-child > div { height: 100%; border-radius: inherit; background: #6366f1; transition: width 500ms cubic-bezier(0.16, 1, 0.3, 1); }
+  .dashboard-shell .card-content > .flex.flex-wrap.items-center + div > div:last-child > div { height: 100%; border-radius: inherit; transition: width 500ms cubic-bezier(0.16, 1, 0.3, 1); }
   .dashboard-shell .card-content .divide-y > div:has(.task-controls) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1.5rem; min-height: 5rem; padding: 0.9rem 0; }
   .dashboard-shell .card-content .divide-y > div:has(.task-controls) > div:first-child { min-width: 0; }
   .dashboard-shell .card-content .divide-y > div:has(.task-controls) > div:first-child > p:first-child { overflow: hidden; color: #0f172a; font-size: 0.9rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }

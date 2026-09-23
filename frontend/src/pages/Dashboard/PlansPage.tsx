@@ -33,6 +33,12 @@ function PlanFormModal({ plan, onClose, onSave, saving }: PlanFormModalProps) {
   const [sortOrder, setSortOrder] = useState(plan?.sort_order?.toString() ?? '0');
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, []);
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
@@ -97,32 +103,56 @@ function PlanFormModal({ plan, onClose, onSave, saving }: PlanFormModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 backdrop-blur-sm pt-10 pb-10">
-      <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-          <h2 className="text-lg font-semibold text-slate-900">
-            {plan ? 'Edit Plan' : 'Create Plan'}
-          </h2>
+    <div
+      className="fixed inset-0 z-[110] flex items-center justify-center overflow-hidden bg-slate-950/50 px-4 py-5 backdrop-blur-sm sm:px-5"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="plan-form-title"
+        className="my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+      >
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">
+              {plan ? 'Plan settings' : 'New subscription plan'}
+            </p>
+            <h2 id="plan-form-title" className="mt-1 text-xl font-semibold text-slate-950">
+              {plan ? 'Edit plan' : 'Create plan'}
+            </h2>
+            <p className="mt-2 max-w-xl text-sm leading-5 text-slate-500">
+              {plan
+                ? 'Update the plan details and entitlements used by your SaaS.'
+                : 'Configure the pricing, features, and limits for this subscription plan.'}
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Close plan dialog"
+            className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-[background-color,color] duration-150 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
-          {error ? (
-            <div className="rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-sm font-medium text-rose-800">
-              {error}
-            </div>
-          ) : null}
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-6 sm:space-y-6 sm:px-6">
+            {error ? (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800" role="alert">
+                {error}
+              </div>
+            ) : null}
 
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
-              <Input
-                label="Plan Name"
+                  <Input
+                    id="plan-name"
+                    label="Plan Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Pro"
@@ -133,6 +163,7 @@ function PlanFormModal({ plan, onClose, onSave, saving }: PlanFormModalProps) {
               <div className="flex items-end gap-2">
                 <div className="flex-1">
                   <Input
+                    id="plan-slug"
                     label="Slug"
                     value={slug}
                     onChange={(e) => setSlug(e.target.value)}
@@ -153,10 +184,11 @@ function PlanFormModal({ plan, onClose, onSave, saving }: PlanFormModalProps) {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700" htmlFor="plan-description">
               Description
             </label>
             <textarea
+              id="plan-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief description of this plan"
@@ -207,10 +239,11 @@ function PlanFormModal({ plan, onClose, onSave, saving }: PlanFormModalProps) {
           />
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700" htmlFor="plan-features">
               Features (one per line)
             </label>
             <textarea
+              id="plan-features"
               value={featuresText}
               onChange={(e) => setFeaturesText(e.target.value)}
               placeholder="Up to 10 Team Members&#10;50 Active Projects&#10;Priority Support"
@@ -220,10 +253,11 @@ function PlanFormModal({ plan, onClose, onSave, saving }: PlanFormModalProps) {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700" htmlFor="plan-limits">
               Limits (key: value, one per line)
             </label>
             <textarea
+              id="plan-limits"
               value={limitsText}
               onChange={(e) => setLimitsText(e.target.value)}
               placeholder="users: 10&#10;projects: 50&#10;storage: 50&#10;support: priority"
@@ -232,28 +266,29 @@ function PlanFormModal({ plan, onClose, onSave, saving }: PlanFormModalProps) {
             />
           </div>
 
-          <div className="flex flex-wrap gap-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isPopular}
-                onChange={(e) => setIsPopular(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span className="text-sm font-medium text-slate-700">Popular plan</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span className="text-sm font-medium text-slate-700">Active</span>
-            </label>
+            <div className="flex flex-wrap gap-6">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isPopular}
+                  onChange={(e) => setIsPopular(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm font-medium text-slate-700">Popular plan</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm font-medium text-slate-700">Active</span>
+              </label>
+            </div>
           </div>
 
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
+          <div className="flex shrink-0 justify-end gap-3 border-t border-slate-100 bg-white px-5 py-4 sm:px-6">
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>

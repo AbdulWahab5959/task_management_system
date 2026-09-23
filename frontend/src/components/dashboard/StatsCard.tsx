@@ -67,9 +67,9 @@ export default function StatsCard({
   const tone = variantClasses[variant];
 
   return (
-    <Card className={cn('group relative h-full overflow-hidden border-slate-200/80 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/70', compact ? 'min-h-[8rem]' : 'min-h-[9rem]', tone.surface, className)}>
+    <Card className={cn('stats-card group relative self-start !mt-0 h-auto overflow-hidden border-slate-200/80 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/70', compact ? 'min-h-[7.5rem]' : 'min-h-[9rem]', tone.surface, className)}>
       <div className={cn('absolute left-0 top-5 h-8 w-1 rounded-r-full', tone.marker)} />
-      <CardContent className={cn('relative flex h-full items-start justify-between gap-3', compact ? 'px-4 py-3.5' : 'px-5 py-4')}>
+      <CardContent className={cn('relative flex items-start justify-between gap-3', compact ? 'px-4 py-3' : 'px-5 py-4')}>
         <div className={cn('min-w-0 flex-1', compact && 'pr-1')}>
           <p className={cn('text-xs font-semibold uppercase tracking-wide text-slate-500', compact && 'whitespace-nowrap text-[0.68rem] leading-4')}>{title}</p>
           <p className={cn('mt-1 font-bold tracking-tight text-slate-950 tabular-nums', compact ? 'whitespace-nowrap text-lg leading-6' : 'text-xl')}>{value}</p>
